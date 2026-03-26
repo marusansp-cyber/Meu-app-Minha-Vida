@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "A potential customer lead",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "systemSize": { "type": "string" },
+        "value": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "survey", "proposal", "negotiation", "closed"] },
+        "urgent": { "type": "boolean" },
+        "scheduledDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "representative": { "type": "string" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string" },
+              "action": { "type": "string" },
+              "user": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["name", "status"]
+    },
+    "Proposal": {
+      "title": "Proposal",
+      "description": "A commercial proposal",
+      "type": "object",
+      "properties": {
+        "client": { "type": "string" },
+        "value": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "sent", "accepted", "expired"] },
+        "systemSize": { "type": "string" },
+        "representative": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "roi": { "type": "string" },
+        "payback": { "type": "string" },
+        "feasibilityStudy": { "type": "string" },
+        "commission": { "type": "number" }
+      },
+      "required": ["client", "value", "status"]
+    },
+    "Installation": {
+      "title": "Installation",
+      "description": "A post-sales installation project",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "projectId": { "type": "string" },
+        "stage": { "type": "string" },
+        "technician": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "avatar": { "type": "string" }
+          }
+        },
+        "progress": { "type": "number" },
+        "lastUpdated": { "type": "string" },
+        "type": { "type": "string", "enum": ["residence", "industrial", "home", "apartment"] },
+        "startDate": { "type": "string" },
+        "estimatedDeadline": { "type": "string" },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["completed", "in-progress", "pending"] }
+            }
+          }
+        }
+      },
+      "required": ["name", "projectId", "stage"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "sales", "engineer", "installer"] },
+        "avatar": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "A partner company or affiliate",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "contactName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "type": { "type": "string", "enum": ["integrator", "referral", "maintenance", "other"] },
+        "status": { "type": "string", "enum": ["active", "inactive", "pending"] },
+        "createdAt": { "type": "string" },
+        "commissionRate": { "type": "number" },
+        "address": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["name", "cnpj", "contactName", "email", "type", "status"]
+    },
+    "Collaborator": {
+      "title": "Collaborator",
+      "description": "A company collaborator or employee",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["Vendedor", "Projetista", "Instalador", "Financeiro", "Administrativo"] },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "role", "status"]
+    },
+    "Kit": {
+      "title": "Kit",
+      "description": "A solar kit with components",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "power": { "type": "number" },
+        "price": { "type": "number" },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "quantity": { "type": "number" },
+              "brand": { "type": "string" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "power", "price", "status"]
+    }
+  },
+  "firestore": {
+    "/leads": {
+      "schema": "Lead",
+      "description": "Collection of leads"
+    },
+    "/proposals": {
+      "schema": "Proposal",
+      "description": "Collection of proposals"
+    },
+    "/installations": {
+      "schema": "Installation",
+      "description": "Collection of installations"
+    },
+    "/users": {
+      "schema": "UserProfile",
+      "description": "Collection of user profiles"
+    },
+    "/partners": {
+      "schema": "Partner",
+      "description": "Collection of partner companies"
+    },
+    "/collaborators": {
+      "schema": "Collaborator",
+      "description": "Collection of company collaborators"
+    },
+    "/kits": {
+      "schema": "Kit",
+      "description": "Collection of solar kits"
+    }
+  }
+}

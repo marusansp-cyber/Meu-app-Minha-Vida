@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: leads
+    // Fields: name, email, phone, whatsapp, systemSize, value, status, urgent, scheduledDate, createdAt, representative, history
+    //
+    // Collection: proposals
+    // Fields: client, value, date, status, systemSize, representative, expiryDate, roi, payback, feasibilityStudy, commission
+    //
+    // Collection: installations
+    // Fields: name, projectId, stage, technician, progress, lastUpdated, type, startDate, estimatedDeadline, stages
+    //
+    // Collection: users
+    // Fields: name, email, role, avatar, phone
+    //
+    // Collection: partners
+    // Fields: name, cnpj, contactName, email, phone, type, status, createdAt, commissionRate, address, notes
+    //
+    // Collection: collaborators
+    // Fields: name, role, email, phone, status, createdAt
+    //
+    // Collection: kits
+    // Fields: name, description, power, price, components, status, createdAt
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "marusansp@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidLead(data) {
+      return hasRequiredFields(['name', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.status in ['new', 'survey', 'proposal', 'negotiation', 'closed'];
+    }
+
+    function isValidProposal(data) {
+      return hasRequiredFields(['client', 'value', 'status']) &&
+             data.client is string && data.client.size() > 0 && data.client.size() < 100 &&
+             data.status in ['pending', 'sent', 'accepted', 'expired'];
+    }
+
+    function isValidInstallation(data) {
+      return hasRequiredFields(['name', 'projectId', 'stage']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['name', 'email', 'role']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'sales', 'engineer', 'installer'];
+    }
+
+    function isValidPartner(data) {
+      return hasRequiredFields(['name', 'cnpj', 'contactName', 'email', 'type', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.cnpj is string && data.cnpj.size() > 0 &&
+             isValidEmail(data.email) &&
+             data.type in ['integrator', 'referral', 'maintenance', 'other'] &&
+             data.status in ['active', 'inactive', 'pending'];
+    }
+
+    function isValidCollaborator(data) {
+      return hasRequiredFields(['name', 'role', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.role in ['Vendedor', 'Projetista', 'Instalador', 'Financeiro', 'Administrativo'] &&
+             data.status in ['active', 'inactive'];
+    }
+
+    function isValidKit(data) {
+      return hasRequiredFields(['name', 'power', 'price', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.power is number && data.price is number &&
+             data.status in ['active', 'inactive'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidLead(request.resource.data);
+      allow update: if isAuthenticated() && isValidLead(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /proposals/{proposalId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProposal(request.resource.data);
+      allow update: if isAuthenticated() && isValidProposal(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /installations/{instId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidInstallation(request.resource.data);
+      allow update: if isAuthenticated() && isValidInstallation(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidPartner(request.resource.data);
+      allow update: if isAdmin() && isValidPartner(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /collaborators/{collabId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidCollaborator(request.resource.data);
+      allow update: if isAdmin() && isValidCollaborator(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /kits/{kitId} {
+      allow read: if isAuthenticated();
+      allow create: if (isAdmin() || isAuthenticated()) && isValidKit(request.resource.data);
+      allow update: if (isAdmin() || isAuthenticated()) && isValidKit(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

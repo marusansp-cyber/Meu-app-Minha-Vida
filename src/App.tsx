@@ -1,0 +1,305 @@
+import React, { useState, useEffect } from 'react';
+import { Sidebar } from './components/Sidebar';
+import { DashboardView } from './components/DashboardView';
+import { LeadsView } from './components/LeadsView';
+import { InstallationsView } from './components/InstallationsView';
+import { ConfigView } from './components/ConfigView';
+import { TeamView } from './components/TeamView';
+import { SalesView } from './components/SalesView';
+import { NewProjectModal } from './components/NewProjectModal';
+import { NewLeadModal } from './components/NewLeadModal';
+import { ProposalsView } from './components/ProposalsView';
+import { SettingsView } from './components/SettingsView';
+import { PartnersView } from './components/PartnersView';
+import { CollaboratorsView } from './components/CollaboratorsView';
+import { KitsView } from './components/KitsView';
+import { LoginView } from './components/LoginView';
+import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit } from './types';
+import { ACTIVE_PROJECTS as INITIAL_PROJECTS } from './constants';
+import { Sun, Menu, X, Bell, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
+import { cn } from './lib/utils';
+import { NotificationCenter } from './components/NotificationCenter';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument } from './firestoreUtils';
+
+import { ToastProvider } from './context/ToastContext';
+
+export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [installations, setInstallations] = useState<any[]>([]);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Check if user profile exists in Firestore
+        let userProfile = await getDocument<User>('users', firebaseUser.uid);
+        
+        if (!userProfile) {
+          // Create initial profile
+          const newUser: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+            email: firebaseUser.email || '',
+            role: (firebaseUser.email?.includes('admin') || firebaseUser.email === 'marusansp@gmail.com') ? 'admin' : 'sales',
+            avatar: firebaseUser.photoURL || undefined
+          };
+          await setDocument('users', firebaseUser.uid, newUser);
+          userProfile = newUser;
+        }
+        
+        setUser(userProfile);
+        setIsAuthenticated(true);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const unsubscribeLeads = syncCollection<Lead>('leads', setLeads, 'createdAt');
+      const unsubscribeProposals = syncCollection<Proposal>('proposals', setProposals, 'date');
+      const unsubscribeInstallations = syncCollection<any>('installations', setInstallations, 'lastUpdated');
+      const unsubscribePartners = syncCollection<Partner>('partners', setPartners, 'createdAt');
+      const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
+      const unsubscribeKits = syncCollection<Kit>('kits', setKits, 'createdAt');
+      
+      return () => {
+        unsubscribeLeads();
+        unsubscribeProposals();
+        unsubscribeInstallations();
+        unsubscribePartners();
+        unsubscribeCollaborators();
+        unsubscribeKits();
+      };
+    }
+  }, [isAuthenticated, user]);
+
+  const handleLogin = () => {
+    // Auth is handled by LoginView via Firebase
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setCurrentView('dashboard');
+  };
+
+  const addProject = (project: Project) => {
+    setProjects([project, ...projects]);
+  };
+
+  const addLead = async (lead: Lead) => {
+    await createDocument('leads', {
+      ...lead,
+      representative: user?.name || 'Sistema'
+    });
+  };
+
+  const deleteLead = async (id: string) => {
+    await deleteDocument('leads', id);
+  };
+
+  const updateLead = async (updatedLead: Lead) => {
+    const { id, ...data } = updatedLead;
+    await updateDocument('leads', id, data);
+  };
+
+  const canAccess = (view: View) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    
+    const permissions: Record<string, string[]> = {
+      sales: ['dashboard', 'leads', 'sales', 'proposals'],
+      engineer: ['dashboard', 'installations', 'config'],
+      installer: ['dashboard', 'installations']
+    };
+
+    return permissions[user.role]?.includes(view) || false;
+  };
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 text-[#fdb612] animate-spin mx-auto" />
+          <p className="text-slate-500 font-bold animate-pulse">Carregando Vieira's Solar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
+  return (
+    <ToastProvider>
+      <div className="flex min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] text-slate-900 dark:text-slate-100">
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+
+        <div className={cn(
+          "fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+          <Sidebar 
+            currentView={currentView} 
+            onViewChange={(view) => {
+              setCurrentView(view);
+              setIsSidebarOpen(false);
+            }} 
+            onLogout={handleLogout}
+            user={user}
+          />
+        </div>
+        
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          {/* Mobile Header */}
+          <header className="lg:hidden flex items-center justify-between p-4 border-b border-[#fdb612]/10 bg-white dark:bg-[#231d0f] sticky top-0 z-30">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-[#fdb612] rounded flex items-center justify-center">
+                <Sun className="text-[#231d0f] w-5 h-5" />
+              </div>
+              <span className="font-bold text-sm">Vieira's Solar</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <NotificationCenter />
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            </div>
+          </header>
+
+          {/* Desktop Header */}
+          <header className="hidden lg:flex items-center justify-end px-8 py-4 bg-white/50 dark:bg-[#231d0f]/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+            <div className="flex items-center gap-6">
+              <NotificationCenter />
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 capitalize">{user?.role}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.email}</p>
+                </div>
+                <div className="size-10 rounded-full bg-[#fdb612] flex items-center justify-center text-[#231d0f] font-black mr-2">
+                  {user?.email.charAt(0).toUpperCase()}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-2"
+                  title="Sair"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-xs font-bold uppercase tracking-widest hidden xl:inline">Sair</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-7xl mx-auto p-4 md:p-8 w-full">
+            {!canAccess(currentView) ? (
+              <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
+                <ShieldAlert className="w-16 h-16 mb-4 text-red-500/50" />
+                <p className="text-xl font-bold">Acesso Restrito</p>
+                <p className="text-sm">Você não tem permissão para acessar esta área.</p>
+                <button 
+                  onClick={() => setCurrentView('dashboard')}
+                  className="mt-6 px-6 py-2 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold"
+                >
+                  Voltar ao Painel
+                </button>
+              </div>
+            ) : (
+              <>
+                {currentView === 'dashboard' && (
+                  <DashboardView 
+                    projects={projects} 
+                    leads={leads}
+                    proposals={proposals}
+                    onOpenNewProject={() => setIsProjectModalOpen(true)} 
+                    onManageProjects={() => setCurrentView('installations')}
+                  />
+                )}
+                {currentView === 'leads' && (
+                  <LeadsView 
+                    leads={leads} 
+                    onOpenNewLead={() => setIsLeadModalOpen(true)} 
+                    onDeleteLead={deleteLead}
+                    onUpdateLead={updateLead}
+                    onLogout={handleLogout}
+                  />
+                )}
+                {currentView === 'installations' && (
+                  <InstallationsView 
+                    projects={projects} 
+                    installations={installations}
+                    onOpenNewProject={() => setIsProjectModalOpen(true)} 
+                  />
+                )}
+                {currentView === 'config' && (
+                  <ConfigView 
+                    partners={partners}
+                    onClose={() => setCurrentView('dashboard')} 
+                  />
+                )}
+                {currentView === 'team' && <TeamView />}
+                {currentView === 'sales' && <SalesView />}
+                {currentView === 'proposals' && <ProposalsView proposals={proposals} />}
+                {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
+                {currentView === 'partners' && <PartnersView partners={partners} />}
+                {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
+                {currentView === 'kits' && <KitsView kits={kits} />}
+              </>
+            )}
+          </div>
+        </main>
+
+        <NewProjectModal 
+          isOpen={isProjectModalOpen} 
+          onClose={() => setIsProjectModalOpen(false)} 
+          onAdd={addProject} 
+        />
+
+        <NewLeadModal 
+          isOpen={isLeadModalOpen} 
+          onClose={() => setIsLeadModalOpen(false)} 
+          onAdd={addLead} 
+        />
+
+        <footer className="fixed bottom-0 right-0 p-4 pointer-events-none">
+          <div className="flex flex-col items-end gap-1 text-slate-400 text-[10px] bg-white/80 dark:bg-[#231d0f]/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Sun className="w-3 h-3 text-[#fdb612]" />
+              <span className="font-bold text-slate-600 dark:text-slate-300">MV ENGENHARIA | CNPJ: 61.950.902/0018-33</span>
+            </div>
+            <span>VIEIRA'S SOLAR & ENGENHARIA © 2024</span>
+          </div>
+        </footer>
+      </div>
+    </ToastProvider>
+  );
+}
