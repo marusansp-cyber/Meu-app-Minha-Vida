@@ -5,6 +5,8 @@ import { Proposal } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
+import { generateProposalPDF } from '../services/pdfService';
+import { sendProposalEmail } from '../services/emailService';
 
 interface ProposalsViewProps {
   proposals: Proposal[];
@@ -162,20 +164,92 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
       showToast('Erro: ID da proposta não encontrado.', 'info');
       return;
     }
-    await updateDocument('proposals', id, { status: 'sent' });
-    showToast('Proposta enviada ao cliente com sucesso!', 'success', true);
+
+    const proposal = proposals.find(p => p.id === id);
+    if (!proposal) return;
+
+    if (!proposal.email) {
+      showToast('Erro: E-mail do cliente não cadastrado.', 'info');
+      return;
+    }
+
+    try {
+      showToast('Gerando PDF e preparando e-mail...', 'info');
+      
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      
+      const result = await sendProposalEmail({
+        to: proposal.email,
+        subject: `Proposta Solar - ${proposal.client}`,
+        body: `Olá ${proposal.client},\n\nSegue em anexo a proposta comercial para o seu sistema de energia solar de ${proposal.systemSize}.\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+        pdfBase64,
+        fileName: `proposta_${proposal.id}.pdf`
+      });
+
+      if (result.success) {
+        await updateDocument('proposals', id, { status: 'sent' });
+        showToast('Proposta enviada ao cliente com sucesso!', 'success', true);
+      } else {
+        showToast(`Erro ao enviar: ${result.message}`, 'info');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar proposta:', error);
+      showToast('Erro ao processar envio.', 'info');
+    }
   };
 
-  const handleDownload = (id: string) => {
-    showToast('Gerando PDF...', 'info');
-    setTimeout(() => showToast('Download iniciado!'), 1500);
+  const handleDownload = async (id: string) => {
+    const proposal = proposals.find(p => p.id === id);
+    if (!proposal) return;
+
+    try {
+      showToast('Gerando PDF...', 'info');
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      
+      const link = document.createElement('a');
+      link.href = pdfBase64;
+      link.download = `proposta_${proposal.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Download concluído!');
+    } catch (error) {
+      console.error('Erro ao baixar PDF:', error);
+      showToast('Erro ao gerar PDF.', 'info');
+    }
   };
 
-  const handlePrint = (id: string) => {
-    showToast('Preparando para impressão...', 'info');
-    setTimeout(() => {
-      window.print();
-    }, 1000);
+  const handlePrint = async (id: string) => {
+    const proposal = proposals.find(p => p.id === id);
+    if (!proposal) return;
+
+    try {
+      showToast('Preparando para impressão...', 'info');
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head><title>Imprimir Proposta - ${proposal.id}</title></head>
+            <body style="margin:0;padding:0;">
+              <embed width="100%" height="100%" src="${pdfBase64}" type="application/pdf">
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Erro ao imprimir:', error);
+      showToast('Erro ao preparar impressão.', 'info');
+    }
   };
 
   const handleViewDetails = (proposal: Proposal) => {

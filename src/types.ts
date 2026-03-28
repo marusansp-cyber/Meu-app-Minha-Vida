@@ -102,6 +102,7 @@ export interface Proposal {
   discount?: number | null;
   financingBank?: string | null;
   financingInstallments?: number | null;
+  email?: string | null;
 }
 
 export interface Partner {

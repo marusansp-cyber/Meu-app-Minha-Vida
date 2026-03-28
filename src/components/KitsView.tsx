@@ -253,6 +253,23 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     [kits] // Re-create if kits change to have latest data, though not strictly necessary for updateDocument
   );
 
+  const downloadTemplate = () => {
+    const headers = ['Nome', 'Potência (kWp)', 'Preço (R$)', 'Descrição', 'Componente 1 Nome', 'Componente 1 Qtd', 'Componente 1 Marca', 'Componente 1 Modelo'];
+    const row = ['Exemplo Kit 5kWp', '5.0', '15000', 'Kit completo com 10 painéis', 'Painel Solar', '10', 'Jinko', 'Tiger Pro'];
+    const csvContent = [headers.join(','), row.join(',')].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'modelo_kits_fotovoltaicos.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Modelo de planilha baixado!');
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {toast && (
@@ -721,7 +738,10 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
             </label>
 
             <div className="pt-8">
-              <button className="text-xs font-black text-[#004a61] hover:underline uppercase tracking-widest">
+              <button 
+                onClick={downloadTemplate}
+                className="text-xs font-black text-[#004a61] hover:underline uppercase tracking-widest"
+              >
                 Baixar Modelo de Planilha
               </button>
             </div>

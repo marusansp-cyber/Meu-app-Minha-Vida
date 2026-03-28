@@ -26,7 +26,8 @@ import {
   AlertTriangle,
   CreditCard,
   FileText,
-  Send
+  Send,
+  Package
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from "@google/genai";
@@ -113,7 +114,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [tasks, setTasks] = useState<{ id: string; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
   const [kitSearchTerm, setKitSearchTerm] = useState('');
+  const [minPowerFilter, setMinPowerFilter] = useState<string>('');
+  const [maxPowerFilter, setMaxPowerFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showNewKitModal, setShowNewKitModal] = useState(false);
+  const [showInverterFilter, setShowInverterFilter] = useState(false);
+  const [showModuleFilter, setShowModuleFilter] = useState(false);
   const [installationPrice, setInstallationPrice] = useState<string>('0');
   const [engineeringPrice, setEngineeringPrice] = useState<string>('0');
   const [marginPercentage, setMarginPercentage] = useState<string>('20');
@@ -140,6 +146,19 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       }
     }
   }, [monthlyConsumption]);
+
+  useEffect(() => {
+    if (filterByPower && systemSize) {
+      const size = parseFloat(systemSize.replace(',', '.'));
+      if (!isNaN(size) && size > 0) {
+        setMinPowerFilter((size * 0.8).toFixed(2));
+        setMaxPowerFilter((size * 1.2).toFixed(2));
+      }
+    } else if (!filterByPower) {
+      setMinPowerFilter('');
+      setMaxPowerFilter('');
+    }
+  }, [filterByPower, systemSize]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'kits'), (snapshot) => {
@@ -482,6 +501,39 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     }
   };
 
+  const handleAddComponent = () => {
+    const newComps = [...selectedKitComponents, { name: 'Novo Componente', quantity: 1, brand: '', model: '' }];
+    setSelectedKitComponents(newComps);
+    if (selectedKitId) {
+      setKits(kits.map(k => k.id === selectedKitId ? { ...k, components: newComps } : k));
+    }
+  };
+
+  const handleRemoveComponent = (idx: number) => {
+    const newComps = selectedKitComponents.filter((_, i) => i !== idx);
+    setSelectedKitComponents(newComps);
+    if (selectedKitId) {
+      setKits(kits.map(k => k.id === selectedKitId ? { ...k, components: newComps } : k));
+    }
+  };
+
+  const handleSaveKitComponents = async () => {
+    if (!selectedKitId) return;
+    
+    // Check if it's a Firestore kit (ID is usually a string from Firestore, but can be a number from mock/API)
+    // In this app, mock IDs are '1', '2', '3' (strings)
+    try {
+      await updateDocument('kits', selectedKitId.toString(), {
+        components: selectedKitComponents,
+        updatedAt: new Date().toISOString()
+      });
+      showToast('Componentes do kit salvos com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar componentes do kit:', error);
+      showToast('Alterações mantidas apenas para esta sessão (Kit da API ou erro de conexão)');
+    }
+  };
+
   const formatCNPJ = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
     if (cleaned.length === 0) return '';
@@ -575,6 +627,18 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     showToast('Tarefa removida');
   };
 
+  const clearFilters = () => {
+    setKitSearchTerm('');
+    setMinPowerFilter('');
+    setMaxPowerFilter('');
+    setStatusFilter('all');
+    setFilterByPower(false);
+    setInverterBrandFilter([]);
+    setModuleBrandFilter([]);
+    setStartDate('');
+    setEndDate('');
+  };
+
   const availableInverterBrands = Array.from(new Set(kits.map(k => k.inverterBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('inversor'))?.brand).filter(Boolean)));
   const availableModuleBrands = Array.from(new Set(kits.map(k => k.panelBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('painel') || c.name?.toLowerCase().includes('módulo'))?.brand).filter(Boolean)));
 
@@ -592,6 +656,20 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     const moduleMatch = moduleBrandFilter.length === 0 || (kitModuleBrand && moduleBrandFilter.includes(kitModuleBrand));
 
     if (!inverterMatch || !moduleMatch) return false;
+
+    // Power Range Filter
+    const kitPower = parseFloat(kit.power?.toString().replace(',', '.') || '0');
+    if (filterByPower) {
+      if (minPowerFilter && !isNaN(kitPower) && kitPower < parseFloat(minPowerFilter.replace(',', '.'))) return false;
+      if (maxPowerFilter && !isNaN(kitPower) && kitPower > parseFloat(maxPowerFilter.replace(',', '.'))) return false;
+    }
+
+    // Status Filter
+    if (statusFilter !== 'all') {
+      const kitStatus = kit.status || 'active';
+      if (statusFilter === 'active' && kitStatus !== 'active') return false;
+      if (statusFilter === 'inactive' && kitStatus !== 'inactive') return false;
+    }
 
     // Enhanced search: check component brands and models
     const componentsMatch = kit.components?.some((comp: any) => 
@@ -624,19 +702,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       }
     }
 
-    const size = parseFloat(systemSize.replace(',', '.'));
-    if (filterByPower && !isNaN(size) && size > 0) {
-      const kitPower = parseFloat(kit.power);
-      if (!isNaN(kitPower)) {
-        const rangeMatch = kitPower >= size * 0.7 && kitPower <= size * 1.5;
-        if (kitSearchTerm) {
-          return (nameMatch || descMatch || powerSearchMatch || panelSearchMatch || inverterSearchMatch || componentsMatch) && rangeMatch && dateMatch;
-        }
-        return rangeMatch && dateMatch;
-      }
-    }
-    
-    return (nameMatch || descMatch || powerSearchMatch || panelSearchMatch || inverterSearchMatch || componentsMatch) && dateMatch;
+    const matchesSearch = (nameMatch || descMatch || powerSearchMatch || panelSearchMatch || inverterSearchMatch || componentsMatch);
+    return matchesSearch && dateMatch;
   });
 
   const handleSaveDraft = () => {
@@ -1343,6 +1410,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-4">
+                  <div className="relative group min-w-[250px]">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
+                    <input 
+                      type="text"
+                      placeholder="PESQUISAR KITS..."
+                      value={kitSearchTerm}
+                      onChange={(e) => setKitSearchTerm(e.target.value)}
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-12 pr-4 text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                    />
+                  </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                     <input 
                       type="checkbox" 
@@ -1354,42 +1431,166 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <label htmlFor="filterByPower" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer">Filtrar por Potência</label>
                   </div>
 
-                  <div className="space-y-2">
+                  {/* Power Range Filter - Only visible when filterByPower is active */}
+                  {filterByPower && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-left-2 duration-200">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Potência (kWp):</span>
+                      <input 
+                        type="number"
+                        placeholder="MIN"
+                        value={minPowerFilter}
+                        onChange={(e) => setMinPowerFilter(e.target.value)}
+                        className="w-16 bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0"
+                      />
+                      <span className="text-slate-400">-</span>
+                      <input 
+                        type="number"
+                        placeholder="MAX"
+                        value={maxPowerFilter}
+                        onChange={(e) => setMaxPowerFilter(e.target.value)}
+                        className="w-16 bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0"
+                      />
+                    </div>
+                  )}
+
+                  {/* Status Filter */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status:</span>
+                    <select 
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as any)}
+                      className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0 cursor-pointer"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="active">Ativos</option>
+                      <option value="inactive">Inativos</option>
+                    </select>
+                  </div>
+
+                  <button 
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Limpar Filtros
+                  </button>
+
+                  <div className="space-y-2 relative">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Inversores</label>
-                    <div className="relative group">
-                      <select 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'all') setInverterBrandFilter([]);
-                          else setInverterBrandFilter([val]);
-                        }}
-                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[180px] appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowInverterFilter(!showInverterFilter)}
+                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[200px] flex items-center justify-between hover:border-[#fdb612]/50 transition-all"
                       >
-                        <option value="all">Todas as Marcas ({availableInverterBrands.length})</option>
-                        {availableInverterBrands.map(brand => (
-                          <option key={brand} value={brand}>{brand}</option>
-                        ))}
-                      </select>
-                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 rotate-90 text-slate-400 pointer-events-none" />
+                        <span className="truncate max-w-[140px]">
+                          {inverterBrandFilter.length === 0 
+                            ? `Todas as Marcas (${availableInverterBrands.length})` 
+                            : `${inverterBrandFilter.length} Selecionada(s)`}
+                        </span>
+                        <ChevronRight className={cn("w-4 h-4 transition-transform", showInverterFilter ? "rotate-90" : "rotate-0")} />
+                      </button>
+
+                      {showInverterFilter && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-10" 
+                            onClick={() => setShowInverterFilter(false)}
+                          />
+                          <div className="absolute top-full left-0 mt-2 w-full min-w-[220px] bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="max-h-[240px] overflow-y-auto custom-scrollbar p-1 space-y-1">
+                              <button 
+                                onClick={() => setInverterBrandFilter([])}
+                                className={cn(
+                                  "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors",
+                                  inverterBrandFilter.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                                )}
+                              >
+                                Todas as Marcas
+                              </button>
+                              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                              {availableInverterBrands.map(brand => (
+                                <label 
+                                  key={brand}
+                                  className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                                >
+                                  <input 
+                                    type="checkbox"
+                                    checked={inverterBrandFilter.includes(brand)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setInverterBrandFilter([...inverterBrandFilter, brand]);
+                                      } else {
+                                        setInverterBrandFilter(inverterBrandFilter.filter(b => b !== brand));
+                                      }
+                                    }}
+                                    className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                                  />
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-2">
+
+                  <div className="space-y-2 relative">
                     <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Módulos</label>
-                    <div className="relative group">
-                      <select 
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'all') setModuleBrandFilter([]);
-                          else setModuleBrandFilter([val]);
-                        }}
-                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[180px] appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowModuleFilter(!showModuleFilter)}
+                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[200px] flex items-center justify-between hover:border-[#fdb612]/50 transition-all"
                       >
-                        <option value="all">Todas as Marcas ({availableModuleBrands.length})</option>
-                        {availableModuleBrands.map(brand => (
-                          <option key={brand} value={brand}>{brand}</option>
-                        ))}
-                      </select>
-                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 rotate-90 text-slate-400 pointer-events-none" />
+                        <span className="truncate max-w-[140px]">
+                          {moduleBrandFilter.length === 0 
+                            ? `Todas as Marcas (${availableModuleBrands.length})` 
+                            : `${moduleBrandFilter.length} Selecionada(s)`}
+                        </span>
+                        <ChevronRight className={cn("w-4 h-4 transition-transform", showModuleFilter ? "rotate-90" : "rotate-0")} />
+                      </button>
+
+                      {showModuleFilter && (
+                        <>
+                          <div 
+                            className="fixed inset-0 z-10" 
+                            onClick={() => setShowModuleFilter(false)}
+                          />
+                          <div className="absolute top-full left-0 mt-2 w-full min-w-[220px] bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="max-h-[240px] overflow-y-auto custom-scrollbar p-1 space-y-1">
+                              <button 
+                                onClick={() => setModuleBrandFilter([])}
+                                className={cn(
+                                  "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors",
+                                  moduleBrandFilter.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                                )}
+                              >
+                                Todas as Marcas
+                              </button>
+                              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                              {availableModuleBrands.map(brand => (
+                                <label 
+                                  key={brand}
+                                  className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
+                                >
+                                  <input 
+                                    type="checkbox"
+                                    checked={moduleBrandFilter.includes(brand)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setModuleBrandFilter([...moduleBrandFilter, brand]);
+                                      } else {
+                                        setModuleBrandFilter(moduleBrandFilter.filter(b => b !== brand));
+                                      }
+                                    }}
+                                    className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                                  />
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1573,6 +1774,95 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       </div>
                     )}
                   </section>
+
+                  {/* Componentes do Kit */}
+                  {selectedKitId && (
+                    <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center">
+                            <Package className="w-5 h-5" />
+                          </div>
+                          <h3 className="text-2xl font-black tracking-tight uppercase">Componentes do Kit</h3>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={handleAddComponent}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Adicionar
+                          </button>
+                          <button 
+                            onClick={handleSaveKitComponents}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20"
+                          >
+                            <Save className="w-4 h-4" />
+                            Salvar Kit
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {selectedKitComponents.length > 0 ? (
+                          selectedKitComponents.map((comp, idx) => (
+                            <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 relative group">
+                              <div className="md:col-span-3 space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nome</label>
+                                <input 
+                                  type="text" 
+                                  value={comp.name}
+                                  onChange={(e) => handleUpdateComponent(idx, 'name', e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-2 space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Quantidade</label>
+                                <input 
+                                  type="number" 
+                                  value={comp.quantity}
+                                  onChange={(e) => handleUpdateComponent(idx, 'quantity', parseInt(e.target.value) || 0)}
+                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-3 space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Marca</label>
+                                <input 
+                                  type="text" 
+                                  value={comp.brand || ''}
+                                  onChange={(e) => handleUpdateComponent(idx, 'brand', e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-3 space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Modelo</label>
+                                <input 
+                                  type="text" 
+                                  value={comp.model || ''}
+                                  onChange={(e) => handleUpdateComponent(idx, 'model', e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-1 flex items-end pb-1">
+                                <button 
+                                  onClick={() => handleRemoveComponent(idx)}
+                                  className="size-10 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all"
+                                  title="Remover Componente"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[1.5rem]">
+                            <p className="text-slate-400 font-bold italic">Nenhum componente cadastrado para este kit.</p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
 
                   {/* Services & Costs */}
                   <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl">
@@ -1790,13 +2080,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
             <div className="space-y-8 animate-in fade-in duration-500">
               {/* Breadcrumbs for Step 4 */}
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARAMETERS</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARÂMETROS</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATALOG</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATÁLOGO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRICING</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRECIFICAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-[#fdb612]">VALIDATION</span>
+                <span className="text-[#fdb612]">VALIDAÇÃO</span>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1807,17 +2097,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <div className="size-10 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
-                    <h3 className="text-2xl font-black tracking-tight uppercase">Technical Validation</h3>
+                    <h3 className="text-2xl font-black tracking-tight uppercase">Validação Técnica</h3>
                   </div>
 
                   <div className="space-y-8">
                     <div className="grid grid-cols-2 gap-6">
                       <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Target Power</span>
+                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Potência Alvo</span>
                         <span className="text-xl font-black text-slate-900 dark:text-slate-100">{desiredPower} kWp</span>
                       </div>
                       <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Kit Power</span>
+                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Potência do Kit</span>
                         <span className="text-xl font-black text-[#fdb612]">{kits.find(k => k.id === selectedKitId)?.power} kWp</span>
                       </div>
                     </div>
@@ -1827,19 +2117,19 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         <CheckCircle2 className="w-7 h-7" />
                       </div>
                       <div>
-                        <h4 className="font-black text-emerald-600 dark:text-emerald-400 uppercase text-xs tracking-widest mb-1">Proper Sizing</h4>
-                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">The selected kit meets the desired power with a safety margin of {((kits.find(k => k.id === selectedKitId)?.power || 0) / parseFloat(desiredPower) * 100 - 100).toFixed(2)}%.</p>
+                        <h4 className="font-black text-emerald-600 dark:text-emerald-400 uppercase text-xs tracking-widest mb-1">Dimensionamento Adequado</h4>
+                        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">O kit selecionado atende à potência desejada com uma margem de segurança de {((kits.find(k => k.id === selectedKitId)?.power || 0) / parseFloat(desiredPower) * 100 - 100).toFixed(2)}%.</p>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Engineering Checklist</h5>
+                      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Checklist de Engenharia</h5>
                       <div className="space-y-3">
                         {[
-                          { label: 'Voltage Compatibility (220V)', status: true },
-                          { label: 'Mounting Structure (' + structure + ')', status: true },
-                          { label: 'Available Roof Area', status: true },
-                          { label: 'Service Entrance Capacity', status: true },
+                          { label: 'Compatibilidade de Tensão (220V)', status: true },
+                          { label: 'Estrutura de Montagem (' + structure + ')', status: true },
+                          { label: 'Área de Telhado Disponível', status: true },
+                          { label: 'Capacidade de Entrada de Serviço', status: true },
                         ].map((item, i) => (
                           <div key={i} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-slate-100 dark:border-slate-800/50 group hover:border-[#fdb612]/30 transition-all">
                             <span className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">{item.label}</span>
@@ -1860,48 +2150,48 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <div className="size-10 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
                       <TrendingUp className="w-5 h-5" />
                     </div>
-                    <h3 className="text-2xl font-black tracking-tight uppercase">Financial Analysis</h3>
+                    <h3 className="text-2xl font-black tracking-tight uppercase">Análise Financeira</h3>
                   </div>
 
                   <div className="space-y-8">
                     <div className="p-8 bg-[#231d0f] text-white rounded-[2rem] border border-white/5 relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-[60px] rounded-full -mr-16 -mt-16" />
-                      <span className="block text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-40">Total Investment</span>
+                      <span className="block text-[10px] font-black uppercase tracking-[0.3em] mb-4 opacity-40">Investimento Total</span>
                       <div className="text-4xl font-black tracking-tighter">
                         <span className="text-lg font-medium mr-1 opacity-40">R$</span>
                         {
-                          (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('en-US', { minimumFractionDigits: 2 })
+                          (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                         }
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estimated Payback</span>
+                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payback Estimado</span>
                         <span className="text-xl font-black text-emerald-500">{paybackTime}</span>
                       </div>
                       <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monthly ROI</span>
+                        <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">ROI Mensal</span>
                         <span className="text-xl font-black text-blue-500">{roiPercentage}</span>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Margin Summary</h5>
+                      <h5 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Resumo da Margem</h5>
                       <div className="space-y-4 bg-slate-50 dark:bg-slate-900/30 p-6 rounded-[1.5rem] border border-slate-100 dark:border-slate-800/50">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Equipment</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {(kits.find(k => k.id === selectedKitId)?.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Equipamento</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {(kits.find(k => k.id === selectedKitId)?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Services</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {(parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Serviços</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {(parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Margin ({marginPercentage}%)</span>
+                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">Margem ({marginPercentage}%)</span>
                           <span className="font-black text-emerald-500">R$ {
                             ((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) - 
-                            ((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts))).toLocaleString('en-US', { minimumFractionDigits: 2 })
+                            ((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                           }</span>
                         </div>
                       </div>
@@ -1916,13 +2206,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
                 >
                   <ArrowRight className="w-4 h-4 rotate-180" />
-                  Back
+                  Voltar
                 </button>
                 <button 
                   onClick={() => setCurrentStep(5)}
                   className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:shadow-2xl hover:shadow-[#fdb612]/20 transition-all active:scale-95"
                 >
-                  Next Step: Financing
+                  Próximo Passo: Financiamento
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -1933,15 +2223,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
             <div className="space-y-8 animate-in fade-in duration-500">
               {/* Breadcrumbs for Step 5 */}
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARAMETERS</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARÂMETROS</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATALOG</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATÁLOGO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRICING</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRECIFICAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(4)}>VALIDATION</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(4)}>VALIDAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-[#fdb612]">FINANCING</span>
+                <span className="text-[#fdb612]">FINANCIAMENTO</span>
               </div>
 
               <section className="bg-white dark:bg-[#231d0f]/40 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl">
@@ -1949,7 +2239,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <div className="size-10 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
                     <CreditCard className="w-5 h-5" />
                   </div>
-                  <h3 className="text-2xl font-black tracking-tight uppercase">Financing Options</h3>
+                  <h3 className="text-2xl font-black tracking-tight uppercase">Opções de Financiamento</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
@@ -1969,7 +2259,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     >
                       {option.highlight && (
                         <div className="absolute top-0 right-0 bg-[#fdb612] text-[#231d0f] text-[9px] font-black px-4 py-1.5 rounded-bl-2xl uppercase tracking-[0.2em] shadow-sm">
-                          Recommended
+                          Recomendado
                         </div>
                       )}
                       <div className="h-16 mb-8 flex items-center justify-center grayscale group-hover:grayscale-0 transition-all">
@@ -1981,11 +2271,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       </div>
                       <div className="text-center space-y-2">
                         <p className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">{option.rate}</p>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Monthly Interest Rate</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Taxa de Juros Mensal</p>
                       </div>
                       <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 text-center">
                         <p className="text-xl font-black text-[#fdb612]">{option.term}</p>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Maximum Term</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Prazo Máximo</p>
                       </div>
                     </div>
                   ))}
@@ -1996,23 +2286,23 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <div className="flex flex-col lg:flex-row justify-between items-center gap-10 relative z-10">
                     <div className="space-y-4 text-center lg:text-left">
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#fdb612] text-[#231d0f] rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#fdb612]/20">
-                        Fortlev Bank Simulation
+                        Simulação Banco Fortlev
                       </div>
-                      <h4 className="text-3xl font-black tracking-tight uppercase">Installments that fit your budget</h4>
-                      <p className="text-slate-400 text-sm max-w-sm font-medium">Up to 120 days grace period to start paying. Energy savings pay the installment.</p>
+                      <h4 className="text-3xl font-black tracking-tight uppercase">Parcelas que cabem no seu bolso</h4>
+                      <p className="text-slate-400 text-sm max-w-sm font-medium">Até 120 dias de carência para começar a pagar. A economia de energia paga a parcela.</p>
                     </div>
                     <div className="text-center lg:text-right bg-white/5 p-6 rounded-3xl border border-white/5 backdrop-blur-sm">
                       <p className="text-5xl font-black text-[#fdb612] tracking-tighter">
                         <span className="text-lg font-medium mr-1 opacity-60">R$</span>
                         458,20
                       </p>
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-black mt-2">Estimated Installment</p>
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-black mt-2">Parcela Estimada</p>
                     </div>
                     <button 
-                      onClick={() => showToast('Requesting credit analysis...')}
+                      onClick={() => showToast('Solicitando análise de crédito...')}
                       className="px-12 py-6 bg-[#fdb612] text-[#231d0f] rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-[#fdb612]/20 shrink-0"
                     >
-                      REQUEST CREDIT
+                      SOLICITAR CRÉDITO
                     </button>
                   </div>
                 </div>
@@ -2023,9 +2313,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <ShieldCheck className="w-8 h-8" />
                     </div>
                     <div>
-                      <h4 className="font-black text-blue-600 dark:text-blue-400 uppercase text-xs tracking-widest mb-2">Performance Insurance</h4>
+                      <h4 className="font-black text-blue-600 dark:text-blue-400 uppercase text-xs tracking-widest mb-2">Seguro de Performance</h4>
                       <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Projects financed via Fortlev Solar include installation insurance and extended warranty.
+                        Projetos financiados via Fortlev Solar incluem seguro de instalação e garantia estendida.
                       </p>
                     </div>
                   </div>
@@ -2034,9 +2324,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <Zap className="w-8 h-8" />
                     </div>
                     <div>
-                      <h4 className="font-black text-emerald-600 dark:text-emerald-400 uppercase text-xs tracking-widest mb-2">24h Approval</h4>
+                      <h4 className="font-black text-emerald-600 dark:text-emerald-400 uppercase text-xs tracking-widest mb-2">Aprovação em 24h</h4>
                       <p className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Fast and hassle-free credit analysis for Fortlev partners.
+                        Análise de crédito rápida e sem complicações para parceiros Fortlev.
                       </p>
                     </div>
                   </div>
@@ -2049,13 +2339,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
                 >
                   <ArrowRight className="w-4 h-4 rotate-180" />
-                  Back
+                  Voltar
                 </button>
                 <button 
                   onClick={() => setCurrentStep(6)}
                   className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:shadow-2xl hover:shadow-[#fdb612]/20 transition-all active:scale-95"
                 >
-                  Next Step: Finalization
+                  Próximo Passo: Finalização
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -2066,17 +2356,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
             <div className="space-y-8 animate-in fade-in duration-500">
               {/* Breadcrumbs for Step 6 */}
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARAMETERS</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARÂMETROS</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATALOG</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATÁLOGO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRICING</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRECIFICAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(4)}>VALIDATION</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(4)}>VALIDAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(5)}>FINANCING</span>
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(5)}>FINANCIAMENTO</span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-[#fdb612]">FINALIZATION</span>
+                <span className="text-[#fdb612]">FINALIZAÇÃO</span>
               </div>
 
               <section className="bg-white dark:bg-[#231d0f]/40 p-16 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-2xl text-center relative overflow-hidden">
@@ -2091,22 +2381,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                 
                 <div className="space-y-4 mb-12">
                   <h3 className="text-6xl font-black text-slate-900 dark:text-slate-100 tracking-tighter uppercase">
-                    Simulation <span className="text-[#fdb612]">Completed!</span>
+                    Simulação <span className="text-[#fdb612]">Concluída!</span>
                   </h3>
                   <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto text-lg font-medium leading-relaxed">
-                    Your solar project has been successfully configured, priced, and validated. The future of clean energy starts now.
+                    Seu projeto solar foi configurado, precificado e validado com sucesso. O futuro da energia limpa começa agora.
                   </p>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] p-10 mb-16 max-w-4xl mx-auto border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-10 shadow-inner">
                   <div className="space-y-2">
-                    <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Total Power</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Potência Total</p>
                     <p className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{kits.find(k => k.id === selectedKitId)?.power} kWp</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Investment</p>
+                    <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Investimento</p>
                     <p className="text-2xl font-black text-[#fdb612] tracking-tight">R$ {
-                      (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('en-US', { minimumFractionDigits: 0 })
+                      (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 0 })
                     }</p>
                   </div>
                   <div className="space-y-2">
@@ -2117,7 +2407,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Status</p>
                     <div className="flex items-center justify-center gap-2 text-emerald-500 font-black text-sm tracking-[0.2em]">
                       <ShieldCheck className="w-5 h-5" />
-                      VALIDATED
+                      VALIDADO
                     </div>
                   </div>
                 </div>
@@ -2201,22 +2491,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
                   <button 
-                    onClick={() => showToast('Generating proposal PDF...')}
+                    onClick={() => showToast('Gerando PDF da proposta...')}
                     className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-[#fdb612] hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all flex flex-col items-center gap-6 active:scale-95"
                   >
                     <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-[#fdb612]/10 group-hover:text-[#fdb612] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-6 shadow-sm">
                       <FileText className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
-                      <span className="block text-xl uppercase tracking-tight">Generate Proposal</span>
-                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Full PDF Download</span>
+                      <span className="block text-xl uppercase tracking-tight">Gerar Proposta</span>
+                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Download PDF Completo</span>
                     </div>
                   </button>
 
                   <button 
                     onClick={() => {
-                      showToast('Sending to Fortlev Solar...');
-                      setTimeout(() => showToast('Project sent successfully!', 'success'), 2000);
+                      showToast('Enviando para Fortlev Solar...');
+                      setTimeout(() => showToast('Projeto enviado com sucesso!', 'success'), 2000);
                     }}
                     className="group p-10 bg-[#fdb612] text-[#231d0f] rounded-[2.5rem] font-black hover:scale-105 hover:shadow-2xl hover:shadow-[#fdb612]/30 transition-all flex flex-col items-center gap-6 active:scale-95"
                   >
@@ -2224,8 +2514,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <Send className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
-                      <span className="block text-xl uppercase tracking-tight">Send Project</span>
-                      <span className="block text-[10px] uppercase tracking-widest opacity-60 font-black">Fortlev Platform</span>
+                      <span className="block text-xl uppercase tracking-tight">Enviar Projeto</span>
+                      <span className="block text-[10px] uppercase tracking-widest opacity-60 font-black">Plataforma Fortlev</span>
                     </div>
                   </button>
 
@@ -2240,21 +2530,21 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <RefreshCw className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
-                      <span className="block text-xl uppercase tracking-tight">New Simulation</span>
-                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Restart Flow</span>
+                      <span className="block text-xl uppercase tracking-tight">Nova Simulação</span>
+                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Reiniciar Fluxo</span>
                     </div>
                   </button>
                 </div>
 
                 <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-4">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-[0.3em] font-black">Track your projects on the official Fortlev Solar platform</p>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-[0.3em] font-black">Acompanhe seus projetos na plataforma oficial Fortlev Solar</p>
                   <a 
                     href="https://fortlevsolar.app/" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full font-black hover:bg-[#fdb612] hover:text-[#231d0f] transition-all flex items-center gap-2 text-xs uppercase tracking-widest"
                   >
-                    ACCESS FORTLEVSOLAR.APP
+                    ACESSAR FORTLEVSOLAR.APP
                     <ArrowRight className="w-4 h-4" />
                   </a>
                 </div>
@@ -2266,7 +2556,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
                 >
                   <ArrowRight className="w-4 h-4 rotate-180" />
-                  Back
+                  Voltar
                 </button>
               </div>
             </div>
@@ -2292,8 +2582,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   </div>
                 </div>
                 <div className="text-center space-y-2">
-                  <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight uppercase">Platform Access</h3>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Log in with your Fortlev Solar credentials</p>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight uppercase">Acesso à Plataforma</h3>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Entre com suas credenciais Fortlev Solar</p>
                 </div>
               </div>
               
@@ -2309,7 +2599,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
               <form onSubmit={handleFortlevLogin} className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Corporate Email</label>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail Corporativo</label>
                     {fortlevErrors.email && <span className="text-[10px] text-red-500 font-black uppercase tracking-widest">{fortlevErrors.email}</span>}
                   </div>
                   <div className="relative group">
@@ -2325,14 +2615,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         "w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 pl-12 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all font-bold",
                         fortlevErrors.email && "ring-2 ring-red-500 border-transparent"
                       )}
-                      placeholder="example@fortlev.com"
+                      placeholder="exemplo@fortlev.com"
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Access Password</label>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Senha de Acesso</label>
                     {fortlevErrors.password && <span className="text-[10px] text-red-500 font-black uppercase tracking-widest">{fortlevErrors.password}</span>}
                   </div>
                   <div className="relative group">
@@ -2366,7 +2656,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   >
                     {rememberFortlev && <CheckCircle2 className="w-4 h-4" />}
                   </button>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Remember my data</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lembrar meus dados</span>
                 </div>
 
                 <div className="pt-2 flex flex-col gap-3">
@@ -2374,14 +2664,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     type="submit"
                     className="w-full py-5 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all active:scale-[0.98]"
                   >
-                    Connect Now
+                    Conectar Agora
                   </button>
                   <button 
                     type="button"
                     onClick={() => setShowFortlevLogin(false)}
                     className="w-full py-4 text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   >
-                    Cancel Access
+                    Cancelar Acesso
                   </button>
                 </div>
               </form>

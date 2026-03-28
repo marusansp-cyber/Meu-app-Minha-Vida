@@ -1,12 +1,55 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import nodemailer from "nodemailer";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+
+  // Email Configuration
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port: parseInt(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_PORT === "465",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  // Proposal Email API
+  app.post("/api/proposals/send", async (req, res) => {
+    const { to, subject, body, pdfBase64, fileName } = req.body;
+
+    if (!to || !pdfBase64) {
+      return res.status(400).json({ success: false, message: "Destinatário e PDF são obrigatórios." });
+    }
+
+    try {
+      const mailOptions = {
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: subject || "Proposta Solar - Vieira's Solar & Engenharia",
+        text: body || "Olá, segue em anexo a proposta comercial para o seu sistema de energia solar.",
+        attachments: [
+          {
+            filename: fileName || "proposta_solar.pdf",
+            content: pdfBase64.split("base64,")[1] || pdfBase64,
+            encoding: 'base64'
+          }
+        ]
+      };
+
+      await transporter.sendMail(mailOptions);
+      res.json({ success: true, message: "E-mail enviado com sucesso!" });
+    } catch (error) {
+      console.error("Erro ao enviar e-mail:", error);
+      res.status(500).json({ success: false, message: "Erro ao enviar e-mail.", error: String(error) });
+    }
+  });
 
   // Fortlev Integration API
   app.post("/api/fortlev/login", (req, res) => {

@@ -15,7 +15,10 @@ import {
   Edit2,
   ExternalLink,
   Briefcase,
-  Loader2
+  Loader2,
+  Eye,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Partner } from '../types';
@@ -32,6 +35,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
+  const [viewType, setViewType] = useState<'grid' | 'table'>('grid');
 
   const filteredPartners = partners.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,16 +93,39 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Empresas Parceiras</h2>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie sua rede de parceiros, integradores e afiliados.</p>
         </div>
-        <button 
-          onClick={() => {
-            setSelectedPartner(null);
-            setIsModalOpen(true);
-          }}
-          className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Parceiro
-        </button>
+        <div className="flex gap-2">
+          <div className="flex bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-1">
+            <button 
+              onClick={() => setViewType('grid')}
+              className={cn(
+                "p-2 rounded-xl transition-all",
+                viewType === 'grid' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => setViewType('table')}
+              className={cn(
+                "p-2 rounded-xl transition-all",
+                viewType === 'table' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              <List className="w-5 h-5" />
+            </button>
+          </div>
+          <button 
+            onClick={() => {
+              setSelectedPartner(null);
+              setIsViewOnly(false);
+              setIsModalOpen(true);
+            }}
+            className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Parceiro
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -117,94 +145,189 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredPartners.map((partner) => (
-          <div 
-            key={partner.id}
-            className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    setSelectedPartner(partner);
-                    setIsModalOpen(true);
-                  }}
-                  className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-[#fdb612] hover:text-[#231d0f] transition-colors"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => {
-                    setPartnerToDelete(partner);
-                    setIsDeleteModalOpen(true);
-                  }}
-                  className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      {viewType === 'grid' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredPartners.map((partner) => (
+            <div 
+              key={partner.id}
+              className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all group relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setSelectedPartner(partner);
+                      setIsViewOnly(true);
+                      setIsModalOpen(true);
+                    }}
+                    className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-blue-500 hover:text-white transition-colors"
+                    title="Visualizar"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSelectedPartner(partner);
+                      setIsViewOnly(false);
+                      setIsModalOpen(true);
+                    }}
+                    className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-[#fdb612] hover:text-[#231d0f] transition-colors"
+                    title="Editar"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setPartnerToDelete(partner);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"
+                    title="Excluir"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-5">
+                <div className="size-16 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
+                  <Building2 className="w-8 h-8" />
+                </div>
+                <div className="space-y-4 flex-1">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">{partner.name}</h3>
+                      {getStatusBadge(partner.status)}
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-[#fdb612]">{getTypeLabel(partner.type)}</p>
+                      {partner.cnpjStatus && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
+                          partner.cnpjStatus.toLowerCase().includes('ativa') 
+                            ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            : "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
+                        )}>
+                          CNPJ: {partner.cnpjStatus}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <User className="w-4 h-4" />
+                        <span className="font-bold text-slate-700 dark:text-slate-300">{partner.contactName}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Mail className="w-4 h-4" />
+                        <span>{partner.email}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Phone className="w-4 h-4" />
+                        <span>{partner.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Briefcase className="w-4 h-4" />
+                        <span className="font-bold text-emerald-600">Comissão: {partner.commissionRate}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {partner.address && (
+                    <div className="flex items-start gap-2 text-xs text-slate-400">
+                      <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                      <p>{partner.address}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-
-            <div className="flex items-start gap-5">
-              <div className="size-16 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
-                <Building2 className="w-8 h-8" />
-              </div>
-              <div className="space-y-4 flex-1">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">{partner.name}</h3>
-                    {getStatusBadge(partner.status)}
-                  </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-xs font-black uppercase tracking-widest text-[#fdb612]">{getTypeLabel(partner.type)}</p>
-                    {partner.cnpjStatus && (
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
-                        partner.cnpjStatus.toLowerCase().includes('ativa') 
-                          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
-                      )}>
-                        CNPJ: {partner.cnpjStatus}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <User className="w-4 h-4" />
-                      <span className="font-bold text-slate-700 dark:text-slate-300">{partner.contactName}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <Mail className="w-4 h-4" />
-                      <span>{partner.email}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <Phone className="w-4 h-4" />
-                      <span>{partner.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                      <Briefcase className="w-4 h-4" />
-                      <span className="font-bold text-emerald-600">Comissão: {partner.commissionRate}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {partner.address && (
-                  <div className="flex items-start gap-2 text-xs text-slate-400">
-                    <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-                    <p>{partner.address}</p>
-                  </div>
-                )}
-              </div>
-            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-slate-800">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Parceiro</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Contato</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredPartners.map((partner) => (
+                  <tr key={partner.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612]">
+                          <Building2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 dark:text-slate-100">{partner.name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{partner.cnpj}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{partner.contactName}</p>
+                      <p className="text-xs text-slate-400">{partner.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">{getTypeLabel(partner.type)}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStatusBadge(partner.status)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => {
+                            setSelectedPartner(partner);
+                            setIsViewOnly(true);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-400 hover:text-blue-500 rounded-lg transition-colors"
+                          title="Visualizar"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedPartner(partner);
+                            setIsViewOnly(false);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setPartnerToDelete(partner);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-2 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Modal de Cadastro/Edição */}
       {isModalOpen && (
@@ -212,6 +335,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           partner={selectedPartner}
+          isViewOnly={isViewOnly}
         />
       )}
 
@@ -251,9 +375,10 @@ interface PartnerModalProps {
   isOpen: boolean;
   onClose: () => void;
   partner: Partner | null;
+  isViewOnly?: boolean;
 }
 
-const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner }) => {
+const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, isViewOnly = false }) => {
   const { showToast } = useToast();
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -424,7 +549,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
               <Building2 className="w-5 h-5" />
             </div>
             <h3 className="text-xl font-black tracking-tight">
-              {partner ? 'Editar Parceiro' : 'Novo Parceiro Parceiro'}
+              {isViewOnly ? 'Visualizar Parceiro' : partner ? 'Editar Parceiro' : 'Novo Parceiro'}
             </h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
@@ -438,10 +563,11 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Razão Social / Nome</label>
               <input 
                 required
+                disabled={isViewOnly}
                 type="text" 
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
             </div>
             <div className="space-y-2">
@@ -455,12 +581,13 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
               </div>
               <input 
                 required
+                disabled={isViewOnly}
                 type="text" 
                 value={formData.cnpj}
                 onChange={(e) => handleCnpjChange(e.target.value)}
                 placeholder="00.000.000/0000-00"
                 className={cn(
-                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70",
                   cnpjError ? "border-red-500" : "border-slate-200 dark:border-slate-800"
                 )}
               />
@@ -478,26 +605,29 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pessoa de Contato</label>
               <input 
                 required
+                disabled={isViewOnly}
                 type="text" 
                 value={formData.contactName}
                 onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone / WhatsApp</label>
               <input 
                 required
+                disabled={isViewOnly}
                 type="text" 
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
               <input 
                 required
+                disabled={isViewOnly}
                 type="email" 
                 value={formData.email}
                 onChange={(e) => {
@@ -506,7 +636,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
                   validateEmail(val);
                 }}
                 className={cn(
-                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70",
                   emailError ? "border-red-500" : "border-slate-200 dark:border-slate-800"
                 )}
               />
@@ -515,9 +645,10 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Parceria</label>
               <select 
+                disabled={isViewOnly}
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               >
                 <option value="integrator">Integrador</option>
                 <option value="referral">Indicação / Afiliado</option>
@@ -528,6 +659,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Taxa de Comissão (%)</label>
               <input 
+                disabled={isViewOnly}
                 type="number" 
                 value={formData.commissionRate}
                 onChange={(e) => {
@@ -536,7 +668,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
                   validateCommission(val);
                 }}
                 className={cn(
-                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                  "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70",
                   commissionError ? "border-red-500" : "border-slate-200 dark:border-slate-800"
                 )}
               />
@@ -545,9 +677,10 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</label>
               <select 
+                disabled={isViewOnly}
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               >
                 <option value="active">Ativo</option>
                 <option value="pending">Pendente</option>
@@ -559,20 +692,22 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço Completo</label>
             <input 
+              disabled={isViewOnly}
               type="text" 
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
             />
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observações Internas</label>
             <textarea 
+              disabled={isViewOnly}
               rows={3}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all resize-none"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all resize-none disabled:opacity-70"
             />
           </div>
 
@@ -582,14 +717,16 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner })
               onClick={onClose}
               className="flex-1 px-4 py-4 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all"
             >
-              Cancelar
+              {isViewOnly ? 'Fechar' : 'Cancelar'}
             </button>
-            <button 
-              type="submit"
-              className="flex-[2] px-4 py-4 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
-            >
-              {partner ? 'Salvar Alterações' : 'Cadastrar Parceiro'}
-            </button>
+            {!isViewOnly && (
+              <button 
+                type="submit"
+                className="flex-[2] px-4 py-4 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
+              >
+                {partner ? 'Salvar Alterações' : 'Cadastrar Parceiro'}
+              </button>
+            )}
           </div>
         </form>
       </div>

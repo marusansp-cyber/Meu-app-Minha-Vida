@@ -128,6 +128,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     discount: initialData?.discount?.toString() || '0',
     financingBank: initialData?.financingBank || 'Nenhum',
     financingInstallments: initialData?.financingInstallments?.toString() || '0',
+    email: initialData?.email || '',
   });
   const [roiError, setRoiError] = useState<string | null>(null);
 
@@ -180,6 +181,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     
     if (step === 'ucs') {
       if (!formData.client.trim()) errors.client = 'Nome do cliente é obrigatório';
+      if (!formData.email.trim()) {
+        errors.email = 'E-mail do cliente é obrigatório';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'E-mail inválido';
+      }
       if (!formData.ucNumber.trim()) errors.ucNumber = 'Número da UC é obrigatório';
       if (!formData.energyConsumption || parseFloat(formData.energyConsumption) <= 0) {
         errors.energyConsumption = 'Consumo mensal deve ser maior que zero';
@@ -371,7 +377,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       kitId: formData.kitId || null,
       discount: parseFloat(formData.discount) || 0,
       financingBank: formData.financingBank || null,
-      financingInstallments: parseInt(formData.financingInstallments) || 0
+      financingInstallments: parseInt(formData.financingInstallments) || 0,
+      email: formData.email || null
     };
 
     onAdd(proposalData);
@@ -491,6 +498,34 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       />
                       {validationErrors.client && (
                         <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.client}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail do Cliente</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="email" 
+                        value={formData.email}
+                        onChange={(e) => {
+                          setFormData({ ...formData, email: e.target.value });
+                          if (validationErrors.email) {
+                            setValidationErrors(prev => {
+                              const next = { ...prev };
+                              delete next.email;
+                              return next;
+                            });
+                          }
+                        }}
+                        placeholder="exemplo@email.com"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                          validationErrors.email ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
+                        )}
+                      />
+                      {validationErrors.email && (
+                        <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.email}</p>
                       )}
                     </div>
                   </div>

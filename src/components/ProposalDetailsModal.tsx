@@ -107,6 +107,16 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail do Cliente</label>
+                  <input 
+                    type="email" 
+                    value={editForm.email || ''}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    placeholder="exemplo@email.com"
+                  />
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
                   <input 
                     type="text" 
@@ -235,6 +245,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Cliente</label>
                       <p className="font-bold text-xl">{proposal.client}</p>
+                      {proposal.email && <p className="text-xs text-slate-500">{proposal.email}</p>}
                     </div>
                   </div>
 
