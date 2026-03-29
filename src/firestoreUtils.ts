@@ -75,8 +75,8 @@ export function syncCollection<T>(
 
   return onSnapshot(q, (snapshot) => {
     const data = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      id: doc.id
     })) as T[];
     onUpdate(data);
   }, (error) => {
@@ -87,7 +87,7 @@ export function syncCollection<T>(
 function cleanData(data: any) {
   const clean: any = {};
   Object.keys(data).forEach(key => {
-    if (data[key] !== undefined) {
+    if (data[key] !== undefined && key !== 'id') {
       clean[key] = data[key];
     }
   });

@@ -170,21 +170,42 @@ export const INSTALLATIONS: Installation[] = [
     id: '1',
     name: 'Residência - Smith',
     projectId: 'SOL-9821',
-    stage: 'Aprovação de Engenharia',
+    stage: 'Instalação',
     technician: {
       name: 'Sara Connor',
       avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCduVQH7SkGxslxjuGHpKevNccd0GWnqid0DlMlvN64_VX7WhEcjDCmfBPP-yJy5Cd7SpkBUS0wDQA1GUr2yhLQqv2lpntWSo6kXoBfQCgl8XE8yplI6zQkUJrO3fLPhfgYOLOxbNPyFcCWOSL7_HqwjolITS6iO9dYtTyu1Dxy9J6sP22mQvCMywKM1Adk7ZkaLga0SlBn2UbNYRapTHC51RzZTj9ftjrSwwTh7zGNqGP0Y38a1aWI08lbO3_zxJS93Npb3UI4CHwk',
     },
-    progress: 25,
-    lastUpdated: '24 Out, 2023',
+    progress: 75,
+    lastUpdated: '29 Mar, 2026',
     type: 'residence',
     startDate: '15 Out, 2023',
     estimatedDeadline: '10 Nov, 2023',
     stages: [
-      { name: 'Engenharia', status: 'in-progress' },
-      { name: 'Materiais', status: 'pending' },
-      { name: 'Instalação', status: 'pending' },
-      { name: 'Inspeção', status: 'pending' },
+      { 
+        name: 'Engenharia', 
+        status: 'completed',
+        progress: 100,
+        notes: 'Projeto de engenharia aprovado pela concessionária sem ressalvas. Diagrama unifilar e memorial descritivo anexados.',
+        photos: ['https://picsum.photos/seed/solar1/800/600', 'https://picsum.photos/seed/solar2/800/600'],
+        assignedTechnician: 'Ricardo Sales'
+      },
+      { 
+        name: 'Materiais', 
+        status: 'completed',
+        progress: 100,
+        notes: 'Todos os materiais entregues no local da obra e conferidos conforme romaneio.',
+        photos: ['https://picsum.photos/seed/solar3/800/600'],
+        assignedTechnician: 'Ana Paula'
+      },
+      { 
+        name: 'Instalação', 
+        status: 'in-progress',
+        progress: 50,
+        notes: '',
+        photos: [],
+        assignedTechnician: 'Sara Connor'
+      },
+      { name: 'Inspeção', status: 'pending', progress: 0 },
     ]
   },
   {
@@ -205,27 +226,6 @@ export const INSTALLATIONS: Installation[] = [
       { name: 'Engenharia', status: 'completed' },
       { name: 'Materiais', status: 'in-progress' },
       { name: 'Instalação', status: 'pending' },
-      { name: 'Inspeção', status: 'pending' },
-    ]
-  },
-  {
-    id: '3',
-    name: 'Casa Vale Verde',
-    projectId: 'SOL-1109',
-    stage: 'Instalação',
-    technician: {
-      name: 'Kyle Reese',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC0LWDVDXuCpOPwfUiCiAdCvs9JWxkrdYX6rgj5D8DEWWPJly6wbY1rbCKbGwCEo1zAa-oxIDuVh8lV0lNL5XUHb4_FDy3zlsR8mm5TkOSW2HfsB6uSm_9eiy07rU9jOeZACwj1mPo2lfbz9YnY4JysVd6U-pnfQdNs2frYsh452B6seGKAJZpu8AiK8R3awMte2afcWt9e6XstS_5wQiEb47vmZ4eT2tXRlJIZZn6QHYA320of5QD2zyRXhpe-4ByMjrvO4xy-Su55',
-    },
-    progress: 75,
-    lastUpdated: '25 Out, 2023',
-    type: 'home',
-    startDate: '05 Out, 2023',
-    estimatedDeadline: '30 Out, 2023',
-    stages: [
-      { name: 'Engenharia', status: 'completed' },
-      { name: 'Materiais', status: 'completed' },
-      { name: 'Instalação', status: 'in-progress' },
       { name: 'Inspeção', status: 'pending' },
     ]
   },

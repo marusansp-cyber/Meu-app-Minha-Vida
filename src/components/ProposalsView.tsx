@@ -162,12 +162,17 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
 
   const handleSend = async (id: string) => {
     if (!id) {
-      showToast('Erro: ID da proposta não encontrado.', 'info');
+      showToast('Erro: ID da proposta não encontrado. Tente recarregar a página.', 'info');
+      console.error('handleSend called without ID');
       return;
     }
 
     const proposal = proposals.find(p => p.id === id);
-    if (!proposal) return;
+    if (!proposal) {
+      showToast('Erro: Proposta não encontrada no sistema.', 'info');
+      console.error(`Proposal with ID ${id} not found in proposals list`);
+      return;
+    }
 
     if (!proposal.email) {
       showToast('Erro: E-mail do cliente não cadastrado.', 'info');

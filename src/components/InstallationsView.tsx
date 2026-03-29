@@ -41,8 +41,13 @@ interface StageReportModalProps {
 }
 
 const StageReportModal: React.FC<StageReportModalProps> = ({ isOpen, onClose, stage, onSave }) => {
-  const [notes, setNotes] = useState(stage.notes || '');
+  const [notes, setNotes] = useState(stage.notes || (stage.name === 'Instalação' ? 'Verificar conexão dos painéis.' : ''));
   const [photos, setPhotos] = useState<string[]>(stage.photos || []);
+
+  React.useEffect(() => {
+    setNotes(stage.notes || (stage.name === 'Instalação' ? 'Verificar conexão dos painéis.' : ''));
+    setPhotos(stage.photos || []);
+  }, [stage]);
 
   if (!isOpen) return null;
 
