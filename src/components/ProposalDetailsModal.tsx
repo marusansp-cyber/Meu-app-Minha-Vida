@@ -24,7 +24,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Proposal } from '../types';
+import { Proposal, User as UserType } from '../types';
 
 interface ProposalDetailsModalProps {
   isOpen: boolean;
@@ -34,6 +34,7 @@ interface ProposalDetailsModalProps {
   onDownload: (id: string) => void;
   onPrint: (id: string) => void;
   onUpdate?: (proposal: Proposal) => void;
+  user: UserType | null;
 }
 
 export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({ 
@@ -43,7 +44,8 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   onSend,
   onDownload,
   onPrint,
-  onUpdate
+  onUpdate,
+  user
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Proposal>>({});
@@ -152,6 +154,30 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
+                {(user?.role === 'admin' || user?.role === 'finance') && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
+                      <input 
+                        type="number" 
+                        value={editForm.commission || 5}
+                        onChange={(e) => setEditForm({ ...editForm, commission: parseFloat(e.target.value) })}
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status da Comissão</label>
+                      <select 
+                        value={editForm.commissionStatus || 'pending'}
+                        onChange={(e) => setEditForm({ ...editForm, commissionStatus: e.target.value as 'pending' | 'paid' })}
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      >
+                        <option value="pending">Pendente</option>
+                        <option value="paid">Pago</option>
+                      </select>
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor (R$)</label>
                   <input 

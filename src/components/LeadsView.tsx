@@ -372,159 +372,197 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
               )}
             >
               <Filter className="w-4 h-4" />
-              Filtrar
+              <span className="hidden sm:inline">Filtrar</span>
               {(selectedStatuses.length < 5 || onlyUrgent || startDate || endDate || selectedRepresentative !== 'all') && (
                 <span className="size-2 bg-[#fdb612] rounded-full" />
               )}
             </button>
-            {showFilters && (
-              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-4 z-20 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Busca Rápida</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text"
-                      placeholder="Nome ou sistema..."
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
-                  <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
-                    <button 
-                      onClick={() => setDateFilterType('created')}
-                      className={cn(
-                        "flex-1 py-1 text-[10px] font-bold rounded-md transition-all",
-                        dateFilterType === 'created' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
-                      )}
-                    >
-                      Criação
-                    </button>
-                    <button 
-                      onClick={() => setDateFilterType('scheduled')}
-                      className={cn(
-                        "flex-1 py-1 text-[10px] font-bold rounded-md transition-all",
-                        dateFilterType === 'scheduled' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
-                      )}
-                    >
-                      Agendamento
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase">Início</span>
-                      <input 
-                        type="date" 
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase">Fim</span>
-                      <input 
-                        type="date" 
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
-                      />
-                    </div>
-                  </div>
-                  {(startDate || endDate) && (
-                    <button 
-                      onClick={() => {
-                        setStartDate('');
-                        setEndDate('');
-                      }}
-                      className="w-full py-1 text-[9px] font-bold text-[#fdb612] hover:underline text-right"
-                    >
-                      Limpar datas
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
-                  <select 
-                    value={selectedRepresentative}
-                    onChange={(e) => setSelectedRepresentative(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612] appearance-none"
+            <AnimatePresence>
+              {showFilters && (
+                <>
+                  {/* Backdrop for mobile */}
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowFilters(false)}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+                  />
+                  
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                    className={cn(
+                      "fixed inset-x-4 bottom-4 top-20 lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 w-auto lg:w-80 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl lg:rounded-xl shadow-2xl p-6 lg:p-4 z-[101] lg:z-20 space-y-6 lg:space-y-4 overflow-y-auto custom-scrollbar",
+                    )}
                   >
-                    <option value="all">Todos os Representantes</option>
-                    {representatives.map(rep => (
-                      <option key={rep} value={rep}>{rep}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status do Funil</label>
-                    <div className="flex gap-2">
+                    <div className="flex items-center justify-between lg:hidden mb-2">
+                      <h3 className="text-lg font-black uppercase tracking-tight">Filtros Avançados</h3>
                       <button 
-                        onClick={() => setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed'])}
-                        className="text-[9px] font-bold text-[#fdb612] hover:underline"
+                        onClick={() => setShowFilters(false)}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
                       >
-                        Todos
-                      </button>
-                      <button 
-                        onClick={() => setSelectedStatuses([])}
-                        className="text-[9px] font-bold text-slate-400 hover:underline"
-                      >
-                        Nenhum
+                        <X className="w-6 h-6" />
                       </button>
                     </div>
-                  <div className="grid grid-cols-2 gap-1">
-                    {columns.map(col => (
-                      <label key={col.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg cursor-pointer transition-colors">
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Busca Rápida</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="text"
+                          placeholder="Nome ou sistema..."
+                          className="w-full pl-10 pr-4 py-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
+                      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl lg:rounded-lg">
+                        <button 
+                          onClick={() => setDateFilterType('created')}
+                          className={cn(
+                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
+                            dateFilterType === 'created' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                          )}
+                        >
+                          Criação
+                        </button>
+                        <button 
+                          onClick={() => setDateFilterType('scheduled')}
+                          className={cn(
+                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
+                            dateFilterType === 'scheduled' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                          )}
+                        >
+                          Agendamento
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Início</span>
+                          <input 
+                            type="date" 
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Fim</span>
+                          <input 
+                            type="date" 
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                          />
+                        </div>
+                      </div>
+                      {(startDate || endDate) && (
+                        <button 
+                          onClick={() => {
+                            setStartDate('');
+                            setEndDate('');
+                          }}
+                          className="w-full py-1 text-[9px] font-bold text-[#fdb612] hover:underline text-right"
+                        >
+                          Limpar datas
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
+                      <select 
+                        value={selectedRepresentative}
+                        onChange={(e) => setSelectedRepresentative(e.target.value)}
+                        className="w-full px-4 py-3 lg:px-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612] appearance-none"
+                      >
+                        <option value="all">Todos os Representantes</option>
+                        {representatives.map(rep => (
+                          <option key={rep} value={rep}>{rep}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status do Funil</label>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed'])}
+                            className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                          >
+                            Todos
+                          </button>
+                          <button 
+                            onClick={() => setSelectedStatuses([])}
+                            className="text-[10px] font-bold text-slate-400 hover:underline"
+                          >
+                            Nenhum
+                          </button>
+                        </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {columns.map(col => (
+                          <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                            <input 
+                              type="checkbox" 
+                              className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                              checked={selectedStatuses.includes(col.id)}
+                              onChange={() => toggleStatus(col.id)}
+                            />
+                            <span className="text-xs font-bold">{col.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <label className="flex items-center justify-between p-3 lg:p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                        <div className="flex items-center gap-3">
+                          <Zap className="w-5 h-5 text-[#fdb612]" />
+                          <span className="text-sm font-bold">Apenas Urgentes</span>
+                        </div>
                         <input 
                           type="checkbox" 
-                          className="size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                          checked={selectedStatuses.includes(col.id)}
-                          onChange={() => toggleStatus(col.id)}
+                          className="size-5 lg:size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                          checked={onlyUrgent}
+                          onChange={(e) => setOnlyUrgent(e.target.checked)}
                         />
-                        <span className="text-xs font-medium">{col.label}</span>
                       </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <label className="flex items-center justify-between p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg cursor-pointer transition-colors">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-[#fdb612]" />
-                      <span className="text-sm font-bold">Apenas Urgentes</span>
                     </div>
-                    <input 
-                      type="checkbox" 
-                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                      checked={onlyUrgent}
-                      onChange={(e) => setOnlyUrgent(e.target.checked)}
-                    />
-                  </label>
-                </div>
 
-                <button 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed']);
-                    setOnlyUrgent(false);
-                    setStartDate('');
-                    setEndDate('');
-                    setDateFilterType('created');
-                    setSelectedRepresentative('all');
-                  }}
-                  className="w-full py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
-                >
-                  Limpar Filtros
-                </button>
-              </div>
-            )}
+                    <div className="flex flex-col gap-3 pt-2">
+                      <button 
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed']);
+                          setOnlyUrgent(false);
+                          setStartDate('');
+                          setEndDate('');
+                          setDateFilterType('created');
+                          setSelectedRepresentative('all');
+                        }}
+                        className="w-full py-3 lg:py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
+                      >
+                        Limpar Filtros
+                      </button>
+                      <button 
+                        onClick={() => setShowFilters(false)}
+                        className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-xl font-black uppercase tracking-widest text-xs lg:hidden"
+                      >
+                        Aplicar Filtros
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
           <button 
             onClick={exportToCSV}

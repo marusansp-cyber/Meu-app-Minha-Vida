@@ -41,20 +41,21 @@ const chartData = [
   { name: 'Jun', current: 100, previous: 85 },
 ];
 
-import { Lead, Proposal, Project } from '../types';
+import { Lead, Proposal, Installation, User as UserType } from '../types';
 
 interface DashboardViewProps {
-  projects: Project[];
+  installations: Installation[];
   leads: Lead[];
   proposals: Proposal[];
+  user: UserType | null;
   onOpenNewProject: () => void;
   onManageProjects: () => void;
 }
 
-type SortField = 'name' | 'location' | 'capacity' | 'status' | 'completion';
+type SortField = 'name' | 'projectId' | 'stage' | 'progress';
 type SortOrder = 'asc' | 'desc';
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ projects, leads, proposals, onOpenNewProject, onManageProjects }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ installations, leads, proposals, user, onOpenNewProject, onManageProjects }) => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [timeRange, setTimeRange] = useState('30');
@@ -77,21 +78,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ projects, leads, p
   }, [leads, proposals]);
 
   const stats = useMemo(() => {
-    return [
-      { label: 'Vendas Totais', value: `R$ ${(proposals.filter(p => p.status === 'accepted').reduce((acc, p) => acc + parseFloat(p.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.')), 0)).toLocaleString('pt-BR')}`, change: '+12.5%', trend: 'up' },
+    const totalAcceptedRevenue = proposals
+      .filter(p => p.status === 'accepted')
+      .reduce((acc, p) => acc + (parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
+
+    const pendingCommissions = proposals
+      .filter(p => p.status === 'accepted' && p.commissionStatus !== 'paid')
+      .reduce((acc, p) => {
+        const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const rate = p.commission || 5;
+        return acc + (val * (rate / 100));
+      }, 0);
+
+    const baseStats = [
+      { label: 'Vendas Totais', value: `R$ ${totalAcceptedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '+12.5%', trend: 'up' },
       { label: 'Novos Leads', value: leads.length.toString(), change: '+18%', trend: 'up' },
-      { label: 'Projetos Ativos', value: projects.length.toString(), change: '+5%', trend: 'up' },
+      { label: 'Projetos Ativos', value: installations.length.toString(), change: '+5%', trend: 'up' },
       { label: 'Taxa de Conversão', value: `${leads.length > 0 ? ((proposals.filter(p => p.status === 'accepted').length / leads.length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' },
     ];
-  }, [leads, proposals, projects]);
+
+    if (user?.role === 'admin' || user?.role === 'finance') {
+      baseStats.push({ label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '-3%', trend: 'down' });
+    }
+
+    return baseStats;
+  }, [leads, proposals, installations, user]);
 
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => {
+  const sortedInstallations = useMemo(() => {
+    return [...installations].sort((a, b) => {
       let aValue: any = a[sortField];
       let bValue: any = b[sortField];
 
@@ -99,7 +118,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ projects, leads, p
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [projects, sortField, sortOrder]);
+  }, [installations, sortField, sortOrder]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -387,67 +406,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ projects, leads, p
                   </th>
                   <th 
                     className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                    onClick={() => handleSort('location')}
+                    onClick={() => handleSort('projectId')}
                   >
                     <div className="flex items-center gap-2">
-                      Localização
-                      <SortIndicator field="location" />
+                      ID
+                      <SortIndicator field="projectId" />
                     </div>
                   </th>
                   <th 
                     className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                    onClick={() => handleSort('capacity')}
+                    onClick={() => handleSort('stage')}
                   >
                     <div className="flex items-center gap-2">
-                      Capacidade
-                      <SortIndicator field="capacity" />
+                      Fase
+                      <SortIndicator field="stage" />
                     </div>
                   </th>
                   <th 
                     className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                    onClick={() => handleSort('status')}
+                    onClick={() => handleSort('progress')}
                   >
                     <div className="flex items-center gap-2">
-                      Status
-                      <SortIndicator field="status" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-                    onClick={() => handleSort('completion')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Conclusão
-                      <SortIndicator field="completion" />
+                      Progresso
+                      <SortIndicator field="progress" />
                     </div>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#fdb612]/10">
-                {sortedProjects.map((project) => (
+                {sortedInstallations.slice(0, 5).map((project) => (
                   <tr key={project.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4 font-medium">{project.name}</td>
-                    <td className="px-6 py-4 text-slate-500">{project.location}</td>
-                    <td className="px-6 py-4 text-slate-500">{project.capacity}</td>
+                    <td className="px-6 py-4 text-slate-500 font-mono text-xs">{project.projectId}</td>
                     <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2.5 py-1 text-[10px] font-bold rounded-full uppercase",
-                        project.status === 'on-track' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400",
-                        project.status === 'planning' && "bg-[#fdb612]/20 text-[#fdb612]",
-                        project.status === 'delayed' && "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
-                      )}>
-                        {project.status === 'on-track' ? 'No Prazo' : project.status === 'planning' ? 'Planejamento' : 'Atrasado'}
+                      <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase bg-[#fdb612]/20 text-[#fdb612]">
+                        {project.stage}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="w-full bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className={cn(
-                            "h-full transition-all duration-500",
-                            project.status === 'delayed' ? "bg-rose-500" : "bg-[#fdb612]"
-                          )} 
-                          style={{ width: `${project.completion}%` }} 
-                        />
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-slate-200 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[#fdb612] transition-all duration-500" 
+                            style={{ width: `${project.progress}%` }} 
+                          />
+                        </div>
+                        <span className="text-xs font-bold">{project.progress}%</span>
                       </div>
                     </td>
                   </tr>

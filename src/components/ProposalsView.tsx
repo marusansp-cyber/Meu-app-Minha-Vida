@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Proposal } from '../types';
+import { Proposal, User as UserType } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
@@ -10,9 +10,10 @@ import { sendProposalEmail } from '../services/emailService';
 
 interface ProposalsViewProps {
   proposals: Proposal[];
+  user: UserType | null;
 }
 
-export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initialProposals }) => {
+export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initialProposals, user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -307,6 +308,21 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     });
   }, [proposals, searchTerm, statusFilter, filters]);
 
+  const getCommissionBadge = (status: string | undefined) => {
+    if (status === 'paid') {
+      return (
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 text-[8px] font-bold uppercase border border-emerald-100 dark:border-emerald-800/50">
+          Comissão Paga
+        </span>
+      );
+    }
+    return (
+      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400 text-[8px] font-bold uppercase border border-amber-100 dark:border-amber-800/50">
+        Comissão Pendente
+      </span>
+    );
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -373,6 +389,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
         }}
         onAdd={handleAddProposal}
         initialData={selectedProposal}
+        user={user}
       />
 
       <ProposalDetailsModal 
@@ -391,6 +408,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
           setSelectedProposal(updatedProp);
           showToast('Proposta atualizada com sucesso!');
         }}
+        user={user}
       />
 
       {isDeleteModalOpen && (
@@ -697,7 +715,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      {getStatusBadge(prop.status)}
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(prop.status)}
+                        {prop.status === 'accepted' && getCommissionBadge(prop.commissionStatus)}
+                      </div>
                       {prop.expiryDate && (
                         <span className={cn(
                           "text-[9px] font-bold uppercase tracking-tighter ml-1",

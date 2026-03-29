@@ -45,7 +45,8 @@
         "roi": { "type": "string" },
         "payback": { "type": "string" },
         "feasibilityStudy": { "type": "string" },
-        "commission": { "type": "number" }
+        "commission": { "type": "number" },
+        "commissionStatus": { "type": "string", "enum": ["pending", "paid"] }
       },
       "required": ["client", "value", "status"]
     },

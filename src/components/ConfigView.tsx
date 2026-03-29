@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from "@google/genai";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { Partner, Kit } from '../types';
 import { updateDocument } from '../firestoreUtils';
 import { db } from '../firebase';
@@ -80,6 +82,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [installationPriceError, setInstallationPriceError] = useState<string | null>(null);
   const [engineeringPriceError, setEngineeringPriceError] = useState<string | null>(null);
   const [additionalCostsError, setAdditionalCostsError] = useState<string | null>(null);
+  const [kitPriceAdjustmentError, setKitPriceAdjustmentError] = useState<string | null>(null);
   const [marginPercentageError, setMarginPercentageError] = useState<string | null>(null);
   const [energyInflationError, setEnergyInflationError] = useState<string | null>(null);
   const [panelDepreciationError, setPanelDepreciationError] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCalculatingROI, setIsCalculatingROI] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isValidatingFortlev, setIsValidatingFortlev] = useState(false);
   const [paybackTime, setPaybackTime] = useState<string>('6.2 Anos');
   const [roiPercentage, setRoiPercentage] = useState<string>('14.5%');
@@ -124,6 +128,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [engineeringPrice, setEngineeringPrice] = useState<string>('0');
   const [marginPercentage, setMarginPercentage] = useState<string>('20');
   const [additionalCosts, setAdditionalCosts] = useState<string>('0');
+  const [kitPriceAdjustment, setKitPriceAdjustment] = useState<string>('0');
+  const [monthlyInterestRate, setMonthlyInterestRate] = useState<string>('0.99');
+  const [financingTerm, setFinancingTerm] = useState<number>(96);
+  const [gracePeriod, setGracePeriod] = useState<number>(120);
+  const [monthlyInterestRateError, setMonthlyInterestRateError] = useState<string | null>(null);
   const [fortlevErrors, setFortlevErrors] = useState<{ email?: string; password?: string }>({});
   const [fortlevLoginError, setFortlevLoginError] = useState<string | null>(null);
 
@@ -224,6 +233,55 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       handleConsultKits();
     }
   }, [currentStep, kits.length, isConsultingKits]);
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('solar_simulator_draft');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.selectedPartnerId) setSelectedPartnerId(draft.selectedPartnerId);
+        if (draft.partnerCnpj) setPartnerCnpj(draft.partnerCnpj);
+        if (draft.partnerEmail) setPartnerEmail(draft.partnerEmail);
+        if (draft.partnerPhone) setPartnerPhone(draft.partnerPhone);
+        if (draft.annualUsage) setAnnualUsage(draft.annualUsage);
+        if (draft.monthlyBill) setMonthlyBill(draft.monthlyBill);
+        if (draft.systemSize) setSystemSize(draft.systemSize);
+        if (draft.losses) setLosses(draft.losses);
+        if (draft.dimensioningType) setDimensioningType(draft.dimensioningType);
+        if (draft.monthlyConsumption) setMonthlyConsumption(draft.monthlyConsumption);
+        if (draft.phases) setPhases(draft.phases);
+        if (draft.deliveryCity) setDeliveryCity(draft.deliveryCity);
+        if (draft.structure) setStructure(draft.structure);
+        if (draft.currentStep) setCurrentStep(draft.currentStep);
+        if (draft.selectedKitId) setSelectedKitId(draft.selectedKitId);
+        if (draft.installationPrice) setInstallationPrice(draft.installationPrice);
+        if (draft.engineeringPrice) setEngineeringPrice(draft.engineeringPrice);
+        if (draft.additionalCosts) setAdditionalCosts(draft.additionalCosts);
+        if (draft.kitPriceAdjustment) setKitPriceAdjustment(draft.kitPriceAdjustment);
+        if (draft.marginPercentage) setMarginPercentage(draft.marginPercentage);
+        if (draft.monthlyInterestRate) setMonthlyInterestRate(draft.monthlyInterestRate);
+        if (draft.financingTerm) setFinancingTerm(draft.financingTerm);
+        if (draft.gracePeriod) setGracePeriod(draft.gracePeriod);
+        if (draft.tasks) setTasks(draft.tasks);
+        if (draft.selectedKitComponents) setSelectedKitComponents(draft.selectedKitComponents);
+        if (draft.panelType) setPanelType(draft.panelType);
+        if (draft.inverterType) setInverterType(draft.inverterType);
+        if (draft.orientation) setOrientation(draft.orientation);
+        if (draft.roofMaterial) setRoofMaterial(draft.roofMaterial);
+        if (draft.roofPitch) setRoofPitch(draft.roofPitch);
+        if (draft.shading) setShading(draft.shading);
+        if (draft.ucNumber) setUcNumber(draft.ucNumber);
+        if (draft.energyInflation) setEnergyInflation(draft.energyInflation);
+        if (draft.panelDepreciation) setPanelDepreciation(draft.panelDepreciation);
+        if (draft.maintenanceRate) setMaintenanceRate(draft.maintenanceRate);
+        if (draft.efficiency) setEfficiency(draft.efficiency);
+        
+        showToast('Rascunho carregado com sucesso!', 'success');
+      } catch (error) {
+        console.error('Erro ao carregar rascunho:', error);
+      }
+    }
+  }, []);
 
   const steps = [
     { id: 1, label: 'Parâmetros' },
@@ -706,6 +764,109 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     return matchesSearch && dateMatch;
   });
 
+  const generateProposalPDF = async () => {
+    const doc = new jsPDF();
+    const kit = kits.find(k => k.id === selectedKitId);
+    const totalInvestment = ((kit?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100));
+
+    // Header
+    doc.setFillColor(35, 29, 15); // #231d0f
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(253, 182, 18); // #fdb612
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("PROPOSTA COMERCIAL", 105, 25, { align: "center" });
+
+    // Client Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text("DADOS DO CLIENTE", 20, 55);
+    doc.line(20, 57, 190, 57);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Parceiro: ${partners.find(p => p.id === selectedPartnerId)?.name || 'N/A'}`, 20, 65);
+    doc.text(`CNPJ: ${partnerCnpj}`, 20, 72);
+    doc.text(`E-mail: ${partnerEmail}`, 20, 79);
+    doc.text(`Telefone: ${partnerPhone}`, 20, 86);
+
+    // Project Info
+    doc.setFont("helvetica", "bold");
+    doc.text("DADOS DO PROJETO", 20, 100);
+    doc.line(20, 102, 190, 102);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Cidade: ${deliveryCity}`, 20, 110);
+    doc.text(`Consumo Anual: ${annualUsage} kWh`, 20, 117);
+    doc.text(`Potência do Sistema: ${systemSize} kWp`, 20, 124);
+    doc.text(`Tipo de Telhado: ${structure}`, 20, 131);
+
+    // Kit Info
+    doc.setFont("helvetica", "bold");
+    doc.text("EQUIPAMENTOS SELECIONADOS", 20, 145);
+    doc.line(20, 147, 190, 147);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Kit: ${kit?.name || 'N/A'}`, 20, 155);
+    doc.text(`Inversor: ${kit?.inverterBrand || 'N/A'}`, 20, 162);
+    doc.text(`Painéis: ${kit?.panelBrand || 'N/A'}`, 20, 169);
+
+    // Financial Info
+    doc.setFont("helvetica", "bold");
+    doc.text("INVESTIMENTO E FINANCEIRO", 20, 185);
+    doc.line(20, 187, 190, 187);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Investimento Total: R$ ${totalInvestment.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, 195);
+    doc.text(`Payback Estimado: ${paybackTime}`, 20, 202);
+    doc.text(`ROI Mensal: ${roiPercentage}`, 20, 209);
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Vieira's Solar & Engenharia - Proposta gerada em " + new Date().toLocaleDateString('pt-BR'), 105, 285, { align: "center" });
+
+    return doc;
+  };
+
+  const handleFinalizeAndSend = async () => {
+    if (!partnerEmail) {
+      showToast('Por favor, insira o e-mail do parceiro no Passo 1.', 'warning');
+      setCurrentStep(1);
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    showToast('Gerando proposta PDF e enviando e-mail...');
+
+    try {
+      const doc = await generateProposalPDF();
+      const pdfBase64 = doc.output('datauristring');
+
+      const response = await fetch('/api/proposals/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: partnerEmail,
+          subject: `Proposta Solar - ${partners.find(p => p.id === selectedPartnerId)?.name || 'Cliente'}`,
+          body: `Olá,\n\nSegue em anexo a proposta comercial detalhada para o seu sistema de energia solar.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+          pdfBase64,
+          fileName: `proposta_solar_${partnerCnpj.replace(/\D/g, '')}.pdf`
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        showToast('Proposta enviada com sucesso para ' + partnerEmail, 'success');
+        // Optionally download the PDF for the user too
+        doc.save(`proposta_solar_${partnerCnpj.replace(/\D/g, '')}.pdf`);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error('Error generating/sending proposal:', error);
+      showToast('Erro ao enviar proposta. Verifique as configurações de e-mail.', 'error');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleSaveDraft = () => {
     if (cnpjError) {
       showToast('Não é possível salvar com um CNPJ inválido ou inativo.', 'error');
@@ -718,22 +879,41 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     setTimeout(() => {
       const draft = {
         currentStep,
-        panelType,
-        inverterType,
+        selectedPartnerId,
+        partnerCnpj,
+        partnerEmail,
+        partnerPhone,
         annualUsage,
         monthlyBill,
         systemSize,
+        losses,
+        dimensioningType,
+        monthlyConsumption,
+        phases,
+        deliveryCity,
+        structure,
+        panelType,
+        inverterType,
         orientation,
         roofMaterial,
         roofPitch,
         shading,
         ucNumber,
-        monthlyConsumption,
         energyInflation,
         panelDepreciation,
         maintenanceRate,
-        losses,
-        efficiency
+        efficiency,
+        selectedKitId,
+        installationPrice,
+        engineeringPrice,
+        additionalCosts,
+        kitPriceAdjustment,
+        marginPercentage,
+        monthlyInterestRate,
+        financingTerm,
+        gracePeriod,
+        tasks,
+        selectedKitComponents
       };
       localStorage.setItem('solar_simulator_draft', JSON.stringify(draft));
       setIsSavingDraft(false);
@@ -1386,9 +1566,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                 <button 
                   onClick={() => setCurrentStep(2)}
-                  className="w-full py-5 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm uppercase tracking-[0.2em] hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all active:scale-[0.98] mt-4"
+                  disabled={!!cnpjError || isConsultingCnpj}
+                  className={cn(
+                    "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-[0.98] mt-4",
+                    (cnpjError || isConsultingCnpj)
+                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      : "bg-[#fdb612] text-[#231d0f] hover:shadow-xl hover:shadow-[#fdb612]/20"
+                  )}
                 >
-                  Gerar Geradores
+                  {isConsultingCnpj ? "Consultando CNPJ..." : "Gerar Geradores"}
                 </button>
               </div>
             </div>
@@ -1923,6 +2109,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         {additionalCostsError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{additionalCostsError}</p>}
                       </div>
                       <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Ajuste de Preço do Kit (R$)</label>
+                        <div className="relative group">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">R$</span>
+                          <input 
+                            type="number" 
+                            value={kitPriceAdjustment}
+                            onChange={(e) => handleNumericalChange(e.target.value, 'Ajuste do Kit', setKitPriceAdjustment, setKitPriceAdjustmentError)}
+                            className={cn(
+                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 outline-none font-black transition-all",
+                              kitPriceAdjustmentError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
+                            )}
+                          />
+                        </div>
+                        {kitPriceAdjustmentError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{kitPriceAdjustmentError}</p>}
+                      </div>
+                      <div className="space-y-3">
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Margem de Lucro (%)</label>
                         <div className="relative group">
                           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">%</span>
@@ -2160,7 +2362,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <div className="text-4xl font-black tracking-tighter">
                         <span className="text-lg font-medium mr-1 opacity-40">R$</span>
                         {
-                          (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                          (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                         }
                       </div>
                     </div>
@@ -2181,7 +2383,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <div className="space-y-4 bg-slate-50 dark:bg-slate-900/30 p-6 rounded-[1.5rem] border border-slate-100 dark:border-slate-800/50">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-black uppercase tracking-widest text-slate-500">Equipamento</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {(kits.find(k => k.id === selectedKitId)?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">R$ {((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-black uppercase tracking-widest text-slate-500">Serviços</span>
@@ -2190,8 +2392,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
                           <span className="text-xs font-black uppercase tracking-widest text-slate-500">Margem ({marginPercentage}%)</span>
                           <span className="font-black text-emerald-500">R$ {
-                            ((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) - 
-                            ((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                            ((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) - 
+                            ((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                           }</span>
                         </div>
                       </div>
@@ -2244,15 +2446,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
                   {[
-                    { bank: 'Banco Fortlev', rate: '0.99%', term: '96x', highlight: true, logo: 'https://fortlevsolar.app/assets/images/logo-fortlev.png' },
-                    { bank: 'Santander', rate: '1.29%', term: '72x', logo: 'https://picsum.photos/seed/santander/100/40' },
-                    { bank: 'Solfacil', rate: '1.15%', term: '120x', logo: 'https://picsum.photos/seed/solfacil/100/40' },
+                    { bank: 'Banco Fortlev', rate: '0.99', term: 96, highlight: true, logo: 'https://fortlevsolar.app/assets/images/logo-fortlev.png' },
+                    { bank: 'Santander', rate: '1.29', term: 72, logo: 'https://picsum.photos/seed/santander/100/40' },
+                    { bank: 'Solfacil', rate: '1.15', term: 120, logo: 'https://picsum.photos/seed/solfacil/100/40' },
+                    { bank: 'BV Financeira', rate: '1.35', term: 84, logo: 'https://picsum.photos/seed/bv/100/40' },
+                    { bank: 'Bradesco', rate: '1.45', term: 60, logo: 'https://picsum.photos/seed/bradesco/100/40' },
                   ].map((option) => (
                     <div 
                       key={option.bank} 
+                      onClick={() => {
+                        setMonthlyInterestRate(option.rate);
+                        setFinancingTerm(option.term);
+                        showToast(`Opção ${option.bank} selecionada!`, 'success');
+                      }}
                       className={cn(
                         "p-8 rounded-[2rem] border-2 transition-all cursor-pointer relative overflow-hidden group active:scale-[0.98]",
-                        option.highlight 
+                        (monthlyInterestRate === option.rate && financingTerm === option.term) 
                           ? "border-[#fdb612] bg-[#fdb612]/5 shadow-2xl shadow-[#fdb612]/10" 
                           : "border-slate-100 dark:border-slate-800 hover:border-[#fdb612]/30 bg-white dark:bg-[#231d0f]/20"
                       )}
@@ -2270,15 +2479,54 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         )}
                       </div>
                       <div className="text-center space-y-2">
-                        <p className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">{option.rate}</p>
+                        <p className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter">{option.rate}%</p>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Taxa de Juros Mensal</p>
                       </div>
                       <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 text-center">
-                        <p className="text-xl font-black text-[#fdb612]">{option.term}</p>
+                        <p className="text-xl font-black text-[#fdb612]">{option.term}x</p>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Prazo Máximo</p>
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {/* Manual Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Taxa de Juros Mensal (%)</label>
+                    <div className="relative group">
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">%</span>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={monthlyInterestRate}
+                        onChange={(e) => handleNumericalChange(e.target.value, 'Taxa de Juros', setMonthlyInterestRate, setMonthlyInterestRateError)}
+                        className={cn(
+                          "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 px-6 text-sm focus:ring-2 outline-none font-black transition-all",
+                          monthlyInterestRateError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
+                        )}
+                      />
+                    </div>
+                    {monthlyInterestRateError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{monthlyInterestRateError}</p>}
+                  </div>
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Prazo (Meses)</label>
+                    <input 
+                      type="number" 
+                      value={financingTerm}
+                      onChange={(e) => setFinancingTerm(parseInt(e.target.value) || 0)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none font-black transition-all"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Carência (Dias)</label>
+                    <input 
+                      type="number" 
+                      value={gracePeriod}
+                      onChange={(e) => setGracePeriod(parseInt(e.target.value) || 0)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none font-black transition-all"
+                    />
+                  </div>
                 </div>
 
                 <div className="bg-[#231d0f] text-white p-10 rounded-[2.5rem] mb-10 relative overflow-hidden border border-white/5 shadow-2xl">
@@ -2286,7 +2534,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <div className="flex flex-col lg:flex-row justify-between items-center gap-10 relative z-10">
                     <div className="space-y-4 text-center lg:text-left">
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#fdb612] text-[#231d0f] rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-[#fdb612]/20">
-                        Simulação Banco Fortlev
+                        Simulação Personalizada
                       </div>
                       <h4 className="text-3xl font-black tracking-tight uppercase">Parcelas que cabem no seu bolso</h4>
                       <p className="text-slate-400 text-sm max-w-sm font-medium">Até 120 dias de carência para começar a pagar. A economia de energia paga a parcela.</p>
@@ -2294,9 +2542,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <div className="text-center lg:text-right bg-white/5 p-6 rounded-3xl border border-white/5 backdrop-blur-sm">
                       <p className="text-5xl font-black text-[#fdb612] tracking-tighter">
                         <span className="text-lg font-medium mr-1 opacity-60">R$</span>
-                        458,20
+                        {(() => {
+                          const pv = (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100)));
+                          const i = parseFloat(monthlyInterestRate) / 100;
+                          const n = financingTerm;
+                          if (i === 0) return (pv / n).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                          const pmt = pv * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+                          return isNaN(pmt) || !isFinite(pmt) ? '0,00' : pmt.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                        })()}
                       </p>
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-black mt-2">Parcela Estimada</p>
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 font-black mt-2">Parcela Estimada ({financingTerm}x)</p>
                     </div>
                     <button 
                       onClick={() => showToast('Solicitando análise de crédito...')}
@@ -2396,7 +2651,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <div className="space-y-2">
                     <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.2em]">Investimento</p>
                     <p className="text-2xl font-black text-[#fdb612] tracking-tight">R$ {
-                      (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 0 })
+                      (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 0 })
                     }</p>
                   </div>
                   <div className="space-y-2">
@@ -2491,15 +2746,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
                   <button 
-                    onClick={() => showToast('Gerando PDF da proposta...')}
-                    className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-[#fdb612] hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all flex flex-col items-center gap-6 active:scale-95"
+                    onClick={handleFinalizeAndSend}
+                    disabled={isGeneratingPDF}
+                    className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-[#fdb612] hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all flex flex-col items-center gap-6 active:scale-95 disabled:opacity-50"
                   >
                     <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-[#fdb612]/10 group-hover:text-[#fdb612] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-6 shadow-sm">
-                      <FileText className="w-10 h-10" />
+                      {isGeneratingPDF ? <Loader2 className="w-10 h-10 animate-spin" /> : <FileText className="w-10 h-10" />}
                     </div>
                     <div className="space-y-2">
                       <span className="block text-xl uppercase tracking-tight">Gerar Proposta</span>
-                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Download PDF Completo</span>
+                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Download & Enviar E-mail</span>
                     </div>
                   </button>
 

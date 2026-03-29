@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Building2,
   UserPlus,
-  LayoutGrid
+  LayoutGrid,
+  Wallet
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { View, User as UserType } from '../types';
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
     { id: 'config', label: 'Simulador', icon: Sun, roles: ['admin', 'engineer'] },
     { id: 'sales', label: 'Vendas', icon: TrendingUp, roles: ['admin', 'sales'] },
     { id: 'proposals', label: 'Propostas', icon: FileText, roles: ['admin', 'sales'] },
+    { id: 'finance', label: 'Financeiro', icon: Wallet, roles: ['admin', 'finance'] },
     { id: 'kits', label: 'Kits', icon: LayoutGrid, roles: ['admin', 'sales', 'engineer'] },
     { id: 'collaborators', label: 'Colaboradores', icon: UserPlus, roles: ['admin'] },
     { id: 'partners', label: 'Parceiros', icon: Building2, roles: ['admin'] },

@@ -9,7 +9,7 @@ service cloud.firestore {
     // Fields: name, email, phone, whatsapp, systemSize, value, status, urgent, scheduledDate, createdAt, representative, history
     //
     // Collection: proposals
-    // Fields: client, value, date, status, systemSize, representative, expiryDate, roi, payback, feasibilityStudy, commission
+    // Fields: client, value, date, status, systemSize, representative, expiryDate, roi, payback, feasibilityStudy, commission, commissionStatus, ucNumber, energyConsumption, kitId, discount, financingBank, financingInstallments, email
     //
     // Collection: installations
     // Fields: name, projectId, stage, technician, progress, lastUpdated, type, startDate, estimatedDeadline, stages
@@ -71,7 +71,8 @@ service cloud.firestore {
     function isValidProposal(data) {
       return hasRequiredFields(['client', 'value', 'status']) &&
              data.client is string && data.client.size() > 0 && data.client.size() < 100 &&
-             data.status in ['pending', 'sent', 'accepted', 'expired'];
+             data.status in ['pending', 'sent', 'accepted', 'expired', 'cancelled'] &&
+             (!('commissionStatus' in data) || data.commissionStatus in ['pending', 'paid']);
     }
 
     function isValidInstallation(data) {
@@ -83,7 +84,7 @@ service cloud.firestore {
       return hasRequiredFields(['name', 'email', 'role']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              isValidEmail(data.email) &&
-             data.role in ['admin', 'sales', 'engineer', 'installer'];
+             data.role in ['admin', 'sales', 'engineer', 'installer', 'finance'];
     }
 
     function isValidPartner(data) {

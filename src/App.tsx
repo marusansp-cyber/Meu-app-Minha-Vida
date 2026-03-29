@@ -13,9 +13,9 @@ import { SettingsView } from './components/SettingsView';
 import { PartnersView } from './components/PartnersView';
 import { CollaboratorsView } from './components/CollaboratorsView';
 import { KitsView } from './components/KitsView';
+import { FinanceView } from './components/FinanceView';
 import { LoginView } from './components/LoginView';
-import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit } from './types';
-import { ACTIVE_PROJECTS as INITIAL_PROJECTS } from './constants';
+import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation } from './types';
 import { Sun, Menu, X, Bell, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -30,9 +30,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Installation | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [installations, setInstallations] = useState<any[]>([]);
@@ -101,8 +101,8 @@ export default function App() {
     setCurrentView('dashboard');
   };
 
-  const addProject = (project: Project) => {
-    setProjects([project, ...projects]);
+  const handleInstallationAdd = async (installation: any) => {
+    await createDocument('installations', installation);
   };
 
   const addLead = async (lead: Lead) => {
@@ -121,6 +121,14 @@ export default function App() {
     await updateDocument('leads', id, data);
   };
 
+  const updateInstallation = async (id: string, data: any) => {
+    await updateDocument('installations', id, data);
+  };
+
+  const deleteInstallation = async (id: string) => {
+    await deleteDocument('installations', id);
+  };
+
   const canAccess = (view: View) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
@@ -128,7 +136,8 @@ export default function App() {
     const permissions: Record<string, string[]> = {
       sales: ['dashboard', 'leads', 'sales', 'proposals'],
       engineer: ['dashboard', 'installations', 'config'],
-      installer: ['dashboard', 'installations']
+      installer: ['dashboard', 'installations'],
+      finance: ['dashboard', 'finance', 'proposals']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -237,9 +246,10 @@ export default function App() {
               <>
                 {currentView === 'dashboard' && (
                   <DashboardView 
-                    projects={projects} 
+                    installations={installations} 
                     leads={leads}
                     proposals={proposals}
+                    user={user}
                     onOpenNewProject={() => setIsProjectModalOpen(true)} 
                     onManageProjects={() => setCurrentView('installations')}
                   />
@@ -255,9 +265,17 @@ export default function App() {
                 )}
                 {currentView === 'installations' && (
                   <InstallationsView 
-                    projects={projects} 
                     installations={installations}
-                    onOpenNewProject={() => setIsProjectModalOpen(true)} 
+                    onOpenNewProject={() => {
+                      setEditingProject(null);
+                      setIsProjectModalOpen(true);
+                    }} 
+                    onEditProject={(project) => {
+                      setEditingProject(project);
+                      setIsProjectModalOpen(true);
+                    }}
+                    onUpdateInstallation={updateInstallation}
+                    onDeleteInstallation={deleteInstallation}
                   />
                 )}
                 {currentView === 'config' && (
@@ -268,11 +286,12 @@ export default function App() {
                 )}
                 {currentView === 'team' && <TeamView />}
                 {currentView === 'sales' && <SalesView />}
-                {currentView === 'proposals' && <ProposalsView proposals={proposals} />}
+                {currentView === 'proposals' && <ProposalsView proposals={proposals} user={user} />}
                 {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
                 {currentView === 'partners' && <PartnersView partners={partners} />}
                 {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
                 {currentView === 'kits' && <KitsView kits={kits} />}
+                {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
               </>
             )}
           </div>
@@ -280,8 +299,12 @@ export default function App() {
 
         <NewProjectModal 
           isOpen={isProjectModalOpen} 
-          onClose={() => setIsProjectModalOpen(false)} 
-          onAdd={addProject} 
+          onClose={() => {
+            setIsProjectModalOpen(false);
+            setEditingProject(null);
+          }} 
+          onAdd={handleInstallationAdd} 
+          installation={editingProject}
         />
 
         <NewLeadModal 

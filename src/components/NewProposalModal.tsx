@@ -29,7 +29,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Proposal, Kit } from '../types';
+import { Proposal, Kit, User as UserType } from '../types';
 import { syncCollection, updateDocument } from '../firestoreUtils';
 
 interface NewProposalModalProps {
@@ -37,6 +37,7 @@ interface NewProposalModalProps {
   onClose: () => void;
   onAdd: (proposal: Proposal) => void;
   initialData?: Proposal | null;
+  user: UserType | null;
 }
 
 type Step = 'ucs' | 'kit' | 'pricing' | 'validation' | 'financing' | 'finalization';
@@ -50,7 +51,7 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'finalization', label: 'Finalização', icon: CheckCircle2 },
 ];
 
-export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData }) => {
+export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData, user }) => {
   const [currentStep, setCurrentStep] = useState<Step>('ucs');
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
@@ -60,8 +61,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [isConsultingKits, setIsConsultingKits] = useState(false);
   const [fortlevKits, setFortlevKits] = useState<any[]>([]);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
-  const [inverterBrandFilter, setInverterBrandFilter] = useState<string[]>([]);
-  const [moduleBrandFilter, setModuleBrandFilter] = useState<string[]>([]);
+  const [inverterBrandFilter, setInverterBrandFilter] = useState<string>('all');
+  const [moduleBrandFilter, setModuleBrandFilter] = useState<string>('all');
   const [filterByPower, setFilterByPower] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -229,17 +230,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     let filtered = fortlevKits;
     
     // Brand filtering
-    if (inverterBrandFilter.length > 0) {
+    if (inverterBrandFilter !== 'all') {
       filtered = filtered.filter(k => {
         const brand = k.inverterBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('inversor'))?.brand;
-        return brand && inverterBrandFilter.includes(brand);
+        return brand === inverterBrandFilter;
       });
     }
     
-    if (moduleBrandFilter.length > 0) {
+    if (moduleBrandFilter !== 'all') {
       filtered = filtered.filter(k => {
         const brand = k.panelBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('painel') || c.name?.toLowerCase().includes('módulo'))?.brand;
-        return brand && moduleBrandFilter.includes(brand);
+        return brand === moduleBrandFilter;
       });
     }
 
@@ -371,6 +372,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       payback: formData.payback ? `${formData.payback} Anos` : null,
       feasibilityStudy: formData.feasibilityStudy || null,
       commission: parseFloat(formData.commission) || 0,
+      commissionStatus: initialData?.commissionStatus || 'pending',
       expiryDate: formData.expiryDate || null,
       ucNumber: formData.ucNumber || null,
       energyConsumption: formData.energyConsumption || null,
@@ -719,11 +721,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="space-y-1">
                           <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Inversores</label>
                           <select 
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === 'all') setInverterBrandFilter([]);
-                              else setInverterBrandFilter([val]);
-                            }}
+                            value={inverterBrandFilter}
+                            onChange={(e) => setInverterBrandFilter(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
                           >
                             <option value="all">Todas ({availableInverterBrands.length})</option>
@@ -735,11 +734,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="space-y-1">
                           <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Módulos</label>
                           <select 
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val === 'all') setModuleBrandFilter([]);
-                              else setModuleBrandFilter([val]);
-                            }}
+                            value={moduleBrandFilter}
+                            onChange={(e) => setModuleBrandFilter(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
                           >
                             <option value="all">Todas ({availableModuleBrands.length})</option>
@@ -878,6 +874,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
                   </div>
+                  {(user?.role === 'admin' || user?.role === 'finance') && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
+                      <input 
+                        type="number" 
+                        value={formData.commission}
+                        onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                      />
+                    </div>
+                  )}
                   
                   {/* Calculated Values */}
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
@@ -984,13 +991,19 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    { bank: 'Banco Fortlev', rate: '0.99%', term: '96x', highlight: true },
-                    { bank: 'Santander', rate: '1.29%', term: '72x' },
-                    { bank: 'BV Financeira', rate: '1.35%', term: '84x' },
+                    { bank: 'Banco Fortlev', rate: 0.99, term: 96, highlight: true },
+                    { bank: 'Santander', rate: 1.29, term: 72 },
+                    { bank: 'BV Financeira', rate: 1.35, term: 84 },
                   ].map((option) => (
                     <div 
                       key={option.bank}
-                      onClick={() => setFormData({ ...formData, financingBank: option.bank })}
+                      onClick={() => {
+                        setFormData({ 
+                          ...formData, 
+                          financingBank: option.bank,
+                          financingInstallments: option.term.toString()
+                        });
+                      }}
                       className={cn(
                         "p-6 rounded-3xl border transition-all cursor-pointer text-center relative overflow-hidden",
                         formData.financingBank === option.bank 
@@ -1002,15 +1015,68 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="absolute top-0 right-0 bg-[#fdb612] text-[#231d0f] text-[8px] font-black px-2 py-1 rounded-bl-lg uppercase">Exclusivo</div>
                       )}
                       <p className={cn("text-xs font-bold mb-4", option.highlight ? "text-[#fdb612]" : "text-slate-400")}>{option.bank}</p>
-                      <p className="text-2xl font-black">{option.rate}</p>
+                      <p className="text-2xl font-black">{option.rate}%</p>
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Taxa a.m.</p>
                       <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <p className="font-bold text-blue-500">{option.term}</p>
+                        <p className="font-bold text-blue-500">{option.term}x</p>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Prazo Máximo</p>
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {formData.financingBank !== 'Nenhum' && (
+                  <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-[32px] border border-slate-100 dark:border-slate-800 space-y-6">
+                    <div className="flex items-center gap-2 text-[#fdb612]">
+                      <CreditCard className="w-5 h-5" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Simulador de Parcelas</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número de Parcelas</label>
+                          <select 
+                            value={formData.financingInstallments}
+                            onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
+                            className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                          >
+                            {[12, 24, 36, 48, 60, 72, 84, 96].map(n => (
+                              <option key={n} value={n}>{n}x</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Financiado</p>
+                          <p className="text-xl font-black">R$ {(parseFloat(formData.value || '0') - parseFloat(formData.discount || '0')).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-[#fdb612] p-6 rounded-2xl text-[#231d0f] flex flex-col justify-center">
+                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Parcela Estimada</p>
+                        <p className="text-4xl font-black">
+                          {(() => {
+                            const principal = parseFloat(formData.value || '0') - parseFloat(formData.discount || '0');
+                            const installments = parseInt(formData.financingInstallments || '1');
+                            const bank = [
+                              { bank: 'Banco Fortlev', rate: 0.99 },
+                              { bank: 'Santander', rate: 1.29 },
+                              { bank: 'BV Financeira', rate: 1.35 },
+                            ].find(b => b.bank === formData.financingBank);
+                            
+                            const rate = (bank?.rate || 1.29) / 100;
+                            // PMT = P * [r(1+r)^n] / [(1+r)^n - 1]
+                            const pmt = principal * (rate * Math.pow(1 + rate, installments)) / (Math.pow(1 + rate, installments) - 1);
+                            
+                            return `R$ ${pmt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                          })()}
+                        </p>
+                        <p className="text-[10px] font-bold mt-2 opacity-60">* Sujeito a análise de crédito e variação de taxas.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between">
                   <button 
                     type="button"
