@@ -466,7 +466,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   };
 
   const handleRedo = () => {
-    // Reset to defaults or just trigger a re-calculation (which is automatic in this UI)
+    // Reset to defaults
     setAnnualUsage('12000');
     setMonthlyBill('250');
     setOrientation('Sul (180°)');
@@ -482,6 +482,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     setPartnerPhone('');
     setPartnerType('integrator');
     setSystemSize('8.6');
+    setCurrentStep(1);
+    
+    // Clear draft from localStorage
+    localStorage.removeItem('solar_simulator_draft');
+    showToast('Simulação zerada com sucesso!', 'success');
   };
 
   const handleAutoCalculateSystemSize = () => {
@@ -844,10 +849,18 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     }
 
     setIsGeneratingPDF(true);
-    showToast('Gerando proposta PDF e enviando e-mail...');
+    showToast('Gerando proposta PDF...', 'info');
 
     try {
       const doc = await generateProposalPDF();
+      
+      // Always download the PDF first so the user gets it
+      const fileName = `proposta_solar_${partnerCnpj.replace(/\D/g, '') || 'projeto'}.pdf`;
+      doc.save(fileName);
+      showToast('PDF gerado e baixado com sucesso!', 'success');
+
+      // Now try to send the email
+      showToast('Enviando e-mail para ' + partnerEmail + '...', 'info');
       const pdfBase64 = doc.output('datauristring');
 
       const response = await fetch('/api/proposals/send', {
@@ -858,22 +871,21 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
           subject: `Proposta Solar - ${partners.find(p => p.id === selectedPartnerId)?.name || 'Cliente'}`,
           body: `Olá,\n\nSegue em anexo a proposta comercial detalhada para o seu sistema de energia solar.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
           pdfBase64,
-          fileName: `proposta_solar_${partnerCnpj.replace(/\D/g, '')}.pdf`
+          fileName
         })
       });
 
       const result = await response.json();
 
       if (result.success) {
-        showToast('Proposta enviada com sucesso para ' + partnerEmail, 'success');
-        // Optionally download the PDF for the user too
-        doc.save(`proposta_solar_${partnerCnpj.replace(/\D/g, '')}.pdf`);
+        showToast('E-mail enviado com sucesso para ' + partnerEmail, 'success');
       } else {
-        throw new Error(result.message);
+        console.warn('Email sending failed:', result.message);
+        showToast('PDF baixado, mas erro ao enviar e-mail. Verifique o SMTP.', 'warning', true);
       }
     } catch (error) {
       console.error('Error generating/sending proposal:', error);
-      showToast('Erro ao enviar proposta. Verifique as configurações de e-mail.', 'error');
+      showToast('Erro ao processar proposta. Verifique as configurações.', 'error');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -1135,60 +1147,58 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#fdb612]">SIMULADOR SOLAR</span>
           </div>
-          <h1 className="text-7xl font-black tracking-tighter text-slate-900 dark:text-white uppercase leading-[0.8]">
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white uppercase leading-[0.8]">
             SIMULADOR <span className="text-[#fdb612]">SOLAR</span>
           </h1>
-          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest max-w-md">
-            Configure os detalhes do local e equipamentos para gerar sua proposta comercial personalizada.
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-md">
+            Plataforma democrática para dimensionamento fotovoltaico rápido e preciso.
           </p>
         </div>
         
         <div className="flex flex-col gap-4 items-end">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             {isFortlevConnected ? (
-              <div className="px-5 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/5">
-                <ShieldCheck className="w-4 h-4" />
-                Fortlev Pronto
+              <div className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/5">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Fortlev Ativo
               </div>
             ) : (
               <button 
                 onClick={() => setShowFortlevLogin(true)}
                 className={cn(
-                  "px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl active:scale-95",
+                  "px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl active:scale-95",
                   rememberFortlev 
                     ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" 
                     : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20"
                 )}
               >
-                {rememberFortlev ? <ShieldCheck className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                {rememberFortlev ? <ShieldCheck className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 {rememberFortlev ? 'Fortlev Pronto' : 'Conectar Fortlev'}
               </button>
             )}
             <button 
-              onClick={() => {
-                handleRedo();
-                showToast('Simulador redefinido para o padrão');
-              }}
-              className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95"
+              onClick={handleRedo}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-black text-[9px] uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 hover:border-red-200 transition-all flex items-center gap-2 active:scale-95"
+              title="Zerar todos os campos e limpar rascunho"
             >
-              <RefreshCw className="w-4 h-4" />
-              Refazer
+              <Trash2 className="w-3.5 h-3.5" />
+              Zerar Simulação
             </button>
             <button 
               onClick={handleGenerateNew}
               disabled={isGenerating}
-              className="px-5 py-3 rounded-2xl border-2 border-[#fdb612] text-[#fdb612] font-black text-[10px] uppercase tracking-widest hover:bg-[#fdb612] hover:text-[#231d0f] transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
+              className="px-4 py-2.5 rounded-xl border-2 border-[#fdb612] text-[#fdb612] font-black text-[9px] uppercase tracking-widest hover:bg-[#fdb612] hover:text-[#231d0f] transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
             >
-              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Gerar Novo
+              {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              Nova IA
             </button>
             <button 
               onClick={handleSaveDraft}
               disabled={isSavingDraft}
-              className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-black text-[9px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
             >
-              {isSavingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Salvar Rascunho
+              {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Salvar
             </button>
           </div>
           <div className="w-full flex justify-start">
@@ -2846,10 +2856,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   </button>
 
                   <button 
-                    onClick={() => {
-                      setCurrentStep(1);
-                      setSelectedKitId('');
-                    }}
+                    onClick={handleRedo}
                     className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all flex flex-col items-center gap-6 active:scale-95"
                   >
                     <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-500/10 group-hover:text-blue-500 rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-12 shadow-sm">
