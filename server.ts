@@ -28,6 +28,13 @@ async function startServer() {
       return res.status(400).json({ success: false, message: "Destinatário e PDF são obrigatórios." });
     }
 
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Configuração de e-mail incompleta. Por favor, configure SMTP_USER e SMTP_PASS nas configurações do app." 
+      });
+    }
+
     try {
       const mailOptions = {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -47,7 +54,19 @@ async function startServer() {
       res.json({ success: true, message: "E-mail enviado com sucesso!" });
     } catch (error) {
       console.error("Erro ao enviar e-mail:", error);
-      res.status(500).json({ success: false, message: "Erro ao enviar e-mail.", error: String(error) });
+      let errorMessage = "Erro no serviço de e-mail: Verifique se as credenciais SMTP estão corretas.";
+      
+      if (String(error).includes('EAUTH') || String(error).includes('Invalid login')) {
+        errorMessage = "Erro de Autenticação SMTP: Usuário ou senha incorretos. Se estiver usando Gmail, certifique-se de usar uma 'Senha de App'.";
+      } else if (String(error).includes('ECONNREFUSED') || String(error).includes('ETIMEDOUT')) {
+        errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor de e-mail. Verifique o Host e a Porta.";
+      }
+
+      res.status(500).json({ 
+        success: false, 
+        message: errorMessage,
+        error: String(error) 
+      });
     }
   });
 
@@ -107,7 +126,7 @@ async function startServer() {
     // Mock kits from Fortlev with detailed components
     res.json([
       { 
-        id: 'f1', 
+        id: 'fortlev-kit-1', 
         name: 'Kit Fortlev Residencial 3.0', 
         price: 12500, 
         power: 3.0,
@@ -118,7 +137,7 @@ async function startServer() {
         ]
       },
       { 
-        id: 'f2', 
+        id: 'fortlev-kit-2', 
         name: 'Kit Fortlev Premium 5.5', 
         price: 18900, 
         power: 5.5,
@@ -129,7 +148,7 @@ async function startServer() {
         ]
       },
       { 
-        id: 'f3', 
+        id: 'fortlev-kit-3', 
         name: 'Kit Fortlev Industrial 10.0', 
         price: 32000, 
         power: 10.0,
@@ -140,7 +159,7 @@ async function startServer() {
         ]
       },
       { 
-        id: 'f4', 
+        id: 'fortlev-kit-4', 
         name: 'Kit Fortlev Agro 20.0', 
         price: 58000, 
         power: 20.0,

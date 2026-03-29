@@ -70,6 +70,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [partnerPhone, setPartnerPhone] = useState<string>('');
   const [partnerCnpj, setPartnerCnpj] = useState<string>('');
   const [partnerType, setPartnerType] = useState<string>('integrator');
+  const [partnerStatus, setPartnerStatus] = useState<string>('active');
+  const [partnerCommissionRate, setPartnerCommissionRate] = useState<number>(5);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [cnpjStatus, setCnpjStatus] = useState<string | null>(null);
   const [isConsultingCnpj, setIsConsultingCnpj] = useState(false);
@@ -245,6 +247,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
         if (draft.partnerCnpj) setPartnerCnpj(draft.partnerCnpj);
         if (draft.partnerEmail) setPartnerEmail(draft.partnerEmail);
         if (draft.partnerPhone) setPartnerPhone(draft.partnerPhone);
+        if (draft.partnerType) setPartnerType(draft.partnerType);
+        if (draft.partnerStatus) setPartnerStatus(draft.partnerStatus);
+        if (draft.partnerCommissionRate) setPartnerCommissionRate(draft.partnerCommissionRate);
         if (draft.annualUsage) setAnnualUsage(draft.annualUsage);
         if (draft.monthlyBill) setMonthlyBill(draft.monthlyBill);
         if (draft.systemSize) setSystemSize(draft.systemSize);
@@ -653,11 +658,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       setPartnerPhone(formatPhone(partner.phone));
       setPartnerCnpj(formatCNPJ(partner.cnpj || ''));
       setPartnerType(partner.type);
+      setPartnerStatus(partner.status);
+      setPartnerCommissionRate(partner.commissionRate || 5);
     } else {
       setPartnerEmail('');
       setPartnerPhone('');
       setPartnerCnpj('');
       setPartnerType('integrator');
+      setPartnerStatus('active');
+      setPartnerCommissionRate(5);
     }
     setCnpjError(null);
     setCnpjStatus(null);
@@ -881,7 +890,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
         showToast('E-mail enviado com sucesso para ' + partnerEmail, 'success');
       } else {
         console.warn('Email sending failed:', result.message);
-        showToast('PDF baixado, mas erro ao enviar e-mail. Verifique o SMTP.', 'warning', true);
+        showToast(`PDF baixado, mas erro ao enviar e-mail: ${result.message}`, 'warning', true);
       }
     } catch (error) {
       console.error('Error generating/sending proposal:', error);
@@ -907,6 +916,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
         partnerCnpj,
         partnerEmail,
         partnerPhone,
+        partnerType,
+        partnerStatus,
+        partnerCommissionRate,
         annualUsage,
         monthlyBill,
         systemSize,
@@ -1421,6 +1433,54 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                         <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       </div>
                       {phoneError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{phoneError}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tipo de Parceiro</label>
+                      <div className="relative group">
+                        <select 
+                          value={partnerType}
+                          onChange={(e) => setPartnerType(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
+                        >
+                          <option value="integrator">Integrador</option>
+                          <option value="referral">Indicação</option>
+                          <option value="maintenance">Manutenção</option>
+                          <option value="other">Outro</option>
+                        </select>
+                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</label>
+                      <div className="relative group">
+                        <select 
+                          value={partnerStatus}
+                          onChange={(e) => setPartnerStatus(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
+                        >
+                          <option value="active">Ativo</option>
+                          <option value="inactive">Inativo</option>
+                          <option value="pending">Pendente</option>
+                        </select>
+                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Taxa de Comissão (%)</label>
+                      <div className="relative group">
+                        <input 
+                          type="number"
+                          value={partnerCommissionRate}
+                          onChange={(e) => setPartnerCommissionRate(parseFloat(e.target.value) || 0)}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm"
+                        />
+                        <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      </div>
                     </div>
                   </div>
                 </div>

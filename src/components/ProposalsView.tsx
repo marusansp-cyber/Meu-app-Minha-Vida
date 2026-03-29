@@ -211,7 +211,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
         await updateDocument('proposals', id, { status: 'sent' });
         showToast('Proposta enviada ao cliente com sucesso!', 'success', true);
       } else {
-        showToast(`Erro ao enviar: ${result.message}`, 'info');
+        showToast(`Erro ao enviar: ${result.message}`, 'info', true);
       }
     } catch (error) {
       console.error('Erro ao enviar proposta:', error);

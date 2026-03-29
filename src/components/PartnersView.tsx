@@ -24,6 +24,7 @@ import { cn } from '../lib/utils';
 import { Partner } from '../types';
 import { createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { useToast } from '../hooks/useToast';
+import { MapView } from './MapView';
 
 interface PartnersViewProps {
   partners: Partner[];
@@ -710,6 +711,17 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all resize-none disabled:opacity-70"
             />
           </div>
+
+          {isViewOnly && formData.address && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Localização no Mapa</label>
+              <MapView 
+                address={formData.address} 
+                title={formData.name}
+                className="h-64 w-full"
+              />
+            </div>
+          )}
 
           <div className="pt-4 flex gap-3">
             <button 

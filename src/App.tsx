@@ -14,9 +14,10 @@ import { PartnersView } from './components/PartnersView';
 import { CollaboratorsView } from './components/CollaboratorsView';
 import { KitsView } from './components/KitsView';
 import { FinanceView } from './components/FinanceView';
+import { ClientsView } from './components/ClientsView';
 import { LoginView } from './components/LoginView';
-import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation } from './types';
-import { Sun, Menu, X, Bell, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
+import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
+import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
 import { auth, db } from './firebase';
@@ -40,6 +41,24 @@ export default function App() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -80,6 +99,7 @@ export default function App() {
       const unsubscribePartners = syncCollection<Partner>('partners', setPartners, 'createdAt');
       const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
       const unsubscribeKits = syncCollection<Kit>('kits', setKits, 'createdAt');
+      const unsubscribeClients = syncCollection<Client>('clients', setClients, 'createdAt');
       
       return () => {
         unsubscribeLeads();
@@ -88,6 +108,7 @@ export default function App() {
         unsubscribePartners();
         unsubscribeCollaborators();
         unsubscribeKits();
+        unsubscribeClients();
       };
     }
   }, [isAuthenticated, user]);
@@ -129,15 +150,34 @@ export default function App() {
     await deleteDocument('installations', id);
   };
 
+  const addClient = async (clientData: Partial<Client>) => {
+    const newClient = {
+      ...clientData,
+      createdAt: new Date().toISOString(),
+      projects: [],
+      status: clientData.status || 'active'
+    };
+    await createDocument('clients', newClient);
+  };
+
+  const updateClient = async (id: string, clientData: Partial<Client>) => {
+    await updateDocument('clients', id, clientData);
+  };
+
+  const deleteClient = async (id: string) => {
+    await deleteDocument('clients', id);
+  };
+
   const canAccess = (view: View) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
     
     const permissions: Record<string, string[]> = {
-      sales: ['dashboard', 'leads', 'sales', 'proposals'],
-      engineer: ['dashboard', 'installations', 'config'],
+      sales: ['dashboard', 'leads', 'sales', 'proposals', 'clients'],
+      engineer: ['dashboard', 'installations', 'config', 'clients'],
       installer: ['dashboard', 'installations'],
-      finance: ['dashboard', 'finance', 'proposals']
+      finance: ['dashboard', 'finance', 'proposals', 'clients'],
+      admin_staff: ['dashboard', 'leads', 'installations', 'config', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -194,7 +234,7 @@ export default function App() {
               <span className="font-bold text-sm">Vieira's Solar</span>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationCenter />
+              <NotificationCenter proposals={proposals} />
               <button 
                 onClick={() => setIsSidebarOpen(true)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
@@ -207,7 +247,14 @@ export default function App() {
           {/* Desktop Header */}
           <header className="hidden lg:flex items-center justify-end px-8 py-4 bg-white/50 dark:bg-[#231d0f]/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
             <div className="flex items-center gap-6">
-              <NotificationCenter />
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
+                title={isDarkMode ? "Modo Claro" : "Modo Escuro"}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <NotificationCenter proposals={proposals} />
               <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
               <div className="flex items-center gap-3">
                 <div className="text-right">
@@ -292,6 +339,16 @@ export default function App() {
                 {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
                 {currentView === 'kits' && <KitsView kits={kits} />}
                 {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
+                {currentView === 'clients' && (
+                  <ClientsView 
+                    clients={clients} 
+                    proposals={proposals} 
+                    installations={installations}
+                    onAddClient={addClient}
+                    onUpdateClient={updateClient}
+                    onDeleteClient={deleteClient}
+                  />
+                )}
               </>
             )}
           </div>

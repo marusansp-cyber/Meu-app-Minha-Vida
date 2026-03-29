@@ -8,7 +8,20 @@ export interface User {
   avatar?: string;
 }
 
-export type View = 'dashboard' | 'leads' | 'installations' | 'config' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance';
+export type View = 'dashboard' | 'leads' | 'installations' | 'config' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients';
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address?: string;
+  cnpj?: string;
+  cpf?: string;
+  createdAt: string;
+  projects: string[]; // IDs of installations/proposals
+  status: 'active' | 'inactive';
+}
 
 export interface Stat {
   label: string;
@@ -85,7 +98,14 @@ export interface Installation {
   startDate?: string;
   estimatedDeadline?: string;
   projectDeadline?: string | null;
+  address?: string;
   stages?: InstallationStage[];
+  tasks?: {
+    id: string;
+    title: string;
+    completed: boolean;
+    createdAt: string;
+  }[];
 }
 
 export interface Proposal {

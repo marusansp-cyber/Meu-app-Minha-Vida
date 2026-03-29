@@ -29,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard, roles: ['admin', 'sales', 'engineer', 'installer'] },
     { id: 'leads', label: 'Leads', icon: Users, roles: ['admin', 'sales'] },
+    { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'sales', 'engineer', 'finance'] },
     { id: 'installations', label: 'Instalações', icon: Construction, roles: ['admin', 'engineer', 'installer'] },
     { id: 'team', label: 'Corpo Técnico', icon: ShieldCheck, roles: ['admin'] },
     { id: 'config', label: 'Simulador', icon: Sun, roles: ['admin', 'engineer'] },

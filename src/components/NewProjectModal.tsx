@@ -15,6 +15,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
     projectId: installation?.projectId || `SOL-${Math.floor(1000 + Math.random() * 9000)}`,
     type: (installation?.type || 'residence') as Installation['type'],
     technicianName: installation?.technician.name || '',
+    address: installation?.address || '',
     startDate: installation?.startDate || '',
     estimatedDeadline: installation?.estimatedDeadline || '',
     projectDeadline: (installation?.projectDeadline || '') as string | null,
@@ -33,6 +34,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
         projectId: installation.projectId,
         type: installation.type,
         technicianName: installation.technician.name,
+        address: installation.address || '',
         startDate: installation.startDate || '',
         estimatedDeadline: installation.estimatedDeadline || '',
         projectDeadline: installation.projectDeadline || '',
@@ -63,6 +65,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       startDate: formData.startDate,
       estimatedDeadline: formData.estimatedDeadline,
       projectDeadline: formData.projectDeadline,
+      address: formData.address,
       stages: formData.stages,
     };
 
@@ -73,6 +76,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       projectId: `SOL-${Math.floor(1000 + Math.random() * 9000)}`, 
       type: 'residence',
       technicianName: '',
+      address: '',
       startDate: '',
       estimatedDeadline: '',
       projectDeadline: '',
@@ -155,6 +159,20 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
               value={formData.technicianName}
               onChange={(e) => setFormData({ ...formData, technicianName: e.target.value })}
               placeholder="Nome do técnico"
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+              <MapPin className="w-4 h-4 text-[#fdb612]" />
+              Endereço da Instalação
+            </label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="Rua, Número, Bairro, Cidade - UF"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
             />
           </div>

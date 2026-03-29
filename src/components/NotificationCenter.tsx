@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Bell, X, CheckCircle2, AlertTriangle, Info, Clock } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Bell, X, CheckCircle2, AlertTriangle, Info, Clock, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Proposal } from '../types';
 
 interface Notification {
   id: string;
@@ -11,11 +12,17 @@ interface Notification {
   read: boolean;
 }
 
-export const NotificationCenter: React.FC = () => {
+interface NotificationCenterProps {
+  proposals?: Proposal[];
+}
+
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ proposals = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([
+  const [readNotifications, setReadNotifications] = useState<string[]>([]);
+
+  const staticNotifications: Notification[] = [
     {
-      id: '1',
+      id: 'static-1',
       title: 'Nova Proposta Aceita',
       message: 'O cliente João Silva aceitou a proposta para o Projeto Alpha.',
       type: 'success',
@@ -23,31 +30,58 @@ export const NotificationCenter: React.FC = () => {
       read: false,
     },
     {
-      id: '2',
+      id: 'static-2',
       title: 'Vistoria Agendada',
       message: 'Vistoria técnica agendada para Residencial Vale Verde amanhã às 14h.',
       type: 'info',
       time: 'há 1 hora',
       read: false,
-    },
-    {
-      id: '3',
-      title: 'Alerta de Pagamento',
-      message: 'O pagamento da fatura #4521 está atrasado há 2 dias.',
-      type: 'warning',
-      time: 'há 3 horas',
-      read: true,
     }
-  ]);
+  ];
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const dynamicNotifications = useMemo(() => {
+    const alerts: Notification[] = [];
+    const today = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(today.getDate() + 7);
+
+    proposals.forEach(p => {
+      if (p.expiryDate && p.status !== 'accepted' && p.status !== 'cancelled' && p.status !== 'expired') {
+        const expiry = new Date(p.expiryDate);
+        if (expiry > today && expiry <= sevenDaysFromNow) {
+          alerts.push({
+            id: `expiry-${p.id}`,
+            title: 'Proposta Próxima do Vencimento',
+            message: `A proposta para ${p.client} vence em ${expiry.toLocaleDateString('pt-BR')}.`,
+            type: 'warning',
+            time: 'Alerta',
+            read: false
+          });
+        }
+      }
+    });
+
+    return alerts;
+  }, [proposals]);
+
+  const allNotifications = useMemo(() => {
+    const combined = [...dynamicNotifications, ...staticNotifications];
+    return combined.map(n => ({
+      ...n,
+      read: readNotifications.includes(n.id)
+    }));
+  }, [dynamicNotifications, staticNotifications, readNotifications]);
+
+  const unreadCount = allNotifications.filter(n => !n.read).length;
 
   const markAsRead = (id: string) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, read: true } : n));
+    if (!readNotifications.includes(id)) {
+      setReadNotifications(prev => [...prev, id]);
+    }
   };
 
   const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    setReadNotifications(allNotifications.map(n => n.id));
   };
 
   return (
@@ -82,9 +116,9 @@ export const NotificationCenter: React.FC = () => {
             </div>
 
             <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-              {notifications.length > 0 ? (
+              {allNotifications.length > 0 ? (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {notifications.map((notification) => (
+                  {allNotifications.map((notification) => (
                     <div 
                       key={notification.id}
                       onClick={() => markAsRead(notification.id)}

@@ -40,24 +40,49 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [representativeFilter, setRepresentativeFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  const acceptedProposals = useMemo(() => {
-    return proposals.filter(p => p.status === 'accepted');
-  }, [proposals]);
+  const filteredProposals = useMemo(() => {
+    return proposals.filter(p => {
+      if (p.status !== 'accepted') return false;
+
+      const matchesSearch = p.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           p.representative.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || p.commissionStatus === statusFilter;
+      const matchesRep = representativeFilter === 'all' || p.representative === representativeFilter;
+      
+      let matchesDate = true;
+      if (startDate || endDate) {
+        const proposalDate = new Date(p.date.split('/').reverse().join('-'));
+        if (startDate) {
+          const start = new Date(startDate);
+          if (proposalDate < start) matchesDate = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (proposalDate > end) matchesDate = false;
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesRep && matchesDate;
+    });
+  }, [proposals, searchTerm, statusFilter, representativeFilter, startDate, endDate]);
 
   const stats = useMemo(() => {
-    const totalRevenue = acceptedProposals.reduce((acc, p) => {
+    const totalRevenue = filteredProposals.reduce((acc, p) => {
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       return acc + val;
     }, 0);
 
-    const totalCommission = acceptedProposals.reduce((acc, p) => {
+    const totalCommission = filteredProposals.reduce((acc, p) => {
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       return acc + (val * (rate / 100));
     }, 0);
 
-    const paidCommission = acceptedProposals.reduce((acc, p) => {
+    const paidCommission = filteredProposals.reduce((acc, p) => {
       if (p.commissionStatus !== 'paid') return acc;
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
@@ -72,13 +97,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       paidCommission,
       pendingCommission
     };
-  }, [acceptedProposals]);
+  }, [filteredProposals]);
 
   const chartData = useMemo(() => {
     // Group by month
     const months: Record<string, { month: string, revenue: number, commission: number }> = {};
     
-    acceptedProposals.forEach(p => {
+    filteredProposals.forEach(p => {
       const date = new Date(p.date.split('/').reverse().join('-'));
       const monthKey = date.toLocaleString('pt-BR', { month: 'short' });
       
@@ -93,12 +118,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
     });
 
     return Object.values(months);
-  }, [acceptedProposals]);
+  }, [filteredProposals]);
 
   const representativeData = useMemo(() => {
     const reps: Record<string, { name: string, paid: number, pending: number, total: number }> = {};
     
-    acceptedProposals.forEach(p => {
+    filteredProposals.forEach(p => {
       if (!reps[p.representative]) {
         reps[p.representative] = { name: p.representative, paid: 0, pending: 0, total: 0 };
       }
@@ -115,18 +140,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
     });
 
     return Object.values(reps).sort((a, b) => b.total - a.total);
-  }, [acceptedProposals]);
-
-  const filteredProposals = useMemo(() => {
-    return acceptedProposals.filter(p => {
-      const matchesSearch = p.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           p.representative.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || p.commissionStatus === statusFilter;
-      const matchesRep = representativeFilter === 'all' || p.representative === representativeFilter;
-      
-      return matchesSearch && matchesStatus && matchesRep;
-    });
-  }, [acceptedProposals, searchTerm, statusFilter, representativeFilter]);
+  }, [filteredProposals]);
 
   const handleTogglePaid = async (proposal: Proposal) => {
     const newStatus = proposal.commissionStatus === 'paid' ? 'pending' : 'paid';
@@ -349,6 +363,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#fdb612] outline-none w-64"
+              />
+            </div>
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
+              <Calendar className="w-4 h-4 text-slate-400" />
+              <input 
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
+              />
+              <span className="text-slate-300">|</span>
+              <input 
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
               />
             </div>
             <select 

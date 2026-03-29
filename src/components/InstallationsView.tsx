@@ -31,6 +31,7 @@ import {
 import { INSTALLATIONS } from '../constants';
 import { cn } from '../lib/utils';
 import { Installation, InstallationStage } from '../types';
+import { MapView } from './MapView';
 import { generateInstallationReportPDF } from '../services/pdfService';
 
 interface StageReportModalProps {
@@ -685,6 +686,149 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                                 <Download className="w-4 h-4" />
                                 Gerar Relatório Técnico Completo (PDF)
                               </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {item.address && (
+                          <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Localização da Instalação</h4>
+                            <div className="h-[300px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner">
+                              <MapView address={item.address} />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Project Tasks Section */}
+                        <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">Tarefas do Projeto</h4>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {item.tasks?.filter(t => t.completed).length || 0} de {item.tasks?.length || 0} concluídas
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="space-y-3">
+                              <div className="flex gap-2">
+                                <input 
+                                  type="text"
+                                  placeholder="Nova tarefa..."
+                                  className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2 text-sm outline-none focus:border-[#fdb612] transition-all"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const input = e.currentTarget;
+                                      if (input.value.trim()) {
+                                        const newTask = {
+                                          id: Math.random().toString(36).substr(2, 9),
+                                          title: input.value.trim(),
+                                          completed: false,
+                                          createdAt: new Date().toISOString()
+                                        };
+                                        onUpdateInstallation(item.id, {
+                                          tasks: [...(item.tasks || []), newTask]
+                                        });
+                                        input.value = '';
+                                        showToast('Tarefa adicionada!');
+                                      }
+                                    }
+                                  }}
+                                />
+                                <button 
+                                  onClick={(e) => {
+                                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                                    if (input.value.trim()) {
+                                      const newTask = {
+                                        id: Math.random().toString(36).substr(2, 9),
+                                        title: input.value.trim(),
+                                        completed: false,
+                                        createdAt: new Date().toISOString()
+                                      };
+                                      onUpdateInstallation(item.id, {
+                                        tasks: [...(item.tasks || []), newTask]
+                                      });
+                                      input.value = '';
+                                      showToast('Tarefa adicionada!');
+                                    }
+                                  }}
+                                  className="bg-[#fdb612] text-[#231d0f] p-2 rounded-xl hover:opacity-90 transition-opacity"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                              </div>
+
+                              <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                                {item.tasks && item.tasks.length > 0 ? (
+                                  item.tasks.map((task) => (
+                                    <div 
+                                      key={task.id}
+                                      className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 group"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <button 
+                                          onClick={() => {
+                                            const newTasks = item.tasks?.map(t => 
+                                              t.id === task.id ? { ...t, completed: !t.completed } : t
+                                            );
+                                            onUpdateInstallation(item.id, { tasks: newTasks });
+                                          }}
+                                          className={cn(
+                                            "size-5 rounded-md border flex items-center justify-center transition-all",
+                                            task.completed 
+                                              ? "bg-emerald-500 border-emerald-500 text-white" 
+                                              : "border-slate-300 dark:border-slate-600 hover:border-[#fdb612]"
+                                          )}
+                                        >
+                                          {task.completed && <CheckCircle2 className="w-3.5 h-3.5" />}
+                                        </button>
+                                        <span className={cn(
+                                          "text-sm font-medium transition-all",
+                                          task.completed ? "text-slate-400 line-through" : "text-slate-700 dark:text-slate-200"
+                                        )}>
+                                          {task.title}
+                                        </span>
+                                      </div>
+                                      <button 
+                                        onClick={() => {
+                                          const newTasks = item.tasks?.filter(t => t.id !== task.id);
+                                          onUpdateInstallation(item.id, { tasks: newTasks });
+                                          showToast('Tarefa removida');
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-8 text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl">
+                                    <p className="text-xs">Nenhuma tarefa adicionada</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Resumo da Obra</h5>
+                              <div className="space-y-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-500">Etapas Concluídas</span>
+                                  <span className="text-sm font-bold">{item.stages?.filter(s => s.status === 'completed').length || 0} / {item.stages?.length || 0}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-slate-500">Tarefas Pendentes</span>
+                                  <span className="text-sm font-bold">{item.tasks?.filter(t => !t.completed).length || 0}</span>
+                                </div>
+                                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm font-bold">Saúde do Projeto</span>
+                                    <span className="text-sm font-bold text-emerald-500">Excelente</span>
+                                  </div>
+                                  <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 w-[92%]"></div>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
