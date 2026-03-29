@@ -41,6 +41,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     if (proposals.length === 0) return;
     
     const now = new Date();
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(now.getDate() + 7);
+
     const expiredProposals = proposals.filter(p => {
       if (!p.id || !p.expiryDate) return false;
       if (p.status !== 'pending' && p.status !== 'sent') return false;
@@ -48,11 +51,22 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
       return expiry < now;
     });
 
+    const nearExpiration = proposals.filter(p => {
+      if (!p.id || !p.expiryDate) return false;
+      if (p.status !== 'pending' && p.status !== 'sent') return false;
+      const expiry = new Date(p.expiryDate);
+      return expiry > now && expiry <= sevenDaysFromNow;
+    });
+
     if (expiredProposals.length > 0) {
-      // Process updates sequentially or in a way that doesn't trigger too many re-renders
       expiredProposals.forEach(p => {
         updateDocument('proposals', p.id, { status: 'expired' });
       });
+    }
+
+    if (nearExpiration.length > 0) {
+      const names = nearExpiration.map(p => p.client).join(', ');
+      showToast(`Atenção: Propostas de ${names} vencem em menos de 7 dias!`, 'info', true);
     }
   }, [proposals]);
 

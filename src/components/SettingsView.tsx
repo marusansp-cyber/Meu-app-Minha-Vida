@@ -8,6 +8,7 @@ import {
   Sun, 
   Save,
   Building,
+  Calendar,
   CreditCard,
   Mail,
   Phone,
@@ -73,6 +74,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       { id: '2', date: '14/02/2026', amount: 'R$ 499,00', status: 'Pago' },
       { id: '3', date: '14/01/2026', amount: 'R$ 499,00', status: 'Pago' },
     ]
+  });
+
+  const [invoiceFilters, setInvoiceFilters] = useState({
+    startDate: '',
+    endDate: ''
   });
 
   const showToast = (message: string) => {
@@ -436,7 +442,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Histórico de Faturas</h3>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Histórico de Faturas</h3>
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-1.5">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <input 
+                      type="date" 
+                      value={invoiceFilters.startDate}
+                      onChange={(e) => setInvoiceFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="bg-transparent border-none text-[10px] font-bold outline-none w-24"
+                    />
+                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">até</span>
+                    <input 
+                      type="date" 
+                      value={invoiceFilters.endDate}
+                      onChange={(e) => setInvoiceFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="bg-transparent border-none text-[10px] font-bold outline-none w-24"
+                    />
+                  </div>
+                </div>
                 <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-900/50">
@@ -448,22 +472,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {financial.invoices.map((invoice) => (
-                        <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{invoice.date}</td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{invoice.amount}</td>
-                          <td className="px-6 py-4">
-                            <span className="px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-                              {invoice.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors">
-                              <Download className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {financial.invoices
+                        .filter(invoice => {
+                          if (!invoiceFilters.startDate && !invoiceFilters.endDate) return true;
+                          const [day, month, year] = invoice.date.split('/').map(Number);
+                          const invoiceDate = new Date(year, month - 1, day);
+                          
+                          if (invoiceFilters.startDate) {
+                            const start = new Date(invoiceFilters.startDate);
+                            if (invoiceDate < start) return false;
+                          }
+                          if (invoiceFilters.endDate) {
+                            const end = new Date(invoiceFilters.endDate);
+                            if (invoiceDate > end) return false;
+                          }
+                          return true;
+                        })
+                        .map((invoice) => (
+                          <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                            <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{invoice.date}</td>
+                            <td className="px-6 py-4 text-sm font-bold text-slate-700 dark:text-slate-300">{invoice.amount}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
+                                {invoice.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors">
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>

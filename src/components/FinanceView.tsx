@@ -96,18 +96,25 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
   }, [acceptedProposals]);
 
   const representativeData = useMemo(() => {
-    const reps: Record<string, { name: string, value: number }> = {};
+    const reps: Record<string, { name: string, paid: number, pending: number, total: number }> = {};
     
     acceptedProposals.forEach(p => {
       if (!reps[p.representative]) {
-        reps[p.representative] = { name: p.representative, value: 0 };
+        reps[p.representative] = { name: p.representative, paid: 0, pending: 0, total: 0 };
       }
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
-      reps[p.representative].value += (val * (rate / 100));
+      const commission = val * (rate / 100);
+      
+      if (p.commissionStatus === 'paid') {
+        reps[p.representative].paid += commission;
+      } else {
+        reps[p.representative].pending += commission;
+      }
+      reps[p.representative].total += commission;
     });
 
-    return Object.values(reps);
+    return Object.values(reps).sort((a, b) => b.total - a.total);
   }, [acceptedProposals]);
 
   const filteredProposals = useMemo(() => {
@@ -249,42 +256,80 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
-          <h4 className="text-lg font-black font-display mb-8">Comissões por Consultor</h4>
+          <div className="flex items-center justify-between mb-8">
+            <h4 className="text-lg font-black font-display uppercase tracking-widest">Comissões por Consultor</h4>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="size-2.5 rounded-full bg-emerald-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pagas</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-2.5 rounded-full bg-amber-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pendentes</span>
+              </div>
+            </div>
+          </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={representativeData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {representativeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={representativeData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  type="number"
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
+                  tickFormatter={(value) => `R$ ${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                />
+                <YAxis 
+                  dataKey="name" 
+                  type="category"
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
+                  width={100}
+                />
                 <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ 
                     borderRadius: '16px', 
                     border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    padding: '12px'
                   }}
-                  formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`]}
                 />
-              </PieChart>
+                <Bar dataKey="paid" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={20} />
+                <Bar dataKey="pending" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 space-y-2">
+          <div className="mt-6 space-y-3">
             {representativeData.map((rep, idx) => (
-              <div key={idx} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="size-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{rep.name}</span>
+              <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">{rep.name}</span>
+                  <span className="text-xs font-black text-[#fdb612]">R$ {rep.total.toLocaleString('pt-BR')}</span>
                 </div>
-                <span className="text-xs font-black">R$ {rep.value.toLocaleString('pt-BR')}</span>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500" 
+                        style={{ width: `${(rep.paid / rep.total) * 100}%` }} 
+                      />
+                    </div>
+                    <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-tighter">Pago: R$ {rep.paid.toLocaleString('pt-BR')}</p>
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-amber-500" 
+                        style={{ width: `${(rep.pending / rep.total) * 100}%` }} 
+                      />
+                    </div>
+                    <p className="text-[9px] font-bold text-amber-600 mt-1 uppercase tracking-tighter">Pendente: R$ {rep.pending.toLocaleString('pt-BR')}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

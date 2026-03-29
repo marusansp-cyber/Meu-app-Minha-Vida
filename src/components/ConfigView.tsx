@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { 
   ChevronRight, 
   Sun, 
@@ -115,6 +116,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [selectedKitComponents, setSelectedKitComponents] = useState<any[]>([]);
   const [losses, setLosses] = useState<number>(25);
   const [efficiency, setEfficiency] = useState<number>(116);
+  const [prioritizeTargetPower, setPrioritizeTargetPower] = useState(false);
   const [tasks, setTasks] = useState<{ id: string; text: string; completed: boolean }[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
   const [kitSearchTerm, setKitSearchTerm] = useState('');
@@ -762,6 +764,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
     const matchesSearch = (nameMatch || descMatch || powerSearchMatch || panelSearchMatch || inverterSearchMatch || componentsMatch);
     return matchesSearch && dateMatch;
+  }).sort((a, b) => {
+    if (prioritizeTargetPower && systemSize) {
+      const target = parseFloat(systemSize.replace(',', '.'));
+      if (!isNaN(target)) {
+        const diffA = Math.abs((a.power || 0) - target);
+        const diffB = Math.abs((b.power || 0) - target);
+        return diffA - diffB;
+      }
+    }
+    return 0;
   });
 
   const generateProposalPDF = async () => {
@@ -1045,38 +1057,73 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
       {/* Modern Step Indicator */}
       <div className="bg-white dark:bg-[#231d0f]/40 p-1.5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl">
-        <div className="flex items-center justify-between gap-1">
-          {steps.map((step, index) => (
-            <button
-              key={step.id}
-              onClick={() => setCurrentStep(step.id)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-3 py-4 px-3 rounded-[1.5rem] transition-all relative group overflow-hidden",
-                currentStep === step.id 
-                  ? "bg-[#fdb612] text-[#231d0f] shadow-lg shadow-[#fdb612]/20" 
-                  : currentStep > step.id
-                    ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                    : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              )}
-            >
-              <div className={cn(
-                "size-7 rounded-xl flex items-center justify-center text-[11px] font-black border-2 transition-all",
-                currentStep === step.id 
-                  ? "bg-white/20 border-white/40 rotate-12" 
-                  : currentStep > step.id
-                    ? "bg-emerald-500/10 border-emerald-500/20"
-                    : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
-              )}>
-                {currentStep > step.id ? <CheckCircle2 className="w-4 h-4" /> : step.id}
-              </div>
-              <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden lg:inline">
-                {step.label}
-              </span>
-              {index < steps.length - 1 && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-px h-6 bg-slate-200 dark:bg-slate-800 hidden lg:block opacity-50" />
-              )}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-1 relative">
+          {steps.map((step, index) => {
+            const isActive = currentStep === step.id;
+            const isCompleted = currentStep > step.id;
+            
+            return (
+              <motion.button
+                key={step.id}
+                onClick={() => setCurrentStep(step.id)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-3 py-4 px-3 rounded-[1.5rem] transition-all relative group overflow-hidden",
+                  isActive 
+                    ? "bg-[#fdb612] text-[#231d0f] shadow-lg shadow-[#fdb612]/20" 
+                    : isCompleted
+                      ? "text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                      : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                )}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="step-active-bg"
+                    className="absolute inset-0 bg-[#fdb612] -z-10"
+                    initial={false}
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                
+                <div className={cn(
+                  "size-7 rounded-xl flex items-center justify-center text-[11px] font-black border-2 transition-all",
+                  isActive 
+                    ? "bg-white/20 border-white/40 rotate-12" 
+                    : isCompleted
+                      ? "bg-emerald-500/10 border-emerald-500/20"
+                      : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                )}>
+                  {isCompleted ? (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </motion.div>
+                  ) : (
+                    <span>{step.id}</span>
+                  )}
+                </div>
+                
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden lg:inline">
+                  {step.label}
+                </span>
+
+                {isActive && (
+                  <motion.div 
+                    layoutId="active-indicator-dot"
+                    className="absolute bottom-2 size-1 bg-[#231d0f] rounded-full"
+                  />
+                )}
+
+                {index < steps.length - 1 && (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-px h-6 bg-slate-200 dark:bg-slate-800 hidden lg:block opacity-50" />
+                )}
+              </motion.button>
+            );
+          })}
         </div>
       </div>
 
@@ -1615,6 +1662,29 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
                     />
                     <label htmlFor="filterByPower" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer">Filtrar por Potência</label>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <input 
+                      type="checkbox" 
+                      id="prioritizePower"
+                      checked={prioritizeTargetPower}
+                      onChange={(e) => setPrioritizeTargetPower(e.target.checked)}
+                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                    />
+                    <label htmlFor="prioritizePower" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer flex items-center gap-2">
+                      Priorizar Potência Próxima
+                      <div className="group relative">
+                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help hover:text-[#fdb612] transition-colors" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-[#231d0f] text-white text-[10px] rounded-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-[100] shadow-2xl border border-white/10 backdrop-blur-xl">
+                          <div className="font-black mb-1 text-[#fdb612] uppercase tracking-widest">Como funciona?</div>
+                          <p className="font-medium text-slate-300 leading-relaxed">
+                            Esta opção ordena os kits do catálogo priorizando aqueles que possuem a potência (kWp) mais próxima do dimensionamento calculado ({systemSize} kWp).
+                          </p>
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 size-2 bg-[#231d0f] border-r border-b border-white/10" />
+                        </div>
+                      </div>
+                    </label>
                   </div>
 
                   {/* Power Range Filter - Only visible when filterByPower is active */}
