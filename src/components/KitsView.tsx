@@ -41,8 +41,10 @@ interface KitsViewProps {
 export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTargetPower }) => {
   const [activeSubView, setActiveSubView] = useState<'list' | 'upload' | 'fortlev'>('list');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBrand, setFilterBrand] = useState('');
-  const [filterModel, setFilterModel] = useState('');
+  const [filterBrand, setFilterBrand] = useState<string[]>([]);
+  const [filterModel, setFilterModel] = useState<string[]>([]);
+  const [showBrandFilter, setShowBrandFilter] = useState(false);
+  const [showModelFilter, setShowModelFilter] = useState(false);
   const [targetPower, setTargetPower] = useState<number | ''>(initialTargetPower || '');
   const [prioritizeTargetPower, setPrioritizeTargetPower] = useState(false);
   const [expandedKitId, setExpandedKitId] = useState<string | null>(null);
@@ -157,17 +159,27 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     }, 2000);
   };
 
+  const availableBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(k => k.components?.forEach(c => c.brand && brands.add(c.brand)));
+    return Array.from(brands).sort();
+  }, [kits]);
+
+  const availableModels = useMemo(() => {
+    const models = new Set<string>();
+    kits.forEach(k => k.components?.forEach(c => c.model && models.add(c.model)));
+    return Array.from(models).sort();
+  }, [kits]);
+
   const filteredKits = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
-    const brandLower = filterBrand.toLowerCase();
-    const modelLower = filterModel.toLowerCase();
 
     return kits.filter(k => {
       const matchesText = k.name.toLowerCase().includes(searchLower) ||
                          k.description.toLowerCase().includes(searchLower);
       
-      const matchesBrand = !filterBrand || k.components?.some(c => c.brand?.toLowerCase().includes(brandLower));
-      const matchesModel = !filterModel || k.components?.some(c => c.model?.toLowerCase().includes(modelLower));
+      const matchesBrand = filterBrand.length === 0 || k.components?.some(c => c.brand && filterBrand.includes(c.brand));
+      const matchesModel = filterModel.length === 0 || k.components?.some(c => c.model && filterModel.includes(c.model));
 
       // Check if search term is a number and matches power
       const searchNum = parseFloat(searchTerm);
@@ -370,25 +382,109 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] transition-all"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marca</label>
-                <input 
-                  type="text" 
-                  placeholder="Filtrar por marca..."
-                  value={filterBrand}
-                  onChange={(e) => setFilterBrand(e.target.value)}
-                  className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61]"
-                />
+              <div className="space-y-1 relative">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marcas</label>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowBrandFilter(!showBrandFilter)}
+                    className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
+                      {filterBrand.length === 0 ? 'Todas' : `${filterBrand.length} Sel.`}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showBrandFilter && "rotate-180")} />
+                  </button>
+
+                  {showBrandFilter && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowBrandFilter(false)} />
+                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                        <button 
+                          onClick={() => {
+                            setFilterBrand([]);
+                            setShowBrandFilter(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
+                            filterBrand.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                          )}
+                        >
+                          Todas as Marcas
+                        </button>
+                        <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+                        {availableBrands.map(brand => (
+                          <label key={brand} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
+                            <input 
+                              type="checkbox"
+                              checked={filterBrand.includes(brand)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFilterBrand([...filterBrand, brand]);
+                                } else {
+                                  setFilterBrand(filterBrand.filter(b => b !== brand));
+                                }
+                              }}
+                              className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
+                            />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Modelo</label>
-                <input 
-                  type="text" 
-                  placeholder="Filtrar por modelo..."
-                  value={filterModel}
-                  onChange={(e) => setFilterModel(e.target.value)}
-                  className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61]"
-                />
+              <div className="space-y-1 relative">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Modelos</label>
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowModelFilter(!showModelFilter)}
+                    className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
+                      {filterModel.length === 0 ? 'Todos' : `${filterModel.length} Sel.`}
+                    </span>
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showModelFilter && "rotate-180")} />
+                  </button>
+
+                  {showModelFilter && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowModelFilter(false)} />
+                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                        <button 
+                          onClick={() => {
+                            setFilterModel([]);
+                            setShowModelFilter(false);
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
+                            filterModel.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                          )}
+                        >
+                          Todos os Modelos
+                        </button>
+                        <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+                        {availableModels.map(model => (
+                          <label key={model} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
+                            <input 
+                              type="checkbox"
+                              checked={filterModel.includes(model)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFilterModel([...filterModel, model]);
+                                } else {
+                                  setFilterModel(filterModel.filter(m => m !== model));
+                                }
+                              }}
+                              className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
+                            />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{model}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Potência Alvo (kWp)</label>
@@ -527,6 +623,20 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                                   onChange={(e) => {
                                     const newComps = [...kit.components];
                                     newComps[idx] = { ...newComps[idx], model: e.target.value };
+                                    debouncedUpdateComponent(kit.id, newComps);
+                                  }}
+                                  className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"
+                                />
+                              </div>
+                              <div className="col-span-2 space-y-1">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Notas / Observações</span>
+                                <input 
+                                  type="text"
+                                  defaultValue={comp.notes}
+                                  placeholder="Observações específicas..."
+                                  onChange={(e) => {
+                                    const newComps = [...kit.components];
+                                    newComps[idx] = { ...newComps[idx], notes: e.target.value };
                                     debouncedUpdateComponent(kit.id, newComps);
                                   }}
                                   className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"

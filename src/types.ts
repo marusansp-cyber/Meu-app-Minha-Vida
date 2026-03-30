@@ -175,6 +175,7 @@ export interface Kit {
     quantity: number;
     brand?: string;
     model?: string;
+    notes?: string;
   }[];
   status: 'active' | 'inactive';
   createdAt: string;

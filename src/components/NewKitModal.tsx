@@ -24,6 +24,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
     name: '',
     brand: '',
     model: '',
+    notes: '',
     quantity: 1
   });
 
@@ -61,7 +62,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
       ...prev,
       components: [...(prev.components || []), { ...newComponent }]
     }));
-    setNewComponent({ name: '', brand: '', model: '', quantity: 1 });
+    setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
   };
 
   const removeComponent = (index: number) => {
@@ -257,6 +258,16 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                     />
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Notas / Observações</span>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Cabo 6mm, Conector MC4..."
+                    value={newComponent.notes}
+                    onChange={(e) => setNewComponent({ ...newComponent, notes: e.target.value })}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  />
+                </div>
               </div>
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-1">
@@ -288,10 +299,16 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                     </div>
                     <div>
                       <p className="text-sm font-black text-slate-900 dark:text-slate-100">{comp.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.brand}</span>
                         <div className="size-1 bg-slate-300 rounded-full" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.model}</span>
+                        {comp.notes && (
+                          <>
+                            <div className="size-1 bg-slate-300 rounded-full" />
+                            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest italic">{comp.notes}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

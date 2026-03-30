@@ -572,7 +572,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   };
 
   const handleAddComponent = () => {
-    const newComps = [...selectedKitComponents, { name: 'Novo Componente', quantity: 1, brand: '', model: '' }];
+    const newComps = [...selectedKitComponents, { name: 'Novo Componente', quantity: 1, brand: '', model: '', notes: '' }];
     setSelectedKitComponents(newComps);
     if (selectedKitId) {
       setKits(kits.map(k => k.id === selectedKitId ? { ...k, components: newComps } : k));
@@ -1683,10 +1683,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                 <button 
                   onClick={() => setCurrentStep(2)}
-                  disabled={!!cnpjError || isConsultingCnpj}
+                  disabled={!!cnpjError || !!emailError || !!phoneError || isConsultingCnpj}
                   className={cn(
                     "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-[0.98] mt-4",
-                    (cnpjError || isConsultingCnpj)
+                    (cnpjError || emailError || phoneError || isConsultingCnpj)
                       ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                       : "bg-[#fdb612] text-[#231d0f] hover:shadow-xl hover:shadow-[#fdb612]/20"
                   )}
@@ -2161,12 +2161,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                                   className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                               </div>
-                              <div className="md:col-span-3 space-y-2">
+                              <div className="md:col-span-2 space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Modelo</label>
                                 <input 
                                   type="text" 
                                   value={comp.model || ''}
                                   onChange={(e) => handleUpdateComponent(idx, 'model', e.target.value)}
+                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                              <div className="md:col-span-3 space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notas / Observações</label>
+                                <input 
+                                  type="text" 
+                                  value={comp.notes || ''}
+                                  onChange={(e) => handleUpdateComponent(idx, 'notes', e.target.value)}
+                                  placeholder="Ex: Cabo 6mm, Conector MC4..."
                                   className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 />
                               </div>
