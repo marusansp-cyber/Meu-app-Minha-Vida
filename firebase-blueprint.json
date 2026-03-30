@@ -153,6 +153,23 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name", "power", "price", "status"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A registered client",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "cpf": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "projects": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["name", "email", "status"]
     }
   },
   "firestore": {
@@ -183,6 +200,10 @@
     "/kits": {
       "schema": "Kit",
       "description": "Collection of solar kits"
+    },
+    "/clients": {
+      "schema": "Client",
+      "description": "Collection of registered clients"
     }
   }
 }

@@ -40,6 +40,7 @@ import { db } from '../firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { NewKitModal } from './NewKitModal';
 import { useToast } from '../hooks/useToast';
+import { BrandFilter } from './BrandFilter';
 
 interface ConfigViewProps {
   onClose?: () => void;
@@ -325,6 +326,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       return false;
     }
     setEmailError(null);
+    return true;
+  };
+
+  const validatePhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned && cleaned.length < 10) {
+      setPhoneError('Telefone incompleto');
+      return false;
+    }
+    setPhoneError(null);
     return true;
   };
 
@@ -660,6 +671,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       setPartnerType(partner.type);
       setPartnerStatus(partner.status);
       setPartnerCommissionRate(partner.commissionRate || 5);
+      
+      // Validate immediately when selecting a partner
+      validateEmail(partner.email);
+      validatePhone(formatPhone(partner.phone));
+      const formattedCnpj = formatCNPJ(partner.cnpj || '');
+      if (formattedCnpj.length === 18) {
+        if (validateCNPJ(formattedCnpj)) {
+          consultCnpj(formattedCnpj);
+        }
+      }
     } else {
       setPartnerEmail('');
       setPartnerPhone('');
@@ -1418,11 +1439,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                           onChange={(e) => {
                             const val = formatPhone(e.target.value);
                             setPartnerPhone(val);
-                            if (val && val.length < 14) {
-                              setPhoneError('Telefone incompleto');
-                            } else {
-                              setPhoneError(null);
-                            }
+                            validatePhone(val);
                           }}
                           placeholder="(00) 00000-0000"
                           className={cn(
@@ -1720,8 +1737,16 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       placeholder="PESQUISAR KITS..."
                       value={kitSearchTerm}
                       onChange={(e) => setKitSearchTerm(e.target.value)}
-                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-12 pr-4 text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-12 pr-10 text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
                     />
+                    {kitSearchTerm && (
+                      <button 
+                        onClick={() => setKitSearchTerm('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"
+                      >
+                        <X className="w-3 h-3 text-slate-400" />
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                     <input 
@@ -1800,125 +1825,29 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     Limpar Filtros
                   </button>
 
-                  <div className="space-y-2 relative">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Inversores</label>
-                    <div className="relative">
-                      <button 
-                        onClick={() => setShowInverterFilter(!showInverterFilter)}
-                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[200px] flex items-center justify-between hover:border-[#fdb612]/50 transition-all"
-                      >
-                        <span className="truncate max-w-[140px]">
-                          {inverterBrandFilter.length === 0 
-                            ? `Todas as Marcas (${availableInverterBrands.length})` 
-                            : `${inverterBrandFilter.length} Selecionada(s)`}
-                        </span>
-                        <ChevronRight className={cn("w-4 h-4 transition-transform", showInverterFilter ? "rotate-90" : "rotate-0")} />
-                      </button>
+                  <BrandFilter
+                    label="Inversores"
+                    options={availableInverterBrands}
+                    selectedOptions={inverterBrandFilter}
+                    onChange={setInverterBrandFilter}
+                    isOpen={showInverterFilter}
+                    onToggle={() => {
+                      setShowInverterFilter(!showInverterFilter);
+                      setShowModuleFilter(false);
+                    }}
+                  />
 
-                      {showInverterFilter && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowInverterFilter(false)}
-                          />
-                          <div className="absolute top-full left-0 mt-2 w-full min-w-[220px] bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="max-h-[240px] overflow-y-auto custom-scrollbar p-1 space-y-1">
-                              <button 
-                                onClick={() => setInverterBrandFilter([])}
-                                className={cn(
-                                  "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors",
-                                  inverterBrandFilter.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
-                                )}
-                              >
-                                Todas as Marcas
-                              </button>
-                              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                              {availableInverterBrands.map(brand => (
-                                <label 
-                                  key={brand}
-                                  className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
-                                >
-                                  <input 
-                                    type="checkbox"
-                                    checked={inverterBrandFilter.includes(brand)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setInverterBrandFilter([...inverterBrandFilter, brand]);
-                                      } else {
-                                        setInverterBrandFilter(inverterBrandFilter.filter(b => b !== brand));
-                                      }
-                                    }}
-                                    className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                                  />
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 relative">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-1">Módulos</label>
-                    <div className="relative">
-                      <button 
-                        onClick={() => setShowModuleFilter(!showModuleFilter)}
-                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest min-w-[200px] flex items-center justify-between hover:border-[#fdb612]/50 transition-all"
-                      >
-                        <span className="truncate max-w-[140px]">
-                          {moduleBrandFilter.length === 0 
-                            ? `Todas as Marcas (${availableModuleBrands.length})` 
-                            : `${moduleBrandFilter.length} Selecionada(s)`}
-                        </span>
-                        <ChevronRight className={cn("w-4 h-4 transition-transform", showModuleFilter ? "rotate-90" : "rotate-0")} />
-                      </button>
-
-                      {showModuleFilter && (
-                        <>
-                          <div 
-                            className="fixed inset-0 z-10" 
-                            onClick={() => setShowModuleFilter(false)}
-                          />
-                          <div className="absolute top-full left-0 mt-2 w-full min-w-[220px] bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-200">
-                            <div className="max-h-[240px] overflow-y-auto custom-scrollbar p-1 space-y-1">
-                              <button 
-                                onClick={() => setModuleBrandFilter([])}
-                                className={cn(
-                                  "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors",
-                                  moduleBrandFilter.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
-                                )}
-                              >
-                                Todas as Marcas
-                              </button>
-                              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                              {availableModuleBrands.map(brand => (
-                                <label 
-                                  key={brand}
-                                  className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group"
-                                >
-                                  <input 
-                                    type="checkbox"
-                                    checked={moduleBrandFilter.includes(brand)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setModuleBrandFilter([...moduleBrandFilter, brand]);
-                                      } else {
-                                        setModuleBrandFilter(moduleBrandFilter.filter(b => b !== brand));
-                                      }
-                                    }}
-                                    className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                                  />
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <BrandFilter
+                    label="Módulos"
+                    options={availableModuleBrands}
+                    selectedOptions={moduleBrandFilter}
+                    onChange={setModuleBrandFilter}
+                    isOpen={showModuleFilter}
+                    onToggle={() => {
+                      setShowModuleFilter(!showModuleFilter);
+                      setShowInverterFilter(false);
+                    }}
+                  />
                 </div>
               </div>
 

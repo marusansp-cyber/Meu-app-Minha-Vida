@@ -26,6 +26,9 @@ service cloud.firestore {
     // Collection: kits
     // Fields: name, description, power, price, components, status, createdAt
     //
+    // Collection: clients
+    // Fields: name, email, phone, address, cnpj, cpf, createdAt, projects, status
+    //
     // ===============================================================
 
     // ===============================================================
@@ -84,7 +87,7 @@ service cloud.firestore {
       return hasRequiredFields(['name', 'email', 'role']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              isValidEmail(data.email) &&
-             data.role in ['admin', 'sales', 'engineer', 'installer', 'finance'];
+             data.role in ['admin', 'sales', 'engineer', 'installer', 'finance', 'admin_staff', 'Vendedor', 'Projetista', 'Instalador', 'Financeiro', 'Administrativo'];
     }
 
     function isValidPartner(data) {
@@ -107,6 +110,13 @@ service cloud.firestore {
       return hasRequiredFields(['name', 'power', 'price', 'status']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.power is number && data.price is number &&
+             data.status in ['active', 'inactive'];
+    }
+
+    function isValidClient(data) {
+      return hasRequiredFields(['name', 'email', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
              data.status in ['active', 'inactive'];
     }
 
@@ -160,6 +170,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if (isAdmin() || isAuthenticated()) && isValidKit(request.resource.data);
       allow update: if (isAdmin() || isAuthenticated()) && isValidKit(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidClient(request.resource.data);
+      allow update: if isAuthenticated() && isValidClient(request.resource.data);
       allow delete: if isAdmin();
     }
 
