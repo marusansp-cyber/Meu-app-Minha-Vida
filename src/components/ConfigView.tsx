@@ -28,16 +28,18 @@ import {
   CreditCard,
   FileText,
   Send,
-  Package
+  Package,
+  Upload
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from "@google/genai";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import Papa from 'papaparse';
 import { Partner, Kit } from '../types';
 import { updateDocument } from '../firestoreUtils';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { NewKitModal } from './NewKitModal';
 import { useToast } from '../hooks/useToast';
 import { BrandFilter } from './BrandFilter';
@@ -96,6 +98,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isValidatingFortlev, setIsValidatingFortlev] = useState(false);
+  const [isUploadingKits, setIsUploadingKits] = useState(false);
   const [paybackTime, setPaybackTime] = useState<string>('6.2 Anos');
   const [roiPercentage, setRoiPercentage] = useState<string>('14.5%');
   const [energyInflation, setEnergyInflation] = useState<string>('5');
@@ -596,6 +599,94 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     if (selectedKitId) {
       setKits(kits.map(k => k.id === selectedKitId ? { ...k, components: newComps } : k));
     }
+  };
+
+  const handleKitUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingKits(true);
+    showToast('Processando planilha de kits...', 'info');
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as any[];
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const row of data) {
+          const kitName = row['Nome'] || row['nome'];
+          if (!kitName) continue;
+
+          const power = parseFloat(row['Potência (kWp)'] || row['potencia'] || '0');
+          const price = parseFloat(row['Preço (R$)'] || row['preco'] || '0');
+          const description = row['Descrição'] || row['descricao'] || '';
+
+          const components: any[] = [];
+          // Iterate through Componente X fields (up to 10 as per common spreadsheets)
+          for (let i = 1; i <= 10; i++) {
+            const compName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
+            if (compName) {
+              components.push({
+                name: compName,
+                quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
+                brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
+                model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
+                notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
+              });
+            }
+          }
+
+          const kitData: Omit<Kit, 'id'> = {
+            name: kitName,
+            power,
+            price,
+            description,
+            components,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            panelBrand: components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'))?.brand || '',
+            inverterBrand: components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || ''
+          };
+
+          try {
+            const kitsRef = collection(db, 'kits');
+            const q = query(kitsRef, where("name", "==", kitName));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+              // Update existing kit
+              const kitDoc = querySnapshot.docs[0];
+              await updateDoc(doc(db, 'kits', kitDoc.id), kitData);
+            } else {
+              // Add new kit
+              await addDoc(kitsRef, kitData);
+            }
+            successCount++;
+          } catch (error) {
+            console.error('Error processing kit:', error);
+            errorCount++;
+          }
+        }
+
+        setIsUploadingKits(false);
+        if (errorCount === 0) {
+          showToast(`${successCount} kits processados com sucesso!`, 'success');
+        } else {
+          showToast(`${successCount} kits processados, ${errorCount} erros.`, 'warning');
+        }
+        // Reset file input
+        event.target.value = '';
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+        setIsUploadingKits(false);
+        showToast('Erro ao processar planilha.', 'error');
+      }
+    });
   };
 
   const handleSaveKitComponents = async () => {
@@ -1748,6 +1839,24 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       </button>
                     )}
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="file" 
+                      id="kit-upload" 
+                      className="hidden" 
+                      accept=".csv" 
+                      onChange={handleKitUpload}
+                    />
+                    <label 
+                      htmlFor="kit-upload"
+                      className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95"
+                    >
+                      {isUploadingKits ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                      Upload Planilha
+                    </label>
+                  </div>
+
                   <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                     <input 
                       type="checkbox" 
