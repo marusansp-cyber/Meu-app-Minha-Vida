@@ -95,9 +95,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         }
       } else {
         if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-          setError('E-mail ou senha incorretos.');
+          setError('E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.');
+        } else if (err.code === 'auth/too-many-requests') {
+          setError('Muitas tentativas malsucedidas. Sua conta foi temporariamente bloqueada. Tente novamente mais tarde.');
         } else {
-          setError('Erro ao entrar. Tente novamente.');
+          setError(`Erro ao entrar: ${err.message || 'Tente novamente.'}`);
         }
       }
       setIsLoading(false);

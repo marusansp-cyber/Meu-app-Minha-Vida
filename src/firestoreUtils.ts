@@ -65,6 +65,26 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 // Generic sync function
+function convertTimestamps(data: any): any {
+  if (!data || typeof data !== 'object') return data;
+  
+  // Handle Firestore Timestamp
+  if (data.seconds !== undefined && data.nanoseconds !== undefined) {
+    return new Date(data.seconds * 1000).toISOString();
+  }
+
+  const converted: any = Array.isArray(data) ? [] : {};
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    if (value && typeof value === 'object') {
+      converted[key] = convertTimestamps(value);
+    } else {
+      converted[key] = value;
+    }
+  });
+  return converted;
+}
+
 export function syncCollection<T>(
   collectionPath: string, 
   onUpdate: (data: T[]) => void,
@@ -75,7 +95,7 @@ export function syncCollection<T>(
 
   return onSnapshot(q, (snapshot) => {
     const data = snapshot.docs.map(doc => ({
-      ...doc.data(),
+      ...convertTimestamps(doc.data()),
       id: doc.id
     })) as T[];
     onUpdate(data);
@@ -207,7 +227,7 @@ export async function getDocument<T>(collectionPath: string, id: string): Promis
     const docRef = doc(db, collectionPath, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as T;
+      return { id: docSnap.id, ...convertTimestamps(docSnap.data()) } as T;
     }
     return null;
   } catch (error) {

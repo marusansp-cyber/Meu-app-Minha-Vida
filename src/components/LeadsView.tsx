@@ -40,7 +40,7 @@ import {
 } from 'recharts';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { LEADS } from '../constants';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { Lead } from '../types';
 
 interface LeadsViewProps {
@@ -747,7 +747,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       {lead.value}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-400">
-                      {lead.createdAt || 'N/A'}
+                      {formatDate(lead.createdAt)}
                     </td>
                     <td className="px-6 py-4 text-right relative">
                       <div className="flex justify-end">
