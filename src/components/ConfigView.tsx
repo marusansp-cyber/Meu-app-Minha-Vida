@@ -143,6 +143,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [monthlyInterestRateError, setMonthlyInterestRateError] = useState<string | null>(null);
   const [fortlevErrors, setFortlevErrors] = useState<{ email?: string; password?: string }>({});
   const [fortlevLoginError, setFortlevLoginError] = useState<string | null>(null);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpStatus, setSmtpStatus] = useState<'idle' | 'success' | 'error' | 'unconfigured'>('idle');
 
   useEffect(() => {
     const annual = parseFloat(annualUsage);
@@ -182,53 +184,103 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       const kitsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Kit));
       if (kitsData.length === 0) {
         // Add mock kits if none exist
-        setKits([
+        const mockKits: Omit<Kit, 'id'>[] = [
           {
-            id: '1',
-            name: 'Gerador FV 12.30 kWp',
-            description: 'Kit Solar Completo',
-            power: 12.30,
-            price: 16545.84,
-            overload: 64.00,
-            panelBrand: 'TCL',
-            inverterBrand: 'SUNGROW',
+            name: 'Kit Residencial 3.3 kWp - Econômico',
+            description: 'Ideal para residências com consumo médio de 400kWh/mês. Excelente custo-benefício.',
+            power: 3.30,
+            price: 12500.00,
+            overload: 10.00,
+            panelBrand: 'Jinko Solar',
+            inverterBrand: 'Growatt',
             panelImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png',
             inverterImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png',
-            components: [],
+            components: [
+              { name: 'Painel Solar 550W', quantity: 6, brand: 'Jinko Solar', model: 'Tiger Neo' },
+              { name: 'Inversor Monofásico 3kW', quantity: 1, brand: 'Growatt', model: 'MIN 3000TL-X' },
+              { name: 'Estrutura de Fixação Telhado Cerâmico', quantity: 1, brand: 'Solar Group', model: 'Universal' }
+            ],
             status: 'active',
             createdAt: new Date().toISOString()
           },
           {
-            id: '2',
-            name: 'Gerador FV 12.30 kWp',
-            description: 'Kit Solar Completo',
-            power: 12.30,
-            price: 16739.44,
-            overload: 53.75,
-            panelBrand: 'GROWATT',
-            inverterBrand: 'GROWATT',
+            name: 'Kit Residencial 5.5 kWp - Premium',
+            description: 'Sistema de alta performance com tecnologia N-Type. Para consumos de 700kWh/mês.',
+            power: 5.50,
+            price: 18900.00,
+            overload: 15.00,
+            panelBrand: 'Canadian Solar',
+            inverterBrand: 'Deye',
             panelImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png',
             inverterImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png',
-            components: [],
+            components: [
+              { name: 'Painel Solar 550W', quantity: 10, brand: 'Canadian Solar', model: 'HiKu6' },
+              { name: 'Inversor Híbrido 5kW', quantity: 1, brand: 'Deye', model: 'SUN-5K-SG01LP1' },
+              { name: 'String Box 2 Entradas 2 Saídas', quantity: 1, brand: 'Clamper', model: 'Solar' }
+            ],
             status: 'active',
             createdAt: new Date().toISOString()
           },
           {
-            id: '3',
-            name: 'Gerador FV 12.30 kWp',
-            description: 'Kit Solar Completo',
-            power: 12.30,
-            price: 17019.48,
-            overload: 53.75,
-            panelBrand: 'SUNGROW',
-            inverterBrand: 'SUNGROW',
+            name: 'Kit Comercial 10.4 kWp - Robust',
+            description: 'Focado em pequenas empresas. Alta durabilidade e garantia estendida.',
+            power: 10.40,
+            price: 32000.00,
+            overload: 20.00,
+            panelBrand: 'Trina Solar',
+            inverterBrand: 'Sungrow',
             panelImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png',
             inverterImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png',
-            components: [],
+            components: [
+              { name: 'Painel Solar 650W', quantity: 16, brand: 'Trina Solar', model: 'Vertex' },
+              { name: 'Inversor Trifásico 10kW', quantity: 1, brand: 'Sungrow', model: 'SG10RT' },
+              { name: 'Cabo Solar 6mm Preto/Vermelho', quantity: 100, brand: 'Condumax', model: 'Solar' }
+            ],
+            status: 'active',
+            createdAt: new Date().toISOString()
+          },
+          {
+            name: 'Kit Microinversor 4.4 kWp - Eficiência',
+            description: 'Máxima eficiência com monitoramento individual por painel. Ideal para telhados com sombras.',
+            power: 4.40,
+            price: 21500.00,
+            overload: 5.00,
+            panelBrand: 'Longi Solar',
+            inverterBrand: 'Hoymiles',
+            panelImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png',
+            inverterImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png',
+            components: [
+              { name: 'Painel Solar 550W', quantity: 8, brand: 'Longi Solar', model: 'Hi-MO 5' },
+              { name: 'Microinversor HMS-2000', quantity: 2, brand: 'Hoymiles', model: 'HMS-2000-4T' },
+              { name: 'DTU-Pro Monitoramento', quantity: 1, brand: 'Hoymiles', model: 'DTU-Pro' }
+            ],
+            status: 'active',
+            createdAt: new Date().toISOString()
+          },
+          {
+            name: 'Kit Industrial 50 kWp - PowerMax',
+            description: 'Solução completa para grandes indústrias. Inversor de alta potência e painéis bifaciais.',
+            power: 50.00,
+            price: 145000.00,
+            overload: 25.00,
+            panelBrand: 'Risen Energy',
+            inverterBrand: 'Fronius',
+            panelImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png',
+            inverterImage: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png',
+            components: [
+              { name: 'Painel Solar 670W Bifacial', quantity: 75, brand: 'Risen Energy', model: 'Titan' },
+              { name: 'Inversor Trifásico 50kW', quantity: 1, brand: 'Fronius', model: 'Tauro Eco' },
+              { name: 'Smart Meter 63A', quantity: 1, brand: 'Fronius', model: 'Smart Meter' }
+            ],
             status: 'active',
             createdAt: new Date().toISOString()
           }
-        ]);
+        ];
+
+        // Save mock kits to Firestore
+        mockKits.forEach(async (kit) => {
+          await addDoc(collection(db, 'kits'), kit);
+        });
       } else {
         setKits(kitsData);
       }
@@ -373,6 +425,32 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       showToast('Erro ao consultar CNPJ. Tente novamente.', 'error');
     } finally {
       setIsConsultingCnpj(false);
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    setIsTestingSmtp(true);
+    setSmtpStatus('idle');
+    try {
+      const response = await fetch('/api/smtp/test');
+      const data = await response.json();
+      if (data.success) {
+        setSmtpStatus('success');
+        showToast('SMTP configurado corretamente!', 'success');
+      } else {
+        setSmtpStatus('error');
+        // Check for common Gmail error
+        if (data.error?.includes('535') || data.message?.includes('Gmail')) {
+          showToast('Erro Gmail: Use uma Senha de App (16 dígitos).', 'error');
+        } else {
+          showToast(`Erro SMTP: ${data.message}`, 'error');
+        }
+      }
+    } catch (error) {
+      setSmtpStatus('error');
+      showToast('Erro ao testar SMTP. Verifique o servidor.', 'error');
+    } finally {
+      setIsTestingSmtp(false);
     }
   };
 
@@ -797,7 +875,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   };
 
   const addTask = () => {
-    if (newTaskText.trim()) {
+    if (newTaskText?.trim()) {
       setTasks([...tasks, { id: Date.now().toString(), text: newTaskText, completed: false }]);
       setNewTaskText('');
       showToast('Tarefa adicionada');
@@ -1324,6 +1402,31 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
               {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Salvar
             </button>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={handleTestSmtp}
+                disabled={isTestingSmtp}
+                className={cn(
+                  "px-4 py-2.5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95",
+                  smtpStatus === 'success' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" :
+                  smtpStatus === 'error' ? "bg-rose-500/10 border-rose-500/20 text-rose-600" :
+                  "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                )}
+                title="Testar se as configurações de e-mail (SMTP) estão funcionando"
+              >
+                {isTestingSmtp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                {smtpStatus === 'success' ? 'SMTP OK' : smtpStatus === 'error' ? 'SMTP Erro' : 'Testar E-mail'}
+              </button>
+              <a 
+                href="https://support.google.com/accounts/answer/185833" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
+                title="Ajuda com Senha de App do Gmail"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
           <div className="w-full flex justify-start">
             <button 
@@ -2007,8 +2110,8 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       {/* Info */}
                       <div className="space-y-6">
                         <div>
-                          <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase tracking-tight">Gerador FV {kit.power.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kWp</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Kit Solar Completo • Fortlev Solar</p>
+                          <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase tracking-tight">{kit.name}</h4>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Kit Solar Completo • {kit.panelBrand || 'Fortlev Solar'}</p>
                         </div>
                         
                         <div className="flex items-end justify-between">
@@ -2975,6 +3078,18 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Reiniciar Fluxo</span>
                     </div>
                   </button>
+                </div>
+
+                <div className="mt-12 max-w-2xl mx-auto p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl flex items-start gap-4">
+                  <div className="size-10 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <Info className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-blue-600">Dica de Configuração</h4>
+                    <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase tracking-tight">
+                      Se o envio de e-mail falhar, verifique se você configurou o <span className="text-blue-600">SMTP_USER</span> e <span className="text-blue-600">SMTP_PASS</span> nas configurações do app (ícone de engrenagem). Para Gmail, use uma <span className="text-blue-600">Senha de App</span>.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-4">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -13,7 +13,8 @@ import {
   User,
   MoreVertical,
   Download,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -30,6 +31,8 @@ import {
 import { cn } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
 import { updateDocument } from '../firestoreUtils';
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 
 interface FinanceViewProps {
   proposals: Proposal[];
@@ -42,6 +45,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
   const [representativeFilter, setRepresentativeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const filteredProposals = useMemo(() => {
     return proposals.filter(p => {
@@ -147,6 +152,124 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
     await updateDocument('proposals', proposal.id, { commissionStatus: newStatus });
   };
 
+  const handleExportReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Header
+      doc.setFillColor(35, 29, 15); // #231d0f
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setTextColor(253, 182, 18); // #fdb612
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("RELATÓRIO FINANCEIRO", pageWidth / 2, 25, { align: "center" });
+      
+      // Date and Info
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 50);
+      doc.text(`Período: ${startDate || 'Início'} até ${endDate || 'Hoje'}`, 20, 57);
+      
+      // Summary Section
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("RESUMO EXECUTIVO", 20, 75);
+      doc.line(20, 77, pageWidth - 20, 77);
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Faturamento Total: R$ ${stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 87);
+      doc.text(`Total em Comissões: R$ ${stats.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 95);
+      doc.setTextColor(16, 185, 129); // emerald-600
+      doc.text(`Comissões Pagas: R$ ${stats.paidCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 103);
+      doc.setTextColor(217, 119, 6); // amber-600
+      doc.text(`Comissões Pendentes: R$ ${stats.pendingCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 111);
+      doc.setTextColor(0, 0, 0);
+
+      // Chart Section
+      if (chartRef.current) {
+        const canvas = await html2canvas(chartRef.current, {
+          scale: 2,
+          backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/png');
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("DESEMPENHO MENSAL", 20, 130);
+        doc.line(20, 132, pageWidth - 20, 132);
+        doc.addImage(imgData, 'PNG', 20, 135, pageWidth - 40, 60);
+      }
+
+      // Detailed Table
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("DETALHAMENTO DE PROPOSTAS", 20, 20);
+      doc.line(20, 22, pageWidth - 20, 22);
+
+      let y = 35;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text("CLIENTE", 20, y);
+      doc.text("CONSULTOR", 70, y);
+      doc.text("VALOR", 110, y);
+      doc.text("COMISSÃO", 140, y);
+      doc.text("STATUS", 175, y);
+      
+      y += 5;
+      doc.line(20, y, pageWidth - 20, y);
+      y += 10;
+
+      doc.setFont("helvetica", "normal");
+      filteredProposals.forEach((p, index) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+          doc.setFont("helvetica", "bold");
+          doc.text("CLIENTE", 20, y);
+          doc.text("CONSULTOR", 70, y);
+          doc.text("VALOR", 110, y);
+          doc.text("COMISSÃO", 140, y);
+          doc.text("STATUS", 175, y);
+          y += 5;
+          doc.line(20, y, pageWidth - 20, y);
+          y += 10;
+          doc.setFont("helvetica", "normal");
+        }
+
+        const projectValue = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const commissionRate = p.commission || 5;
+        const commissionValue = projectValue * (commissionRate / 100);
+
+        doc.text(p.client.substring(0, 25), 20, y);
+        doc.text(p.representative.substring(0, 20), 70, y);
+        doc.text(`R$ ${projectValue.toLocaleString('pt-BR')}`, 110, y);
+        doc.text(`R$ ${commissionValue.toLocaleString('pt-BR')}`, 140, y);
+        doc.text(p.commissionStatus === 'paid' ? 'PAGO' : 'PENDENTE', 175, y);
+        
+        y += 8;
+      });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Vieira's Solar & Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, 285, { align: "center" });
+      }
+
+      doc.save(`relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error("Error generating report:", error);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   const COLORS = ['#fdb612', '#231d0f', '#6366f1', '#10b981', '#f43f5e'];
 
   return (
@@ -158,9 +281,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           <p className="text-slate-500 font-medium">Controle de faturamento e comissões de vendas</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm">
-            <Download className="w-4 h-4" />
-            Exportar Relatório
+          <button 
+            onClick={handleExportReport}
+            disabled={isGeneratingReport}
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
+          >
+            {isGeneratingReport ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Gerar Relatório PDF
           </button>
         </div>
       </div>
@@ -236,7 +367,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
               </div>
             </div>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full" ref={chartRef}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />

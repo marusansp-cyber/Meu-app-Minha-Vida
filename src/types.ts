@@ -83,6 +83,20 @@ export interface InstallationStage {
   progress?: number;
 }
 
+export interface History {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  collection: string;
+  docId: string;
+  data?: any;
+  user: {
+    uid?: string;
+    email?: string | null;
+    displayName?: string | null;
+  };
+  timestamp: any;
+}
+
 export interface Installation {
   id: string;
   name: string;

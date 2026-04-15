@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, Building2, CreditCard } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2 } from 'lucide-react';
 import { Client } from '../types';
+import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
+import { cn } from '../lib/utils';
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -19,6 +21,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     cpf: '',
     status: 'active'
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     if (client) {
@@ -38,8 +42,86 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
 
   if (!isOpen) return null;
 
+  const handleCnpjChange = async (value: string) => {
+    const formatted = formatCNPJ(value);
+    setFormData({ ...formData, cnpj: formatted });
+    
+    const cleaned = formatted.replace(/\D/g, '');
+    if (cleaned.length === 14) {
+      if (!validateCNPJ(cleaned)) {
+        setErrors(prev => ({ ...prev, cnpj: 'CNPJ inválido' }));
+        return;
+      }
+      
+      setIsValidating(true);
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.cnpj;
+        return next;
+      });
+      
+      try {
+        const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleaned}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({
+            ...prev,
+            name: data.razao_social || prev.name,
+            address: `${data.logradouro}, ${data.numero}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}` || prev.address,
+          }));
+        } else {
+          setErrors(prev => ({ ...prev, cnpj: 'CNPJ não encontrado' }));
+        }
+      } catch (error) {
+        setErrors(prev => ({ ...prev, cnpj: 'Erro ao consultar CNPJ' }));
+      } finally {
+        setIsValidating(false);
+      }
+    } else {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.cnpj;
+        return next;
+      });
+    }
+  };
+
+  const handleCpfChange = (value: string) => {
+    const formatted = formatCPF(value);
+    setFormData({ ...formData, cpf: formatted });
+    
+    const cleaned = formatted.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      if (!validateCPF(cleaned)) {
+        setErrors(prev => ({ ...prev, cpf: 'CPF inválido' }));
+      } else {
+        setErrors(prev => {
+          const next = { ...prev };
+          delete next.cpf;
+          return next;
+        });
+      }
+    } else {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.cpf;
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const newErrors: Record<string, string> = {};
+    if (formData.cnpj && !validateCNPJ(formData.cnpj)) newErrors.cnpj = 'CNPJ inválido';
+    if (formData.cpf && !validateCPF(formData.cpf)) newErrors.cpf = 'CPF inválido';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     onSave(formData);
     onClose();
   };
@@ -102,7 +184,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 required
                 type="text"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                 placeholder="(00) 00000-0000"
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
               />
@@ -125,17 +207,24 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                <Building2 className="w-4 h-4 text-[#fdb612]" />
-                CNPJ (Opcional)
-              </label>
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                  <Building2 className="w-4 h-4 text-[#fdb612]" />
+                  CNPJ (Opcional)
+                </label>
+                {isValidating && <Loader2 className="w-3 h-3 animate-spin text-[#fdb612]" />}
+              </div>
               <input
                 type="text"
                 value={formData.cnpj}
-                onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                onChange={(e) => handleCnpjChange(e.target.value)}
                 placeholder="00.000.000/0000-00"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                className={cn(
+                  "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                  errors.cnpj ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                )}
               />
+              {errors.cnpj && <p className="text-[10px] font-bold text-rose-500">{errors.cnpj}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -145,10 +234,14 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               <input
                 type="text"
                 value={formData.cpf}
-                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                onChange={(e) => handleCpfChange(e.target.value)}
                 placeholder="000.000.000-00"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                className={cn(
+                  "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                  errors.cpf ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                )}
               />
+              {errors.cpf && <p className="text-[10px] font-bold text-rose-500">{errors.cpf}</p>}
             </div>
           </div>
 

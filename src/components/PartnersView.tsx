@@ -25,6 +25,7 @@ import { Partner } from '../types';
 import { createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { useToast } from '../hooks/useToast';
 import { MapView } from './MapView';
+import { validateCNPJ, formatCNPJ, formatPhone } from '../lib/validations';
 
 interface PartnersViewProps {
   partners: Partner[];
@@ -400,52 +401,6 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
     }
   );
 
-  const validateCNPJ = (cnpj: string) => {
-    const cleaned = cnpj.replace(/\D/g, '');
-    if (cleaned.length === 0) return true;
-    if (cleaned.length !== 14) return false;
-    
-    if (/^(\d)\1+$/.test(cleaned)) return false;
-    
-    let size = cleaned.length - 2;
-    let numbers = cleaned.substring(0, size);
-    const digits = cleaned.substring(size);
-    let sum = 0;
-    let pos = size - 7;
-    for (let i = size; i >= 1; i--) {
-      sum += parseInt(numbers.charAt(size - i)) * pos--;
-      if (pos < 2) pos = 9;
-    }
-    let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (result !== parseInt(digits.charAt(0))) return false;
-    
-    size = size + 1;
-    numbers = cleaned.substring(0, size);
-    sum = 0;
-    pos = size - 7;
-    for (let i = size; i >= 1; i--) {
-      sum += parseInt(numbers.charAt(size - i)) * pos--;
-      if (pos < 2) pos = 9;
-    }
-    result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (result !== parseInt(digits.charAt(1))) return false;
-    
-    return true;
-  };
-
-  const formatCNPJ = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length === 0) return '';
-    
-    let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.substring(0, 2) + '.' + cleaned.substring(2);
-    if (cleaned.length > 5) formatted = formatted.substring(0, 6) + '.' + formatted.substring(6);
-    if (cleaned.length > 8) formatted = formatted.substring(0, 10) + '/' + formatted.substring(10);
-    if (cleaned.length > 12) formatted = formatted.substring(0, 15) + '-' + formatted.substring(15);
-    
-    return formatted.substring(0, 18);
-  };
-
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (email && !emailRegex.test(email)) {
@@ -471,6 +426,11 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
     
     const cleaned = formatted.replace(/\D/g, '');
     if (cleaned.length === 14) {
+      if (!validateCNPJ(cleaned)) {
+        setCnpjError('CNPJ inválido');
+        return;
+      }
+      
       setIsCnpjValidating(true);
       setCnpjError(null);
       
@@ -499,23 +459,6 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
     } else {
       setCnpjError(null);
     }
-  };
-
-  const formatPhone = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length === 0) return '';
-    
-    let formatted = cleaned;
-    if (cleaned.length <= 2) {
-      formatted = `(${cleaned}`;
-    } else if (cleaned.length <= 6) {
-      formatted = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2)}`;
-    } else if (cleaned.length <= 10) {
-      formatted = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 6)}-${cleaned.substring(6)}`;
-    } else {
-      formatted = `(${cleaned.substring(0, 2)}) ${cleaned.substring(2, 7)}-${cleaned.substring(7, 11)}`;
-    }
-    return formatted;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

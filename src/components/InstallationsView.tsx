@@ -718,7 +718,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                       const input = e.currentTarget;
-                                      if (input.value.trim()) {
+                                      if (input.value?.trim()) {
                                         const newTask = {
                                           id: Math.random().toString(36).substr(2, 9),
                                           title: input.value.trim(),
@@ -737,7 +737,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                                 <button 
                                   onClick={(e) => {
                                     const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                                    if (input.value.trim()) {
+                                    if (input?.value?.trim()) {
                                       const newTask = {
                                         id: Math.random().toString(36).substr(2, 9),
                                         title: input.value.trim(),

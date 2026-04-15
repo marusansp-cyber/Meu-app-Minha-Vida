@@ -31,7 +31,7 @@ async function startServer() {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
       return res.status(500).json({ 
         success: false, 
-        message: "Configuração de e-mail incompleta. Por favor, configure SMTP_USER e SMTP_PASS nas configurações do app." 
+        message: "Configuração de e-mail incompleta. Por favor, configure SMTP_USER e SMTP_PASS nas configurações do app (ícone de engrenagem no AI Studio)." 
       });
     }
 
@@ -55,18 +55,45 @@ async function startServer() {
     } catch (error) {
       console.error("Erro ao enviar e-mail:", error);
       let errorMessage = "Erro no serviço de e-mail: Verifique se as credenciais SMTP estão corretas.";
+      const errorStr = String(error);
       
-      if (String(error).includes('EAUTH') || String(error).includes('Invalid login')) {
-        errorMessage = "Erro de Autenticação SMTP: Usuário ou senha incorretos. Se estiver usando Gmail, certifique-se de usar uma 'Senha de App'.";
-      } else if (String(error).includes('ECONNREFUSED') || String(error).includes('ETIMEDOUT')) {
-        errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor de e-mail. Verifique o Host e a Porta.";
+      if (errorStr.includes('EAUTH') || errorStr.includes('Invalid login') || errorStr.includes('535')) {
+        if (process.env.SMTP_HOST?.includes('gmail.com')) {
+          errorMessage = "Erro de Autenticação Gmail: Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas normais não funcionam. Ative a Verificação em Duas Etapas no Google e gere uma Senha de App.";
+        } else {
+          errorMessage = "Erro de Autenticação SMTP: Usuário ou senha incorretos. Verifique se o provedor exige senhas de aplicativo.";
+        }
+      } else if (errorStr.includes('ECONNREFUSED') || errorStr.includes('ETIMEDOUT') || errorStr.includes('ESOCKET')) {
+        errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor. Verifique o Host (smtp.gmail.com) e a Porta (587 ou 465).";
       }
 
       res.status(500).json({ 
         success: false, 
         message: errorMessage,
-        error: String(error) 
+        error: errorStr 
       });
+    }
+  });
+
+  // SMTP Test API
+  app.get("/api/smtp/test", async (req, res) => {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "SMTP não configurado. Defina SMTP_USER e SMTP_PASS." 
+      });
+    }
+
+    try {
+      await transporter.verify();
+      res.json({ success: true, message: "Conexão SMTP verificada com sucesso!" });
+    } catch (error) {
+      console.error("Erro no teste SMTP:", error);
+      let errorMessage = "Falha na conexão SMTP.";
+      if (String(error).includes('EAUTH')) {
+        errorMessage = "Erro de Autenticação: Usuário ou senha incorretos.";
+      }
+      res.status(500).json({ success: false, message: errorMessage, error: String(error) });
     }
   });
 

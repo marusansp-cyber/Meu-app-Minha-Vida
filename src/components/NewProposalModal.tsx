@@ -170,6 +170,27 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       const calculatedSize = consumption / efficiency;
       setFormData(prev => ({ ...prev, systemSize: calculatedSize.toFixed(2) }));
       showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp`);
+
+      // Automatically suggest the best kit
+      if (fortlevKits.length > 0) {
+        const bestKit = fortlevKits.reduce((prev, curr) => {
+          const prevDiff = Math.abs(parseFloat(prev.power) - calculatedSize);
+          const currDiff = Math.abs(parseFloat(curr.power) - calculatedSize);
+          return currDiff < prevDiff ? curr : prev;
+        });
+
+        if (bestKit) {
+          setSelectedKitId(bestKit.id);
+          setFormData(prev => ({ 
+            ...prev, 
+            kitId: bestKit.id, 
+            value: bestKit.price.toString(),
+            systemSize: calculatedSize.toFixed(2) // Keep the calculated size but use the kit
+          }));
+          calculateAutomaticValues(bestKit.price.toString(), calculatedSize.toFixed(2));
+          showToast(`Sugestão: Kit ${bestKit.name} selecionado.`);
+        }
+      }
     } else {
       showToast('Por favor, insira o consumo mensal primeiro.');
     }
@@ -181,13 +202,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     const errors: Record<string, string> = {};
     
     if (step === 'ucs') {
-      if (!formData.client.trim()) errors.client = 'Nome do cliente é obrigatório';
-      if (!formData.email.trim()) {
+      if (!formData.client?.trim()) errors.client = 'Nome do cliente é obrigatório';
+      if (!formData.email?.trim()) {
         errors.email = 'E-mail do cliente é obrigatório';
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         errors.email = 'E-mail inválido';
       }
-      if (!formData.ucNumber.trim()) errors.ucNumber = 'Número da UC é obrigatório';
+      if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
       if (!formData.energyConsumption || parseFloat(formData.energyConsumption) <= 0) {
         errors.energyConsumption = 'Consumo mensal deve ser maior que zero';
       }
@@ -204,8 +225,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         errors.value = 'Valor total deve ser maior que zero';
       }
       if (parseFloat(formData.discount) < 0) errors.discount = 'Desconto não pode ser negativo';
-      if (!formData.roi.trim()) errors.roi = 'ROI é obrigatório';
-      if (!formData.payback.trim()) errors.payback = 'Payback é obrigatório';
+      if (!formData.roi?.trim()) errors.roi = 'ROI é obrigatório';
+      if (!formData.payback?.trim()) errors.payback = 'Payback é obrigatório';
     }
 
     setValidationErrors(errors);

@@ -113,8 +113,17 @@ export default function App() {
     }
   }, [isAuthenticated, user]);
 
-  const handleLogin = () => {
-    // Auth is handled by LoginView via Firebase
+  const handleLogin = async (email: string) => {
+    if (email === 'convidado@exemplo.com') {
+      const guestUser: User = {
+        id: 'guest-id',
+        name: 'Convidado (Teste)',
+        email: 'convidado@exemplo.com',
+        role: 'admin'
+      };
+      setUser(guestUser);
+      setIsAuthenticated(true);
+    }
   };
 
   const handleLogout = async () => {

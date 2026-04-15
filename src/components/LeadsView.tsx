@@ -222,7 +222,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
   };
 
   const handleAddNote = () => {
-    if (!selectedLead || !newNote.trim()) return;
+    if (!selectedLead || !newNote?.trim()) return;
 
     const newHistoryItem = {
       date: new Date().toLocaleString('pt-BR'),
@@ -1144,7 +1144,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                             <div className="flex justify-end">
                               <button 
                                 onClick={handleAddNote}
-                                disabled={!newNote.trim()}
+                                disabled={!newNote?.trim()}
                                 className="px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg text-xs font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                               >
                                 <Plus className="w-4 h-4" />

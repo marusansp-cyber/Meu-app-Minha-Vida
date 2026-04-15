@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, Package, DollarSign, Zap, Trash2, Info, Loader2, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Package, DollarSign, Zap, Trash2, Info, Loader2, CheckCircle2, Edit } from 'lucide-react';
 import { Kit } from '../types';
+import { cn } from '../lib/utils';
 import { createDocument, updateDocument } from '../firestoreUtils';
 
 interface NewKitModalProps {
@@ -29,6 +30,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingComponentIndex, setEditingComponentIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (kit) {
@@ -49,7 +51,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
   }, [kit, isOpen]);
 
   const addComponent = () => {
-    if (!newComponent.name.trim()) {
+    if (!newComponent.name?.trim()) {
       showToast('Nome do componente é obrigatório');
       return;
     }
@@ -58,14 +60,35 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
       return;
     }
 
-    setFormData(prev => ({
-      ...prev,
-      components: [...(prev.components || []), { ...newComponent }]
-    }));
+    if (editingComponentIndex !== null) {
+      setFormData(prev => {
+        const newComponents = [...(prev.components || [])];
+        newComponents[editingComponentIndex] = { ...newComponent };
+        return { ...prev, components: newComponents };
+      });
+      setEditingComponentIndex(null);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        components: [...(prev.components || []), { ...newComponent }]
+      }));
+    }
     setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
   };
 
+  const editComponent = (index: number) => {
+    const component = formData.components?.[index];
+    if (component) {
+      setNewComponent({ ...component });
+      setEditingComponentIndex(index);
+    }
+  };
+
   const removeComponent = (index: number) => {
+    if (editingComponentIndex === index) {
+      setEditingComponentIndex(null);
+      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
+    }
     setFormData(prev => {
       const newComponents = [...(prev.components || [])];
       newComponents.splice(index, 1);
@@ -284,9 +307,21 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   onClick={addComponent}
                   className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-xs hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all flex items-center gap-2 h-[46px]"
                 >
-                  <Plus className="w-4 h-4" />
-                  ADICIONAR
+                  {editingComponentIndex !== null ? <CheckCircle2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {editingComponentIndex !== null ? 'ATUALIZAR' : 'ADICIONAR'}
                 </button>
+                {editingComponentIndex !== null && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setEditingComponentIndex(null);
+                      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
+                    }}
+                    className="px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all h-[46px]"
+                  >
+                    CANCELAR
+                  </button>
+                )}
               </div>
             </div>
 
@@ -312,13 +347,27 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                       </div>
                     </div>
                   </div>
-                  <button 
-                    type="button"
-                    onClick={() => removeComponent(idx)}
-                    className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      type="button"
+                      onClick={() => editComponent(idx)}
+                      className={cn(
+                        "p-2 rounded-lg transition-all",
+                        editingComponentIndex === idx 
+                          ? "bg-[#fdb612] text-[#231d0f]" 
+                          : "text-slate-300 hover:text-[#fdb612] hover:bg-[#fdb612]/10"
+                      )}
+                    >
+                      <Edit className="w-5 h-5" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => removeComponent(idx)}
+                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               ))}
               {(!formData.components || formData.components.length === 0) && (

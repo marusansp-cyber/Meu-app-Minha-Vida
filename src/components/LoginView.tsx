@@ -27,7 +27,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       }
     } catch (err: any) {
       console.error(err);
-      setError('Erro ao entrar com Google. Tente novamente.');
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('O login com Google não está habilitado no Console do Firebase. Vá em Console > Authentication > Sign-in method e habilite "Google".');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        // Just reset loading state, no need to show error message as the user closed it intentionally
+        setIsLoading(false);
+        return;
+      } else {
+        setError('Erro ao entrar com Google. Tente novamente.');
+      }
       setIsLoading(false);
     }
   };
@@ -57,6 +65,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     try {
       if (isSignUp) {
+        if (password.length < 6) {
+          setError('A senha deve ter pelo menos 6 caracteres.');
+          setIsLoading(false);
+          return;
+        }
         const { createUserWithEmailAndPassword } = await import('firebase/auth');
         const result = await createUserWithEmailAndPassword(auth, email, password);
         if (result.user.email) {
@@ -70,14 +83,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       }
     } catch (err: any) {
       console.error(err);
-      if (isSignUp) {
+      if (err.code === 'auth/operation-not-allowed') {
+        setError('O login com E-mail/Senha não está habilitado no Console do Firebase. Vá em Console > Authentication > Sign-in method e habilite "E-mail/Senha".');
+      } else if (err.code === 'auth/weak-password') {
+        setError('A senha é muito fraca. Use pelo menos 6 caracteres.');
+      } else if (isSignUp) {
         if (err.code === 'auth/email-already-in-use') {
           setError('Este e-mail já está em uso.');
         } else {
-          setError('Erro ao criar conta. Tente uma senha mais forte.');
+          setError('Erro ao criar conta. Tente novamente.');
         }
       } else {
-        setError('E-mail ou senha incorretos.');
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+          setError('E-mail ou senha incorretos.');
+        } else {
+          setError('Erro ao entrar. Tente novamente.');
+        }
       }
       setIsLoading(false);
     }
@@ -186,6 +207,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
               {isSignUp ? 'Criar conta com Google' : 'Entrar com Google'}
+            </button>
+
+            <button 
+              onClick={() => onLogin('convidado@exemplo.com')}
+              className="w-full bg-slate-100 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all active:scale-[0.98]"
+            >
+              Entrar como Convidado (Modo de Teste)
             </button>
           </div>
 

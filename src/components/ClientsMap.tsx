@@ -1,0 +1,150 @@
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import { MapPin, Loader2, AlertCircle, Users } from 'lucide-react';
+import { Client } from '../types';
+
+// Fix for default marker icons in Leaflet
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+interface ClientsMapProps {
+  clients: Client[];
+  className?: string;
+  onSelectClient?: (client: Client) => void;
+}
+
+interface ClientMarker {
+  client: Client;
+  coords: [number, number];
+}
+
+const RecenterMap = ({ coords }: { coords: [number, number] }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (coords) {
+      map.setView(coords, 12);
+    }
+  }, [coords, map]);
+  return null;
+};
+
+export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, className, onSelectClient }) => {
+  const [markers, setMarkers] = useState<ClientMarker[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const geocodeClients = async () => {
+      setLoading(true);
+      setError(null);
+      const newMarkers: ClientMarker[] = [];
+
+      try {
+        // Geocode each client address
+        // Note: In a real app, you'd want to cache these or store lat/lng in Firestore
+        // For this demo, we'll geocode them on the fly (limited by Nominatim rate limits)
+        for (const client of clients) {
+          if (!client.address) continue;
+
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(client.address)}`);
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+              newMarkers.push({
+                client,
+                coords: [parseFloat(data[0].lat), parseFloat(data[0].lon)]
+              });
+            }
+            // Add a small delay to respect Nominatim rate limits
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (err) {
+            console.error(`Geocoding error for client ${client.name}:`, err);
+          }
+        }
+        setMarkers(newMarkers);
+      } catch (err) {
+        console.error('Geocoding error:', err);
+        setError('Erro ao carregar mapa de clientes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (clients.length > 0) {
+      geocodeClients();
+    }
+  }, [clients]);
+
+  if (loading && markers.length === 0) {
+    return (
+      <div className={`bg-slate-100 dark:bg-white/5 rounded-3xl flex flex-col items-center justify-center text-slate-400 p-12 ${className}`}>
+        <Loader2 className="w-12 h-12 mb-4 animate-spin text-[#fdb612]" />
+        <p className="text-lg font-bold">Mapeando clientes...</p>
+        <p className="text-sm opacity-60">Localizando endereços no mapa</p>
+      </div>
+    );
+  }
+
+  if (error && markers.length === 0) {
+    return (
+      <div className={`bg-slate-100 dark:bg-white/5 rounded-3xl flex flex-col items-center justify-center text-slate-400 p-12 ${className}`}>
+        <AlertCircle className="w-12 h-12 mb-4 text-amber-500/50" />
+        <p className="text-lg font-bold">{error}</p>
+      </div>
+    );
+  }
+
+  const center: [number, number] = markers.length > 0 ? markers[0].coords : [-23.5505, -46.6333]; // Default to São Paulo
+
+  return (
+    <div className={`rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm relative z-0 ${className}`}>
+      <MapContainer 
+        center={center} 
+        zoom={12} 
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {markers.map((marker) => (
+          <Marker 
+            key={marker.client.id} 
+            position={marker.coords}
+            eventHandlers={{
+              click: () => onSelectClient?.(marker.client)
+            }}
+          >
+            <Popup>
+              <div className="p-2 min-w-[150px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="size-8 rounded-lg bg-[#fdb612]/20 flex items-center justify-center text-[#fdb612]">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div className="font-bold text-slate-900">{marker.client.name}</div>
+                </div>
+                <div className="text-[10px] text-slate-500 mb-2">{marker.client.address}</div>
+                <button 
+                  onClick={() => onSelectClient?.(marker.client)}
+                  className="w-full py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                >
+                  Ver Detalhes
+                </button>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        {markers.length > 0 && <RecenterMap coords={markers[0].coords} />}
+      </MapContainer>
+    </div>
+  );
+};

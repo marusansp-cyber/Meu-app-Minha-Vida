@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import Papa from 'papaparse';
 import { cn } from '../lib/utils';
 import { Kit } from '../types';
 import { createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
@@ -132,36 +133,81 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     setIsUploading(true);
     showToast(`Processando arquivo: ${file.name}...`);
 
-    // Simulate parsing and uploading
-    setTimeout(async () => {
-      try {
-        // Mock data from CSV/XLSX
-        const mockKits = [
-          { name: 'Kit Upload 1', power: 5.5, price: 15000, description: 'Importado via planilha', components: [{ name: 'Painel', quantity: 10, brand: 'Jinko', model: 'Tiger' }] },
-          { name: 'Kit Upload 2', power: 8.2, price: 22000, description: 'Importado via planilha', components: [{ name: 'Inversor', quantity: 1, brand: 'Deye', model: 'Hybrid' }] }
-        ];
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as any[];
+        let successCount = 0;
+        let errorCount = 0;
 
-        for (const kit of mockKits) {
-          await createDocument('kits', {
-            ...kit,
-            status: 'active',
-            createdAt: new Date().toISOString()
-          });
+        try {
+          for (const row of data) {
+            const name = row['Nome'] || row['nome'];
+            if (!name) continue;
+
+            const power = parseFloat(row['Potência (kWp)'] || row['potencia'] || '0');
+            const price = parseFloat(row['Preço (R$)'] || row['preco'] || '0');
+            const description = row['Descrição'] || row['descricao'] || '';
+
+            const components: any[] = [];
+            // Extract components from columns like "Componente 1 Nome", "Componente 1 Qtd", etc.
+            for (let i = 1; i <= 10; i++) {
+              const compName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
+              if (compName) {
+                components.push({
+                  name: compName,
+                  quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
+                  brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
+                  model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
+                  notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
+                });
+              }
+            }
+
+            const kitData: Omit<Kit, 'id'> = {
+              name,
+              power,
+              price,
+              description,
+              components,
+              status: 'active',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              panelBrand: components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'))?.brand || '',
+              inverterBrand: components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || ''
+            };
+
+            await createDocument('kits', kitData);
+            successCount++;
+          }
+
+          showToast(`${successCount} kits importados com sucesso!`);
+          setActiveSubView('list');
+        } catch (error) {
+          console.error('Error importing kits:', error);
+          showToast('Erro ao importar kits.');
+        } finally {
+          setIsUploading(false);
+          // Reset file input
+          e.target.value = '';
         }
-
-        showToast(`${mockKits.length} kits importados com sucesso!`);
-        setActiveSubView('list');
-      } catch (error) {
-        showToast('Erro ao importar kits.');
-      } finally {
+      },
+      error: (error) => {
+        console.error('Error parsing CSV:', error);
+        showToast('Erro ao processar planilha.');
         setIsUploading(false);
       }
-    }, 2000);
+    });
   };
 
   const availableBrands = useMemo(() => {
     const brands = new Set<string>();
-    kits.forEach(k => k.components?.forEach(c => c.brand && brands.add(c.brand)));
+    kits.forEach(k => {
+      if (k.panelBrand) brands.add(k.panelBrand);
+      if (k.inverterBrand) brands.add(k.inverterBrand);
+      k.components?.forEach(c => c.brand && brands.add(c.brand));
+    });
     return Array.from(brands).sort();
   }, [kits]);
 
@@ -178,7 +224,11 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       const matchesText = k.name.toLowerCase().includes(searchLower) ||
                          k.description.toLowerCase().includes(searchLower);
       
-      const matchesBrand = filterBrand.length === 0 || k.components?.some(c => c.brand && filterBrand.includes(c.brand));
+      const matchesBrand = filterBrand.length === 0 || 
+                          (k.panelBrand && filterBrand.includes(k.panelBrand)) ||
+                          (k.inverterBrand && filterBrand.includes(k.inverterBrand)) ||
+                          k.components?.some(c => c.brand && filterBrand.includes(c.brand));
+                          
       const matchesModel = filterModel.length === 0 || k.components?.some(c => c.model && filterModel.includes(c.model));
 
       // Check if search term is a number and matches power

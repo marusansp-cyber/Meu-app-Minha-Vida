@@ -97,11 +97,28 @@ function cleanData(data: any) {
 export async function createDocument(collectionPath: string, data: any) {
   try {
     const colRef = collection(db, collectionPath);
-    return await addDoc(colRef, {
+    const docRef = await addDoc(colRef, {
       ...cleanData(data),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+
+    // Log activity
+    if (collectionPath !== 'activities' && collectionPath !== 'history') {
+      await logActivity({
+        type: 'create',
+        collection: collectionPath,
+        docId: docRef.id,
+        data: cleanData(data),
+        user: {
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+          displayName: auth.currentUser?.displayName
+        }
+      });
+    }
+
+    return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, collectionPath);
   }
@@ -114,10 +131,27 @@ export async function updateDocument(collectionPath: string, id: string, data: a
   }
   try {
     const docRef = doc(db, collectionPath, id);
-    return await updateDoc(docRef, {
+    await updateDoc(docRef, {
       ...cleanData(data),
       updatedAt: serverTimestamp()
     });
+
+    // Log activity
+    if (collectionPath !== 'activities' && collectionPath !== 'history') {
+      await logActivity({
+        type: 'update',
+        collection: collectionPath,
+        docId: id,
+        data: cleanData(data),
+        user: {
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+          displayName: auth.currentUser?.displayName
+        }
+      });
+    }
+
+    return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `${collectionPath}/${id}`);
   }
@@ -130,9 +164,37 @@ export async function deleteDocument(collectionPath: string, id: string) {
   }
   try {
     const docRef = doc(db, collectionPath, id);
-    return await deleteDoc(docRef);
+    await deleteDoc(docRef);
+
+    // Log activity
+    if (collectionPath !== 'activities' && collectionPath !== 'history') {
+      await logActivity({
+        type: 'delete',
+        collection: collectionPath,
+        docId: id,
+        user: {
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+          displayName: auth.currentUser?.displayName
+        }
+      });
+    }
+
+    return docRef;
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${collectionPath}/${id}`);
+  }
+}
+
+async function logActivity(activity: any) {
+  try {
+    const colRef = collection(db, 'history');
+    await addDoc(colRef, {
+      ...activity,
+      timestamp: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error logging activity:', error);
   }
 }
 
