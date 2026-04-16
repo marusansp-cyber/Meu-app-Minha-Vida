@@ -153,7 +153,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             <input
               required
               type="text"
-              value={formData.name}
+              value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex: João Silva"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -169,7 +169,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               <input
                 required
                 type="email"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="joao@email.com"
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -183,7 +183,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               <input
                 required
                 type="text"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                 placeholder="(00) 00000-0000"
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -198,7 +198,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </label>
             <input
               type="text"
-              value={formData.address}
+              value={formData.address || ''}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Rua, Número, Bairro, Cidade - UF"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -216,7 +216,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               </div>
               <input
                 type="text"
-                value={formData.cnpj}
+                value={formData.cnpj || ''}
                 onChange={(e) => handleCnpjChange(e.target.value)}
                 placeholder="00.000.000/0000-00"
                 className={cn(
@@ -233,7 +233,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               </label>
               <input
                 type="text"
-                value={formData.cpf}
+                value={formData.cpf || ''}
                 onChange={(e) => handleCpfChange(e.target.value)}
                 placeholder="000.000.000-00"
                 className={cn(
@@ -248,7 +248,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Status</label>
             <select
-              value={formData.status}
+              value={formData.status || 'active'}
               onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
             >

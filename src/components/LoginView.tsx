@@ -3,6 +3,7 @@ import { Sun, Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '../lib/utils';
 import { auth } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
+import { Logo } from './Logo';
 
 interface LoginViewProps {
   onLogin: (email: string) => void;
@@ -109,12 +110,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex h-16 w-16 bg-[#fdb612] rounded-2xl items-center justify-center mb-4 shadow-lg shadow-[#fdb612]/20">
-            <Sun className="text-[#231d0f] w-10 h-10" />
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Vieira's Solar</h1>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Engenharia & Energia</p>
+        <div className="flex flex-col items-center mb-8">
+          <Logo className="scale-125 mb-2" />
         </div>
 
         <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl backdrop-blur-sm">
@@ -129,7 +126,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="email" 
-                  value={email}
+                  value={email || ''}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
@@ -155,7 +152,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="password" 
-                  value={password}
+                  value={password || ''}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"

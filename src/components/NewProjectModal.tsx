@@ -30,10 +30,10 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
   React.useEffect(() => {
     if (installation) {
       setFormData({
-        name: installation.name,
-        projectId: installation.projectId,
-        type: installation.type,
-        technicianName: installation.technician.name,
+        name: installation.name || '',
+        projectId: installation.projectId || '',
+        type: installation.type || 'residence',
+        technicianName: installation.technician?.name || '',
         address: installation.address || '',
         startDate: installation.startDate || '',
         estimatedDeadline: installation.estimatedDeadline || '',
@@ -116,7 +116,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             <input
               required
               type="text"
-              value={formData.name}
+              value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex: Residência - João Silva"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -127,7 +127,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Tipo</label>
               <select
-                value={formData.type}
+                value={formData.type || 'residence'}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as Installation['type'] })}
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
               >
@@ -142,7 +142,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
               <input
                 required
                 type="text"
-                value={formData.projectId}
+                value={formData.projectId || ''}
                 onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
               />
@@ -156,7 +156,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             </label>
             <input
               type="text"
-              value={formData.technicianName}
+              value={formData.technicianName || ''}
               onChange={(e) => setFormData({ ...formData, technicianName: e.target.value })}
               placeholder="Nome do técnico"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -170,7 +170,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             </label>
             <input
               type="text"
-              value={formData.address}
+              value={formData.address || ''}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="Rua, Número, Bairro, Cidade - UF"
               className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
@@ -182,7 +182,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Data de Início</label>
               <input
                 type="date"
-                value={formData.startDate}
+                value={formData.startDate || ''}
                 onChange={(e) => setFormData({ 
                   ...formData, 
                   startDate: e.target.value,
@@ -195,7 +195,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Prazo Estimado</label>
               <input
                 type="date"
-                value={formData.estimatedDeadline}
+                value={formData.estimatedDeadline || ''}
                 onChange={(e) => setFormData({ 
                   ...formData, 
                   estimatedDeadline: e.target.value,
@@ -223,7 +223,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold">{stage.name}</span>
                   <select
-                    value={stage.status}
+                    value={stage.status || 'pending'}
                     onChange={(e) => {
                       const newStages = [...formData.stages];
                       newStages[idx].status = e.target.value as any;

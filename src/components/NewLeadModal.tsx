@@ -132,7 +132,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
                   errors.name ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                 )}
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
                   if (e.target.value) setErrors({ ...errors, name: false });
@@ -159,15 +159,13 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   (formData.email && !emailError) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
                   "border-slate-200 dark:border-slate-800"
                 )}
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   setFormData({ ...formData, email: val });
-                  if (emailError) {
-                    const err = validateEmail(val);
-                    setEmailError(err);
-                    setErrors({ ...errors, email: !!err });
-                  }
+                  const err = validateEmail(val);
+                  setEmailError(err);
+                  setErrors({ ...errors, email: !!err });
                 }}
                 onBlur={() => {
                   const err = validateEmail(formData.email);
@@ -198,7 +196,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
                     (errors.phone || phoneError) ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                   )}
-                  value={formData.phone}
+                  value={formData.phone || ''}
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, phone: masked });
@@ -222,7 +220,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
                     errors.whatsapp ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                   )}
-                  value={formData.whatsapp}
+                  value={formData.whatsapp || ''}
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, whatsapp: masked });
@@ -247,7 +245,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
                     errors.systemSize ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                   )}
-                  value={formData.systemSize}
+                  value={formData.systemSize || ''}
                   onChange={(e) => {
                     setFormData({ ...formData, systemSize: e.target.value });
                     if (e.target.value) setErrors({ ...errors, systemSize: false });
@@ -271,7 +269,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
                     (errors.value || valueError) ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                   )}
-                  value={formData.value}
+                  value={formData.value || ''}
                   onChange={(e) => {
                     const masked = maskCurrency(e.target.value);
                     setFormData({ ...formData, value: masked });
@@ -289,7 +287,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Status Inicial</label>
               <select
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all appearance-none"
-                value={formData.status}
+                value={formData.status || 'new'}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as Lead['status'] })}
               >
                 <option value="new">Novo Lead</option>
@@ -303,7 +301,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Representante Responsável</label>
               <select
                 className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all appearance-none"
-                value={formData.representative}
+                value={formData.representative || 'Marusan Pinto'}
                 onChange={(e) => setFormData({ ...formData, representative: e.target.value })}
               >
                 <option value="Marusan Pinto">Marusan Pinto</option>

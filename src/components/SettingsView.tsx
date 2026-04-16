@@ -52,6 +52,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "(11) 99999-9999",
+    address: user?.address || "",
     role: user?.role || "Vendedor",
     photo: user?.avatar || null as string | null
   });
@@ -96,7 +97,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
         email: profile.email,
         role: profile.role as any,
         avatar: profile.photo || undefined,
-        phone: profile.phone
+        phone: profile.phone,
+        address: profile.address
       };
 
       await updateDocument('users', user.id, updatedUser);
@@ -240,7 +242,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Completo</label>
                   <input 
                     type="text" 
-                    value={profile.name}
+                    value={profile.name || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -249,7 +251,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
                   <input 
                     type="email" 
-                    value={profile.email}
+                    value={profile.email || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -258,8 +260,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone</label>
                   <input 
                     type="text" 
-                    value={profile.phone}
+                    value={profile.phone || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço Físico</label>
+                  <input 
+                    type="text" 
+                    value={profile.address || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Rua, Número, Bairro, Cidade - UF"
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
@@ -267,7 +279,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</label>
                   <input 
                     type="text" 
-                    value={profile.role}
+                    value={profile.role || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, role: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -371,7 +383,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Razão Social</label>
                   <input 
                     type="text" 
-                    value={company.name}
+                    value={company.name || ''}
                     onChange={(e) => setCompany(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -380,7 +392,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CNPJ</label>
                   <input 
                     type="text" 
-                    value={company.cnpj}
+                    value={company.cnpj || ''}
                     onChange={(e) => setCompany(prev => ({ ...prev, cnpj: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -389,7 +401,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail Comercial</label>
                   <input 
                     type="email" 
-                    value={company.email}
+                    value={company.email || ''}
                     onChange={(e) => setCompany(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -398,7 +410,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone Comercial</label>
                   <input 
                     type="text" 
-                    value={company.phone}
+                    value={company.phone || ''}
                     onChange={(e) => setCompany(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
@@ -409,7 +421,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       type="text" 
-                      value={company.address}
+                      value={company.address || ''}
                       onChange={(e) => setCompany(prev => ({ ...prev, address: e.target.value }))}
                       className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                     />
@@ -448,14 +460,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     <Calendar className="w-4 h-4 text-slate-400" />
                     <input 
                       type="date" 
-                      value={invoiceFilters.startDate}
+                      value={invoiceFilters.startDate || ''}
                       onChange={(e) => setInvoiceFilters(prev => ({ ...prev, startDate: e.target.value }))}
                       className="bg-transparent border-none text-[10px] font-bold outline-none w-24"
                     />
                     <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">até</span>
                     <input 
                       type="date" 
-                      value={invoiceFilters.endDate}
+                      value={invoiceFilters.endDate || ''}
                       onChange={(e) => setInvoiceFilters(prev => ({ ...prev, endDate: e.target.value }))}
                       className="bg-transparent border-none text-[10px] font-bold outline-none w-24"
                     />

@@ -517,7 +517,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
             <input 
               type="text" 
               placeholder="Buscar propostas..." 
-              value={searchTerm}
+              value={searchTerm || ''}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
             />
@@ -556,7 +556,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
             </button>
             <div className="relative flex-1 md:flex-none">
               <select 
-                value={statusFilter}
+                value={statusFilter || 'all'}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full md:w-auto appearance-none pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
               >
@@ -593,7 +593,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">ID da Proposta</label>
                 <input 
                   type="text" 
-                  value={filters.id}
+                  value={filters.id || ''}
                   onChange={(e) => setFilters({ ...filters, id: e.target.value })}
                   placeholder="Ex: PROP-2024"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
@@ -603,7 +603,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</label>
                 <input 
                   type="text" 
-                  value={filters.client}
+                  value={filters.client || ''}
                   onChange={(e) => setFilters({ ...filters, client: e.target.value })}
                   placeholder="Nome do cliente"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
@@ -613,7 +613,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sistema</label>
                 <input 
                   type="text" 
-                  value={filters.system}
+                  value={filters.system || ''}
                   onChange={(e) => setFilters({ ...filters, system: e.target.value })}
                   placeholder="Ex: 45 kWp"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
@@ -623,7 +623,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor</label>
                 <input 
                   type="text" 
-                  value={filters.value}
+                  value={filters.value || ''}
                   onChange={(e) => setFilters({ ...filters, value: e.target.value })}
                   placeholder="Ex: 120.000"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
@@ -632,7 +632,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
                 <select 
-                  value={filters.representative}
+                  value={filters.representative || 'all'}
                   onChange={(e) => setFilters({ ...filters, representative: e.target.value })}
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                 >
@@ -648,14 +648,14 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                   <Calendar className="w-4 h-4 text-slate-400" />
                   <input 
                     type="date" 
-                    value={filters.startDate}
+                    value={filters.startDate || ''}
                     onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
                     className="flex-1 bg-transparent border-none text-sm outline-none py-1"
                   />
                   <span className="text-slate-400 text-xs font-bold">até</span>
                   <input 
                     type="date" 
-                    value={filters.endDate}
+                    value={filters.endDate || ''}
                     onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                     className="flex-1 bg-transparent border-none text-sm outline-none py-1"
                   />

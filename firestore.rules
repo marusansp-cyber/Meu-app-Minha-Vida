@@ -120,6 +120,11 @@ service cloud.firestore {
              data.status in ['active', 'inactive'];
     }
 
+    function isValidSettings(data) {
+      return (!('logo' in data) || (data.logo is string && data.logo.size() < 1000000)) &&
+             (!('name' in data) || (data.name is string && data.name.size() < 100));
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -178,6 +183,11 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidClient(request.resource.data);
       allow update: if isAuthenticated() && isValidClient(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSettings(request.resource.data);
     }
 
     match /history/{historyId} {

@@ -36,6 +36,18 @@ export default function App() {
   const [editingProject, setEditingProject] = useState<Installation | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedLeadForSimulation, setSelectedLeadForSimulation] = useState<Lead | null>(null);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLogo = async () => {
+      const settings = await getDocument<any>('settings', 'company');
+      if (settings?.logo) {
+        setCompanyLogo(settings.logo);
+      }
+    };
+    fetchLogo();
+  }, []);
   const [installations, setInstallations] = useState<any[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -230,6 +242,7 @@ export default function App() {
             }} 
             onLogout={handleLogout}
             user={user}
+            companyLogo={companyLogo}
           />
         </div>
         
@@ -317,6 +330,10 @@ export default function App() {
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
                     onLogout={handleLogout}
+                    onStartSimulation={(lead) => {
+                      setSelectedLeadForSimulation(lead);
+                      setCurrentView('config');
+                    }}
                   />
                 )}
                 {currentView === 'installations' && (
@@ -337,7 +354,13 @@ export default function App() {
                 {currentView === 'config' && (
                   <ConfigView 
                     partners={partners}
-                    onClose={() => setCurrentView('dashboard')} 
+                    onClose={() => {
+                      setCurrentView('dashboard');
+                      setSelectedLeadForSimulation(null);
+                    }} 
+                    companyLogo={companyLogo}
+                    onUpdateLogo={setCompanyLogo}
+                    initialLead={selectedLeadForSimulation}
                   />
                 )}
                 {currentView === 'team' && <TeamView />}
@@ -360,6 +383,28 @@ export default function App() {
                 )}
               </>
             )}
+
+            {/* Application Footer */}
+            <footer className="mt-20 py-12 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="flex items-center gap-4">
+                  <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center overflow-hidden">
+                    {companyLogo ? (
+                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      <Sun className="w-6 h-6 text-[#fdb612]" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Vieira's Solar & Engenharia</h4>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Energia Limpa para o seu Futuro</p>
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                  © {new Date().getFullYear()} Vieira's Solar. Todos os direitos reservados.
+                </div>
+              </div>
+            </footer>
           </div>
         </main>
 

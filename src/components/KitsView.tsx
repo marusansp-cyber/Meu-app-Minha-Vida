@@ -25,7 +25,9 @@ import {
   Globe,
   Info,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { cn } from '../lib/utils';
@@ -42,10 +44,10 @@ interface KitsViewProps {
 export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTargetPower }) => {
   const [activeSubView, setActiveSubView] = useState<'list' | 'upload' | 'fortlev'>('list');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBrand, setFilterBrand] = useState<string[]>([]);
-  const [filterModel, setFilterModel] = useState<string[]>([]);
-  const [showBrandFilter, setShowBrandFilter] = useState(false);
-  const [showModelFilter, setShowModelFilter] = useState(false);
+  const [filterInverterBrand, setFilterInverterBrand] = useState<string[]>([]);
+  const [filterPanelModel, setFilterPanelModel] = useState<string[]>([]);
+  const [showInverterFilter, setShowInverterFilter] = useState(false);
+  const [showPanelFilter, setShowPanelFilter] = useState(false);
   const [targetPower, setTargetPower] = useState<number | ''>(initialTargetPower || '');
   const [prioritizeTargetPower, setPrioritizeTargetPower] = useState(false);
   const [expandedKitId, setExpandedKitId] = useState<string | null>(null);
@@ -201,19 +203,26 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     });
   };
 
-  const availableBrands = useMemo(() => {
+  const availableInverterBrands = useMemo(() => {
     const brands = new Set<string>();
     kits.forEach(k => {
-      if (k.panelBrand) brands.add(k.panelBrand);
       if (k.inverterBrand) brands.add(k.inverterBrand);
-      k.components?.forEach(c => c.brand && brands.add(c.brand));
+      k.components?.forEach(c => {
+        if (c.name.toLowerCase().includes('inversor') && c.brand) brands.add(c.brand);
+      });
     });
     return Array.from(brands).sort();
   }, [kits]);
-
-  const availableModels = useMemo(() => {
+  
+  const availablePanelModels = useMemo(() => {
     const models = new Set<string>();
-    kits.forEach(k => k.components?.forEach(c => c.model && models.add(c.model)));
+    kits.forEach(k => {
+      k.components?.forEach(c => {
+        if ((c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.model) {
+          models.add(c.model);
+        }
+      });
+    });
     return Array.from(models).sort();
   }, [kits]);
 
@@ -224,12 +233,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       const matchesText = k.name.toLowerCase().includes(searchLower) ||
                          k.description.toLowerCase().includes(searchLower);
       
-      const matchesBrand = filterBrand.length === 0 || 
-                          (k.panelBrand && filterBrand.includes(k.panelBrand)) ||
-                          (k.inverterBrand && filterBrand.includes(k.inverterBrand)) ||
-                          k.components?.some(c => c.brand && filterBrand.includes(c.brand));
-                          
-      const matchesModel = filterModel.length === 0 || k.components?.some(c => c.model && filterModel.includes(c.model));
+      const matchesInverter = filterInverterBrand.length === 0 || 
+                           (k.inverterBrand && filterInverterBrand.includes(k.inverterBrand)) ||
+                           k.components?.some(c => c.name.toLowerCase().includes('inversor') && c.brand && filterInverterBrand.includes(c.brand));
+                           
+      const matchesPanel = filterPanelModel.length === 0 || 
+                          k.components?.some(c => (c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.model && filterPanelModel.includes(c.model));
 
       // Check if search term is a number and matches power
       const searchNum = parseFloat(searchTerm);
@@ -242,7 +251,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         comp.name?.toLowerCase().includes(searchLower)
       );
 
-      return (matchesText || matchesPower || componentsMatch) && matchesBrand && matchesModel;
+      return (matchesText || matchesPower || componentsMatch) && matchesInverter && matchesPanel;
     }).sort((a, b) => {
       if (prioritizeTargetPower && targetPower !== '') {
         const diffA = Math.abs(a.power - Number(targetPower));
@@ -251,12 +260,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       }
       return 0;
     });
-  }, [kits, searchTerm, filterBrand, filterModel, prioritizeTargetPower, targetPower]);
+  }, [kits, searchTerm, filterInverterBrand, filterPanelModel, prioritizeTargetPower, targetPower]);
 
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterBrand, filterModel, prioritizeTargetPower, targetPower]);
+  }, [searchTerm, filterInverterBrand, filterPanelModel, prioritizeTargetPower, targetPower]);
 
   const paginatedKits = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -274,15 +283,15 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     });
   }, [fortlevKits, fortlevSearchTerm]);
 
-  const handleDeleteKit = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja remover o kit "${name}"?`)) {
-      try {
-        await deleteDocument('kits', id);
-        showToast('Kit removido com sucesso!');
-      } catch (error) {
-        console.error(error);
-        showToast('Erro ao remover kit.');
-      }
+  const [kitToDelete, setKitToDelete] = useState<{ id: string, name: string } | null>(null);
+
+  const handleDeleteKit = async (id: string) => {
+    try {
+      await deleteDocument('kits', id);
+      showToast('Kit removido com sucesso!');
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao remover kit.');
     }
   };
 
@@ -427,51 +436,51 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 <input 
                   type="text" 
                   placeholder="Buscar kits por nome ou potência..."
-                  value={searchTerm}
+                  value={searchTerm || ''}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] transition-all"
                 />
               </div>
               <div className="space-y-1 relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marcas</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Inversores</label>
                 <div className="relative">
                   <button 
-                    onClick={() => setShowBrandFilter(!showBrandFilter)}
+                    onClick={() => setShowInverterFilter(!showInverterFilter)}
                     className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
-                      {filterBrand.length === 0 ? 'Todas' : `${filterBrand.length} Sel.`}
+                      {filterInverterBrand.length === 0 ? 'Todas Marcas' : `${filterInverterBrand.length} Sel.`}
                     </span>
-                    <ChevronDown className={cn("w-4 h-4 transition-transform", showBrandFilter && "rotate-180")} />
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showInverterFilter && "rotate-180")} />
                   </button>
 
-                  {showBrandFilter && (
+                  {showInverterFilter && (
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowBrandFilter(false)} />
+                      <div className="fixed inset-0 z-10" onClick={() => setShowInverterFilter(false)} />
                       <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
                         <button 
                           onClick={() => {
-                            setFilterBrand([]);
-                            setShowBrandFilter(false);
+                            setFilterInverterBrand([]);
+                            setShowInverterFilter(false);
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
-                            filterBrand.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                            filterInverterBrand.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
                           )}
                         >
                           Todas as Marcas
                         </button>
                         <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
-                        {availableBrands.map(brand => (
+                        {availableInverterBrands.map(brand => (
                           <label key={brand} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
                             <input 
                               type="checkbox"
-                              checked={filterBrand.includes(brand)}
+                              checked={filterInverterBrand.includes(brand)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setFilterBrand([...filterBrand, brand]);
+                                  setFilterInverterBrand([...filterInverterBrand, brand]);
                                 } else {
-                                  setFilterBrand(filterBrand.filter(b => b !== brand));
+                                  setFilterInverterBrand(filterInverterBrand.filter(b => b !== brand));
                                 }
                               }}
                               className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
@@ -485,45 +494,45 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 </div>
               </div>
               <div className="space-y-1 relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Modelos</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Painéis</label>
                 <div className="relative">
                   <button 
-                    onClick={() => setShowModelFilter(!showModelFilter)}
+                    onClick={() => setShowPanelFilter(!showPanelFilter)}
                     className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
-                      {filterModel.length === 0 ? 'Todos' : `${filterModel.length} Sel.`}
+                      {filterPanelModel.length === 0 ? 'Todos Modelos' : `${filterPanelModel.length} Sel.`}
                     </span>
-                    <ChevronDown className={cn("w-4 h-4 transition-transform", showModelFilter && "rotate-180")} />
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", showPanelFilter && "rotate-180")} />
                   </button>
 
-                  {showModelFilter && (
+                  {showPanelFilter && (
                     <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowModelFilter(false)} />
+                      <div className="fixed inset-0 z-10" onClick={() => setShowPanelFilter(false)} />
                       <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
                         <button 
                           onClick={() => {
-                            setFilterModel([]);
-                            setShowModelFilter(false);
+                            setFilterPanelModel([]);
+                            setShowPanelFilter(false);
                           }}
                           className={cn(
                             "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
-                            filterModel.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
+                            filterPanelModel.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
                           )}
                         >
                           Todos os Modelos
                         </button>
                         <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
-                        {availableModels.map(model => (
+                        {availablePanelModels.map(model => (
                           <label key={model} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
                             <input 
                               type="checkbox"
-                              checked={filterModel.includes(model)}
+                              checked={filterPanelModel.includes(model)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setFilterModel([...filterModel, model]);
+                                  setFilterPanelModel([...filterPanelModel, model]);
                                 } else {
-                                  setFilterModel(filterModel.filter(m => m !== model));
+                                  setFilterPanelModel(filterPanelModel.filter(m => m !== model));
                                 }
                               }}
                               className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
@@ -541,7 +550,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 <input 
                   type="number" 
                   placeholder="Ex: 5.5"
-                  value={targetPower}
+                  value={targetPower === '' ? '' : targetPower}
                   onChange={(e) => setTargetPower(e.target.value === '' ? '' : parseFloat(e.target.value))}
                   className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] w-32"
                 />
@@ -550,7 +559,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 <input 
                   type="checkbox" 
                   id="prioritize"
-                  checked={prioritizeTargetPower}
+                  checked={prioritizeTargetPower || false}
                   onChange={(e) => setPrioritizeTargetPower(e.target.checked)}
                   className="size-4 accent-[#004a61]"
                 />
@@ -583,7 +592,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => handleDeleteKit(kit.id, kit.name)}
+                        onClick={() => setKitToDelete({ id: kit.id, name: kit.name })}
                         className="p-2 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -820,7 +829,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                       <input 
                         type="text"
                         placeholder="Buscar na Fortlev..."
-                        value={fortlevSearchTerm}
+                        value={fortlevSearchTerm || ''}
                         onChange={(e) => setFortlevSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#004a61]"
                       />
@@ -915,6 +924,53 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         kit={selectedKit}
         showToast={showToast}
       />
+
+      {/* Confirmation Modal */}
+      {kitToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#231d0f] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="size-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <button 
+                  onClick={() => setKitToDelete(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+              
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                Confirmar Exclusão
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400">
+                Tem certeza que deseja excluir o kit <span className="font-bold text-slate-900 dark:text-slate-100">"{kitToDelete.name}"</span>? 
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+            
+            <div className="p-6 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
+              <button 
+                onClick={() => setKitToDelete(null)}
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  handleDeleteKit(kitToDelete.id);
+                  setKitToDelete(null);
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors"
+              >
+                Excluir Kit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

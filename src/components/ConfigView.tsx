@@ -29,7 +29,11 @@ import {
   FileText,
   Send,
   Package,
-  Upload
+  Upload,
+  MapPin,
+  ArrowLeft,
+  Users,
+  Award
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from "@google/genai";
@@ -37,20 +41,115 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import Papa from 'papaparse';
 import { Partner, Kit } from '../types';
-import { updateDocument } from '../firestoreUtils';
+import { updateDocument, setDocument } from '../firestoreUtils';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { NewKitModal } from './NewKitModal';
 import { useToast } from '../hooks/useToast';
 import { BrandFilter } from './BrandFilter';
+import { ProposalView } from './ProposalView';
 
 interface ConfigViewProps {
   onClose?: () => void;
   partners?: Partner[];
+  companyLogo?: string | null;
+  onUpdateLogo?: (logo: string) => void;
+  initialLead?: any | null;
 }
 
-export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }) => {
+export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], companyLogo, onUpdateLogo, initialLead }) => {
   const { showToast, removeToast } = useToast();
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  const [isFinalizingSale, setIsFinalizingSale] = useState(false);
+
+  const handleFinalizeSale = async () => {
+    if (!clientName && !initialLead) {
+      showToast('Por favor, informe o nome do cliente ou selecione um lead.', 'error');
+      setCurrentStep(1);
+      return;
+    }
+
+    if (!selectedKitId) {
+      showToast('Por favor, selecione um kit antes de finalizar.', 'error');
+      setCurrentStep(2);
+      return;
+    }
+
+    setIsFinalizingSale(true);
+    showToast('Finalizando venda e registrando financeiro...', 'info');
+
+    try {
+      const kit = kits.find(k => k.id === selectedKitId);
+      const totalInvestment = ((kit?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100));
+      
+      const newProposal: any = {
+        client: clientName || initialLead?.name || 'Cliente sem nome',
+        value: totalInvestment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+        date: new Date().toLocaleDateString('pt-BR'),
+        status: 'accepted',
+        systemSize: `${systemSize} kWp`,
+        representative: initialLead?.representative || 'Sistema',
+        roi: roiPercentage,
+        payback: paybackTime,
+        commission: 5, // Default 5%
+        commissionStatus: 'pending',
+        ucNumber: ucNumber || null,
+        energyConsumption: `${monthlyConsumption} kWh`,
+        kitId: selectedKitId.toString(),
+        email: partnerEmail || initialLead?.email || null,
+        createdAt: new Date().toISOString()
+      };
+
+      // 1. Create the proposal in Firestore
+      await addDoc(collection(db, 'proposals'), newProposal);
+
+      // 2. Update the lead if it exists
+      if (initialLead?.id) {
+        await updateDoc(doc(db, 'leads', initialLead.id), {
+          status: 'closed',
+          value: newProposal.value
+        });
+      }
+
+      showToast('Venda finalizada com sucesso! Financeiro registrado.', 'success');
+      
+      // Cleanup and redirect (this is handled by onClose in App.tsx)
+      if (onClose) onClose();
+    } catch (error) {
+      console.error('Error finalizing sale:', error);
+      showToast('Erro ao finalizar venda. Verifique sua conexão.', 'error');
+    } finally {
+      setIsFinalizingSale(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1024 * 1024) {
+      showToast('O logo deve ter menos de 1MB', 'error');
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      try {
+        await setDocument('settings', 'company', { logo: base64String });
+        if (onUpdateLogo) onUpdateLogo(base64String);
+        showToast('Logo atualizado com sucesso!', 'success');
+      } catch (error) {
+        console.error('Error uploading logo:', error);
+        showToast('Erro ao atualizar logo', 'error');
+      } finally {
+        setIsUploadingLogo(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   const [currentStep, setCurrentStep] = useState(1);
   const [dimensioningType, setDimensioningType] = useState<'kWp' | 'kWh'>('kWp');
   const [desiredPower, setDesiredPower] = useState<string>('12.20');
@@ -116,6 +215,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [kits, setKits] = useState<Kit[]>([]);
   const [isConsultingKits, setIsConsultingKits] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<number | string | null>(null);
+  const [clientName, setClientName] = useState<string>('');
   const [inverterBrandFilter, setInverterBrandFilter] = useState<string[]>([]);
   const [moduleBrandFilter, setModuleBrandFilter] = useState<string[]>([]);
   const [filterByPower, setFilterByPower] = useState(true);
@@ -146,6 +246,80 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
   const [smtpStatus, setSmtpStatus] = useState<'idle' | 'success' | 'error' | 'unconfigured'>('idle');
 
+  const [showProposal, setShowProposal] = useState(false);
+
+  const getPitchFactor = (pitch: any) => {
+    switch (pitch) {
+      case 'Plano (0-5°)': return 0.95;
+      case 'Baixa (5-15°)': return 0.98;
+      case 'Ideal (15-25°)': return 1.0;
+      case 'Alta (>25°)': return 0.92;
+      default: return 1.0;
+    }
+  };
+
+  const getMaterialFactor = (material: string) => {
+    switch (material) {
+      case 'Cerâmico': return 0.98;
+      case 'Metálico': return 1.02;
+      case 'Fibrocimento': return 0.97;
+      default: return 1.0;
+    }
+  };
+
+  const [energyPrice, setEnergyPrice] = useState<string>('0.95');
+  const [energyPriceError, setEnergyPriceError] = useState<string | null>(null);
+
+  const monthlyGeneration = (parseFloat(systemSize || '0')) * efficiency * getPitchFactor(roofPitch) * getMaterialFactor(roofMaterial);
+  
+  // Calculate consumption based on bill and energy price
+  const calcConsumption = (bill: string, rate: string) => {
+    const b = parseFloat(bill);
+    const r = parseFloat(rate);
+    if (!isNaN(b) && !isNaN(r) && r > 0) {
+      return (b / r).toFixed(0);
+    }
+    return monthlyConsumption;
+  };
+
+  const monthlySavingsValue = Math.min(parseFloat(monthlyConsumption || '0'), monthlyGeneration) * parseFloat(energyPrice || '0.95');
+
+  useEffect(() => {
+    if (currentStep === 1 && monthlyBill && monthlyBill !== '0' && monthlyBill !== '') {
+      const consumption = calcConsumption(monthlyBill, energyPrice);
+      if (consumption !== monthlyConsumption) {
+        setMonthlyConsumption(consumption);
+        setAnnualUsage((parseInt(consumption) * 12).toString());
+        
+        const calculatedSize = parseFloat(consumption) / efficiency;
+        setSystemSize(calculatedSize.toFixed(2));
+      }
+    }
+  }, [monthlyBill, energyPrice, efficiency, currentStep]);
+
+  useEffect(() => {
+    if (initialLead) {
+      setClientName(initialLead.name || '');
+      
+      if (initialLead.value) {
+        const numericValue = initialLead.value.replace(/\D/g, '');
+        if (numericValue) {
+          const billValue = (parseInt(numericValue) / 100).toString();
+          setMonthlyBill(billValue);
+          
+          const consumption = (parseFloat(billValue) / parseFloat(energyPrice)).toFixed(0);
+          setMonthlyConsumption(consumption);
+          setAnnualUsage((parseInt(consumption) * 12).toString());
+          const calculatedSize = parseFloat(consumption) / efficiency;
+          setSystemSize(calculatedSize.toFixed(2));
+        }
+      }
+      
+      if (initialLead.phone) setPartnerPhone(initialLead.phone);
+      if (initialLead.email) setPartnerEmail(initialLead.email);
+    }
+  }, [initialLead, energyPrice, efficiency]);
+
   useEffect(() => {
     const annual = parseFloat(annualUsage);
     if (!isNaN(annual) && annual > 0) {
@@ -159,9 +333,15 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   useEffect(() => {
     const monthly = parseFloat(monthlyConsumption);
     if (!isNaN(monthly) && monthly > 0) {
-      const calculatedSize = (monthly / 116).toFixed(2);
-      if (calculatedSize !== systemSize) {
-        setSystemSize(calculatedSize);
+      // Cálculo base: kWp necessário = Consumo / Eficiência (116)
+      const requiredKWp = monthly / 116;
+      // Número de painéis de 610Wp (0.61 kWp)
+      const numPanels = Math.ceil(requiredKWp / 0.61);
+      // Potência Final = número de painéis * 0.61
+      const finalSize = (numPanels * 0.61).toFixed(2);
+      
+      if (finalSize !== systemSize) {
+        setSystemSize(finalSize);
       }
     }
   }, [monthlyConsumption]);
@@ -347,12 +527,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   }, []);
 
   const steps = [
-    { id: 1, label: 'Parâmetros' },
-    { id: 2, label: 'Catálogo' },
-    { id: 3, label: 'Precificação' },
-    { id: 4, label: 'Validação' },
-    { id: 5, label: 'Financiamento' },
-    { id: 6, label: 'Finalização' },
+    { id: 1, label: 'Sua Conta' },
+    { id: 2, label: 'Sua Cidade' },
+    { id: 3, label: 'Sua Economia' },
   ];
 
   const validateROI = (value: string) => {
@@ -468,16 +645,17 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     setTimeout(() => {
       const usage = parseInt(annualUsage) || 12000;
       const bill = parseInt(monthlyBill) || 250;
+      const rate = parseFloat(energyPrice) || 0.95;
       const kwp = parseFloat(systemSize) || 8.6;
       
       // Financial Parameters (Dynamic)
       const inflation = (parseFloat(energyInflation) || 5) / 100;
       const depreciation = (parseFloat(panelDepreciation) || 0.5) / 100;
       const maintRate = (parseFloat(maintenanceRate) || 1) / 100;
-      const energyRate = (bill * 12) / usage; // Estimated R$ per kWh
+      const energyRate = rate; 
       
       const systemCost = kwp * 4500; // Estimated R$ 4.50 per Wp
-      const annualGeneration = kwp * 1400; // Estimated 1400 kWh/kWp per year
+      const annualGeneration = kwp * efficiency * 12; 
       const annualMaintenance = systemCost * maintRate;
       
       let cumulativeSavings = 0;
@@ -589,15 +767,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
   const handleAutoCalculateSystemSize = () => {
     const consumption = parseFloat(monthlyConsumption);
     if (!isNaN(consumption) && consumption > 0) {
-      const calculatedSize = consumption / 116;
+      const calculatedSize = consumption / efficiency;
       setSystemSize(calculatedSize.toFixed(2));
       showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp`);
     } else {
       showToast('Por favor, insira o consumo mensal primeiro.');
     }
   };
-
-  const estimatedGeneration = parseFloat(systemSize) * efficiency;
 
   const handleConsultKits = async () => {
     setIsConsultingKits(true);
@@ -1040,6 +1216,22 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     return doc;
   };
 
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    showToast('Gerando PDF...', 'info');
+    try {
+      const doc = await generateProposalPDF();
+      const fileName = `simulacao_solar_${clientName.replace(/\s+/g, '_') || 'projeto'}.pdf`;
+      doc.save(fileName);
+      showToast('PDF baixado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      showToast('Erro ao gerar PDF.', 'error');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleFinalizeAndSend = async () => {
     if (!partnerEmail) {
       showToast('Por favor, insira o e-mail do parceiro no Passo 1.', 'warning');
@@ -1235,38 +1427,61 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
     { name: 'Fortlev Solar', logo: 'https://fortlevsolar.com.br/wp-content/uploads/2021/06/logo-fortlev-solar.png', highlight: true },
   ];
 
+  if (showProposal) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-[#1a160d] p-4 md:p-10">
+        <ProposalView 
+          clientName={clientName || 'Cliente'}
+          systemSize={systemSize}
+          monthlyGeneration={monthlyGeneration}
+          monthlySavings={monthlySavingsValue}
+          totalInvestment={((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))}
+          paybackMonths={Math.round((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) / monthlySavingsValue)} 
+          roiMonthly={(monthlySavingsValue / (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100)))) * 100}
+          validUntil="23/07/2025"
+          proposalNumber="3881"
+          onBack={() => setShowProposal(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 relative animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Modern Header & Breadcrumbs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <nav className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-          <span className="hover:text-[#fdb612] cursor-pointer transition-colors">Projeto Alpha</span>
-          <ChevronRight className="w-3 h-3 opacity-50" />
-          <span className="text-slate-900 dark:text-slate-100">Simulador Solar</span>
-        </nav>
+      {/* Modern Header - Simplified */}
+      <div className="flex items-center justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 transition-all hover:border-[#fdb612]/30">
-            <div className={cn(
-              "size-2 rounded-full",
-              isFortlevConnected ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)] animate-pulse" : "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.6)]"
-            )} />
-            <span className={cn(
-              "text-[9px] font-black uppercase tracking-[0.2em]",
-              isFortlevConnected ? "text-emerald-500" : "text-red-500"
-            )}>
-              API Fortlev: {isFortlevConnected ? 'Ativa' : 'Inativa'}
-            </span>
+          <div className="relative group">
+            <div className="size-12 rounded-2xl bg-[#fdb612] flex items-center justify-center shadow-lg shadow-[#fdb612]/20 overflow-hidden">
+              {companyLogo ? (
+                <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+              ) : (
+                <Sun className="w-7 h-7 text-[#231d0f]" />
+              )}
+            </div>
+            <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl">
+              <Upload className="w-5 h-5 text-white" />
+              <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={isUploadingLogo} />
+            </label>
+            {isUploadingLogo && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
+            )}
           </div>
-          {onClose && (
-            <button 
-              onClick={onClose}
-              className="p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-all text-slate-400 active:scale-90"
-              title="Fechar"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">Simulador Solar</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vieira's Solar & Engenharia</p>
+          </div>
         </div>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all active:scale-90"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        )}
       </div>
 
       {/* Modern Step Indicator */}
@@ -1345,103 +1560,31 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
       <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-8 pt-6 mb-10">
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-            <span>PROJETO ALPHA</span>
+            <span>VAMOS CALCULAR JUNTOS</span>
             <ChevronRight className="w-3 h-3" />
-            <span className="text-[#fdb612]">SIMULADOR SOLAR</span>
+            <span className="text-[#fdb612]">SEU RESULTADO ESTÁ PRONTO!</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 dark:text-white uppercase leading-[0.8]">
-            SIMULADOR <span className="text-[#fdb612]">SOLAR</span>
+            DESCUBRA QUANTO <span className="text-[#fdb612]">VOCÊ VAI ECONOMIZAR</span>
           </h1>
           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-md">
-            Plataforma democrática para dimensionamento fotovoltaico rápido e preciso.
+            Veja como a energia do sol pode sobrar dinheiro no seu bolso todo mês.
           </p>
         </div>
         
         <div className="flex flex-col gap-4 items-end">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            {isFortlevConnected ? (
-              <div className="px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-emerald-500/5">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Fortlev Ativo
-              </div>
-            ) : (
-              <button 
-                onClick={() => setShowFortlevLogin(true)}
-                className={cn(
-                  "px-4 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-xl active:scale-95",
-                  rememberFortlev 
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20" 
-                    : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/20"
-                )}
-              >
-                {rememberFortlev ? <ShieldCheck className="w-3.5 h-3.5" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                {rememberFortlev ? 'Fortlev Pronto' : 'Conectar Fortlev'}
-              </button>
-            )}
-            <button 
-              onClick={handleRedo}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-black text-[9px] uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 hover:border-red-200 transition-all flex items-center gap-2 active:scale-95"
-              title="Zerar todos os campos e limpar rascunho"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Zerar Simulação
-            </button>
-            <button 
-              onClick={handleGenerateNew}
-              disabled={isGenerating}
-              className="px-4 py-2.5 rounded-xl border-2 border-[#fdb612] text-[#fdb612] font-black text-[9px] uppercase tracking-widest hover:bg-[#fdb612] hover:text-[#231d0f] transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
-            >
-              {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              Nova IA
-            </button>
-            <button 
-              onClick={handleSaveDraft}
-              disabled={isSavingDraft}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-black text-[9px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
-            >
-              {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salvar
-            </button>
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={handleTestSmtp}
-                disabled={isTestingSmtp}
-                className={cn(
-                  "px-4 py-2.5 rounded-xl border font-black text-[9px] uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95",
-                  smtpStatus === 'success' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600" :
-                  smtpStatus === 'error' ? "bg-rose-500/10 border-rose-500/20 text-rose-600" :
-                  "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
-                )}
-                title="Testar se as configurações de e-mail (SMTP) estão funcionando"
-              >
-                {isTestingSmtp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
-                {smtpStatus === 'success' ? 'SMTP OK' : smtpStatus === 'error' ? 'SMTP Erro' : 'Testar E-mail'}
-              </button>
-              <a 
-                href="https://support.google.com/accounts/answer/185833" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
-                title="Ajuda com Senha de App do Gmail"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
           <div className="w-full flex justify-start">
             <button 
               onClick={handleGenerateROI}
               disabled={isCalculatingROI}
-              className="px-8 py-3 rounded-2xl bg-[#fdb612] text-[#231d0f] font-black text-[10px] uppercase tracking-widest hover:shadow-2xl hover:shadow-[#fdb612]/30 transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95"
+              className="px-8 py-4 rounded-2xl bg-[#fdb612] text-[#231d0f] font-black text-sm uppercase tracking-widest hover:shadow-2xl hover:shadow-[#fdb612]/30 transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95 w-full md:w-auto"
             >
               {isCalculatingROI ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : showCheckmark ? (
-                <CheckCircle2 className="w-4 h-4 animate-in zoom-in duration-300" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <TrendingUp className="w-4 h-4" />
+                <TrendingUp className="w-5 h-5" />
               )}
-              {showCheckmark ? 'Calculado!' : 'Gerar ROI'}
+              Ver minha Economia Mensal em R$
             </button>
           </div>
         </div>
@@ -1456,13 +1599,13 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
           <div className="size-20 rounded-3xl bg-blue-500/10 flex items-center justify-center mb-2">
             <Zap className="w-10 h-10 text-blue-500" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Potência Calculada</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Potência do seu sistema</span>
           <div className="flex items-baseline gap-3">
             <span className="text-8xl font-black text-slate-900 tracking-tighter">{parseFloat(systemSize).toFixed(2)}</span>
             <span className="text-lg font-black text-[#fdb612] uppercase">kWp</span>
           </div>
           <div className="px-6 py-2 bg-emerald-500/10 rounded-full">
-            <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Ideal para o Consumo</span>
+            <span className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Ideal para sua casa</span>
           </div>
         </div>
 
@@ -1477,38 +1620,34 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <TrendingUp className="w-8 h-8 text-[#231d0f]" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white">Prévia de Geração</h3>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Estimativa Mensal Baseada em {efficiency} kWh/kWp</p>
+                  <h3 className="text-lg font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white">Quanto de energia você vai produzir</h3>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Estimativa Mensal</p>
                 </div>
               </div>
             </div>
             
             <div className="flex flex-wrap items-center justify-between gap-10">
-              <div className="space-y-4">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 block">Potência</span>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-5xl font-black tracking-tighter text-slate-900 dark:text-white">{parseFloat(systemSize).toFixed(2)}</span>
-                  <span className="text-sm font-black text-slate-400 uppercase">kWp</span>
-                </div>
-              </div>
-              
-              <div className="size-16 rounded-3xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-lg font-black text-slate-300 border border-slate-100 dark:border-slate-800">×</div>
-              
-              <div className="space-y-4">
-                <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 block">Eficiência</span>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-5xl font-black tracking-tighter text-slate-900 dark:text-white">{efficiency}</span>
-                  <span className="text-sm font-black text-slate-400 uppercase">kWh/kWp</span>
+              <div className="space-y-4 bg-emerald-500/5 p-8 rounded-[2.5rem] border border-emerald-500/10 min-w-[240px]">
+                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-500 block">Sua Economia Mensal</span>
+                <div className="flex flex-col">
+                  <span className="text-6xl font-black text-emerald-500 tracking-tighter">
+                    {monthlySavingsValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2">
+                    Dinheiro que sobra no seu bolso
+                  </span>
                 </div>
               </div>
 
-              <div className="size-16 rounded-3xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-lg font-black text-slate-300 border border-slate-100 dark:border-slate-800">=</div>
+              <div className="size-16 rounded-3xl bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center text-lg font-black text-slate-300 border border-slate-100 dark:border-slate-800">
+                <ArrowRight className="w-8 h-8" />
+              </div>
               
               <div className="space-y-4 bg-[#fdb612]/5 p-8 rounded-[2.5rem] border border-[#fdb612]/10 min-w-[240px]">
-                <span className="text-[11px] font-black uppercase tracking-widest text-[#fdb612] block">Geração Estimada</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-[#fdb612] block">Produção de Energia</span>
                 <div className="flex flex-col">
                   <span className="text-5xl font-black text-[#fdb612] tracking-tighter">
-                    {estimatedGeneration.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {monthlyGeneration.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </span>
                   <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2">
                     kWh / Mês
@@ -1524,653 +1663,200 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
         <div className="lg:col-span-8 space-y-8">
           {currentStep === 1 && (
             <div className="bg-white dark:bg-[#231d0f]/40 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">
-              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-[#fdb612]" />
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
+                    <DollarSign className="w-8 h-8 text-[#fdb612]" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Parâmetros do Gerador</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Configuração Técnica</p>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Qual o valor da sua conta de luz?</h3>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 1 de 3</p>
                   </div>
                 </div>
-                {onClose && (
-                  <button onClick={onClose} className="hover:bg-slate-100 dark:hover:bg-slate-800 p-2 rounded-xl transition-colors text-slate-400">
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
               </div>
               
-              <div className="p-8 space-y-8">
-                {/* Partner Data */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="size-8 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Dados do Parceiro</h4>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Selecionar Parceiro</label>
-                      <div className="relative group">
-                        <select 
-                          value={selectedPartnerId}
-                          onChange={(e) => handlePartnerChange(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                        >
-                          <option value="">Selecione um parceiro...</option>
-                          {partners.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                          ))}
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">CNPJ do Parceiro</label>
-                      <div className="relative group">
-                        <input 
-                          type="text"
-                          value={partnerCnpj}
-                          onChange={(e) => {
-                            const val = formatCNPJ(e.target.value);
-                            setPartnerCnpj(val);
-                            if (val.length === 18) {
-                              if (validateCNPJ(val)) {
-                                setCnpjError(null);
-                                consultCnpj(val);
-                              } else {
-                                setCnpjError('CNPJ Inválido');
-                              }
-                            } else {
-                              setCnpjError(null);
-                            }
-                          }}
-                          placeholder="00.000.000/0000-00"
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            cnpjError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        {isConsultingCnpj && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-[#fdb612]" />}
-                      </div>
-                      {cnpjError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{cnpjError}</p>}
-                      {cnpjStatus && !cnpjError && <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-1">Status: {cnpjStatus}</p>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">E-mail do Parceiro</label>
-                      <div className="relative group">
-                        <input 
-                          type="email"
-                          value={partnerEmail}
-                          onChange={(e) => {
-                            setPartnerEmail(e.target.value);
-                            validateEmail(e.target.value);
-                          }}
-                          placeholder="parceiro@email.com"
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            emailError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      </div>
-                      {emailError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{emailError}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Telefone do Parceiro</label>
-                      <div className="relative group">
-                        <input 
-                          type="text"
-                          value={partnerPhone}
-                          onChange={(e) => {
-                            const val = formatPhone(e.target.value);
-                            setPartnerPhone(val);
-                            validatePhone(val);
-                          }}
-                          placeholder="(00) 00000-0000"
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            phoneError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      </div>
-                      {phoneError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{phoneError}</p>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tipo de Parceiro</label>
-                      <div className="relative group">
-                        <select 
-                          value={partnerType}
-                          onChange={(e) => setPartnerType(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                        >
-                          <option value="integrator">Integrador</option>
-                          <option value="referral">Indicação</option>
-                          <option value="maintenance">Manutenção</option>
-                          <option value="other">Outro</option>
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status</label>
-                      <div className="relative group">
-                        <select 
-                          value={partnerStatus}
-                          onChange={(e) => setPartnerStatus(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                        >
-                          <option value="active">Ativo</option>
-                          <option value="inactive">Inativo</option>
-                          <option value="pending">Pendente</option>
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Taxa de Comissão (%)</label>
-                      <div className="relative group">
-                        <input 
-                          type="number"
-                          value={partnerCommissionRate}
-                          onChange={(e) => setPartnerCommissionRate(parseFloat(e.target.value) || 0)}
-                          className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm"
-                        />
-                        <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Consumption Data */}
-                <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="size-8 rounded-xl bg-[#fdb612]/10 flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-[#fdb612]" />
-                    </div>
-                    <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Dados de Consumo</h4>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consumo Anual (kWh)</label>
-                      <div className="relative group">
-                        <input 
-                          type="number"
-                          value={annualUsage}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Consumo Anual', setAnnualUsage, setAnnualUsageError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            annualUsageError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                      </div>
-                      {annualUsageError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{annualUsageError}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Fatura Mensal (R$)</label>
-                      <div className="relative group">
-                        <input 
-                          type="number"
-                          value={monthlyBill}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Fatura Mensal', setMonthlyBill, setMonthlyBillError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            monthlyBillError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                      </div>
-                      {monthlyBillError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{monthlyBillError}</p>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tamanho do Sistema (kWp)</label>
-                      <div className="relative group">
-                        <input 
-                          type="number"
-                          step="0.1"
-                          value={systemSize}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Tamanho do Sistema', setSystemSize, setSystemSizeError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            systemSizeError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                      </div>
-                      {systemSizeError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{systemSizeError}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Perdas (%)</label>
-                      <div className="relative group">
-                        <input 
-                          type="number"
-                          value={losses}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setLosses(parseFloat(val) || 0);
-                            validatePositiveNumber(val, 'Perdas', setLossesError);
-                          }}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 font-black focus:ring-2 transition-all outline-none text-sm",
-                            lossesError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                      </div>
-                      {lossesError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{lossesError}</p>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Dimensioning type */}
+              <div className="p-10 space-y-10">
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tipo de Dimensionamento</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => setDimensioningType('kWp')}
-                      className={cn(
-                        "flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-2 group",
-                        dimensioningType === 'kWp' 
-                          ? "bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612] border-[#fdb612] shadow-lg shadow-[#fdb612]/10 scale-[1.02]" 
-                          : "bg-transparent text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
-                      )}
-                    >
-                      <Zap className={cn("w-8 h-8 transition-transform group-hover:scale-110", dimensioningType === 'kWp' ? "text-[#fdb612]" : "text-slate-300")} />
-                      <span className="font-black uppercase tracking-widest text-xs">Potência (kWp)</span>
-                    </button>
-                    <button 
-                      onClick={() => setDimensioningType('kWh')}
-                      className={cn(
-                        "flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-2 group",
-                        dimensioningType === 'kWh' 
-                          ? "bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612] border-[#fdb612] shadow-lg shadow-[#fdb612]/10 scale-[1.02]" 
-                          : "bg-transparent text-slate-400 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
-                      )}
-                    >
-                      <LayoutGrid className={cn("w-8 h-8 transition-transform group-hover:scale-110", dimensioningType === 'kWh' ? "text-[#fdb612]" : "text-slate-300")} />
-                      <span className="font-black uppercase tracking-widest text-xs">Consumo (kWh)</span>
-                    </button>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Nome do Cliente (Opcional)</label>
+                  <div className="relative group">
+                    <Users className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
+                    <input 
+                      type="text"
+                      value={clientName || ''}
+                      onChange={(e) => setClientName(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                      placeholder="Ex: João Silva"
+                    />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Desired power */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Consumo Mensal (kWh)</label>
+                  <div className="space-y-6">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Valor da Fatura (Média)</label>
                     <div className="relative group">
+                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-slate-300">R$</span>
                       <input 
                         type="number"
-                        value={monthlyConsumption}
-                        onChange={(e) => handleNumericalChange(e.target.value, 'Consumo Mensal', setMonthlyConsumption, setMonthlyConsumptionError)}
+                        value={monthlyBill || ''}
+                        onChange={(e) => handleNumericalChange(e.target.value, 'Fatura Mensal', setMonthlyBill, setMonthlyBillError)}
                         className={cn(
-                          "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-xl p-4 text-xl font-black focus:ring-2 transition-all outline-none",
-                          monthlyConsumptionError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
+                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-8 pl-20 text-3xl font-black focus:ring-4 transition-all outline-none",
+                          monthlyBillError ? "border-red-500 focus:ring-red-500" : "border-slate-100 dark:border-slate-800 focus:ring-[#fdb612]"
                         )}
+                        placeholder="0,00"
                       />
-                      <button 
-                        onClick={handleAutoCalculateSystemSize}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#fdb612] text-[#231d0f] p-2 rounded-lg hover:scale-110 transition-transform"
-                        title="Calcular kWp"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
                     </div>
-                    {monthlyConsumptionError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{monthlyConsumptionError}</p>}
                   </div>
 
-                  {/* Phases */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Fases</label>
+                  <div className="space-y-6">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Tarifa de Energia (R$/kWh)</label>
                     <div className="relative group">
-                      <select 
-                        value={phases}
-                        onChange={(e) => setPhases(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                      >
-                        <option>BIFÁSICO 220V</option>
-                        <option>MONOFÁSICO 127V</option>
-                        <option>TRIFÁSICO 220V</option>
-                        <option>TRIFÁSICO 380V</option>
-                      </select>
-                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-slate-300">R$</span>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        value={energyPrice || ''}
+                        onChange={(e) => handleNumericalChange(e.target.value, 'Tarifa', setEnergyPrice, setEnergyPriceError)}
+                        className={cn(
+                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-8 pl-20 text-3xl font-black focus:ring-4 transition-all outline-none",
+                          energyPriceError ? "border-red-500 focus:ring-red-500" : "border-slate-100 dark:border-slate-800 focus:ring-[#fdb612]"
+                        )}
+                        placeholder="0,95"
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Delivery city */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Cidade de Entrega</label>
-                    <div className="relative group">
-                      <select 
-                        value={deliveryCity}
-                        onChange={(e) => setDeliveryCity(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                      >
-                        <option>Inhapim - MG</option>
-                        <option>Belo Horizonte - MG</option>
-                        <option>São Paulo - SP</option>
-                        <option>Rio de Janeiro - RJ</option>
-                      </select>
-                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Consumo Estimado</span>
+                      <p className="text-2xl font-black text-slate-900 dark:text-white">{monthlyConsumption} <span className="text-xs">kWh/mês</span></p>
                     </div>
-                  </div>
-
-                  {/* Structure */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Estrutura</label>
-                    <div className="relative group">
-                      <select 
-                        value={structure}
-                        onChange={(e) => setStructure(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 font-black appearance-none focus:ring-2 focus:ring-[#fdb612] outline-none transition-all text-sm"
-                      >
-                        <option>Telhado Fibrocimento - Estrutura Metálica (250mm)</option>
-                        <option>Telhado Cerâmico</option>
-                        <option>Laje</option>
-                        <option>Solo</option>
-                      </select>
-                      <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                    <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
+                    <div className="space-y-1 text-right">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Potência Recomendada</span>
+                      <p className="text-2xl font-black text-[#fdb612]">{systemSize} <span className="text-xs">kWp</span></p>
                     </div>
                   </div>
                 </div>
 
                 <button 
                   onClick={() => setCurrentStep(2)}
-                  disabled={!!cnpjError || !!emailError || !!phoneError || isConsultingCnpj}
-                  className={cn(
-                    "w-full py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all active:scale-[0.98] mt-4",
-                    (cnpjError || emailError || phoneError || isConsultingCnpj)
-                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                      : "bg-[#fdb612] text-[#231d0f] hover:shadow-xl hover:shadow-[#fdb612]/20"
-                  )}
+                  className="w-full bg-[#fdb612] text-[#231d0f] py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  {isConsultingCnpj ? "Consultando CNPJ..." : "Gerar Geradores"}
+                  Próximo Passo
+                  <ArrowRight className="w-6 h-6" />
                 </button>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              {/* Breadcrumbs for Step 2 */}
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARÂMETROS</span>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-[#fdb612]">CATÁLOGO</span>
-              </div>
-
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100 uppercase">Geradores FV</h2>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Selecione o kit ideal para seu projeto</p>
+            <div className="bg-white dark:bg-[#231d0f]/40 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
+                    <MapPin className="w-8 h-8 text-[#fdb612]" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Onde você mora?</h3>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 2 de 3</p>
+                  </div>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="relative group min-w-[250px]">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
-                    <input 
-                      type="text"
-                      placeholder="PESQUISAR KITS..."
-                      value={kitSearchTerm}
-                      onChange={(e) => setKitSearchTerm(e.target.value)}
-                      className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 pl-12 pr-10 text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
-                    />
-                    {kitSearchTerm && (
-                      <button 
-                        onClick={() => setKitSearchTerm('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors"
-                      >
-                        <X className="w-3 h-3 text-slate-400" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="file" 
-                      id="kit-upload" 
-                      className="hidden" 
-                      accept=".csv" 
-                      onChange={handleKitUpload}
-                    />
-                    <label 
-                      htmlFor="kit-upload"
-                      className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95"
-                    >
-                      {isUploadingKits ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                      Upload Planilha
-                    </label>
-                  </div>
-
-                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <input 
-                      type="checkbox" 
-                      id="filterByPower"
-                      checked={filterByPower}
-                      onChange={(e) => setFilterByPower(e.target.checked)}
-                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                    />
-                    <label htmlFor="filterByPower" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer">Filtrar por Potência</label>
-                  </div>
-
-                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <input 
-                      type="checkbox" 
-                      id="prioritizePower"
-                      checked={prioritizeTargetPower}
-                      onChange={(e) => setPrioritizeTargetPower(e.target.checked)}
-                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                    />
-                    <label htmlFor="prioritizePower" className="text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer flex items-center gap-2">
-                      Priorizar Potência Próxima
-                      <div className="group relative">
-                        <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help hover:text-[#fdb612] transition-colors" />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-[#231d0f] text-white text-[10px] rounded-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-[100] shadow-2xl border border-white/10 backdrop-blur-xl">
-                          <div className="font-black mb-1 text-[#fdb612] uppercase tracking-widest">Como funciona?</div>
-                          <p className="font-medium text-slate-300 leading-relaxed">
-                            Esta opção ordena os kits do catálogo priorizando aqueles que possuem a potência (kWp) mais próxima do dimensionamento calculado ({systemSize} kWp).
-                          </p>
-                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 size-2 bg-[#231d0f] border-r border-b border-white/10" />
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-
-                  {/* Power Range Filter - Only visible when filterByPower is active */}
-                  {filterByPower && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-left-2 duration-200">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Potência (kWp):</span>
+              </div>
+              
+              <div className="p-10 space-y-10">
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Sua Cidade</label>
+                    <div className="relative group">
+                      <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
                       <input 
-                        type="number"
-                        placeholder="MIN"
-                        value={minPowerFilter}
-                        onChange={(e) => setMinPowerFilter(e.target.value)}
-                        className="w-16 bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0"
-                      />
-                      <span className="text-slate-400">-</span>
-                      <input 
-                        type="number"
-                        placeholder="MAX"
-                        value={maxPowerFilter}
-                        onChange={(e) => setMaxPowerFilter(e.target.value)}
-                        className="w-16 bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0"
+                        type="text"
+                        value={deliveryCity || ''}
+                        onChange={(e) => setDeliveryCity(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                        placeholder="Ex: São Paulo - SP"
                       />
                     </div>
-                  )}
-
-                  {/* Status Filter */}
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status:</span>
-                    <select 
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value as any)}
-                      className="bg-transparent border-none text-[10px] font-black uppercase tracking-widest focus:ring-0 outline-none p-0 cursor-pointer"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="active">Ativos</option>
-                      <option value="inactive">Inativos</option>
-                    </select>
                   </div>
 
+                  <div className="space-y-3">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Tipo de Telhado / Estrutura</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        'Cerâmico',
+                        'Fibrocimento / Madeira',
+                        'Fibrocimento / Metálico',
+                        'Metálico',
+                        'Laje',
+                        'Solo'
+                      ].map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setStructure(type);
+                            if (type === 'Cerâmico') setRoofMaterial('Cerâmico');
+                            else if (type.includes('Fibrocimento')) setRoofMaterial('Fibrocimento');
+                            else if (type.includes('Metálico')) setRoofMaterial('Metálico');
+                            else setRoofMaterial('Outro');
+                          }}
+                          className={cn(
+                            "p-6 rounded-2xl border-4 font-black uppercase tracking-widest text-sm transition-all text-center",
+                            structure === type 
+                              ? "border-[#fdb612] bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612]" 
+                              : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
+                          )}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Inclinação do Telhado</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        'Plano (0-5°)',
+                        'Baixa (5-15°)',
+                        'Ideal (15-25°)',
+                        'Alta (>25°)'
+                      ].map((pitch) => (
+                        <button
+                          key={pitch}
+                          onClick={() => setRoofPitch(pitch)}
+                          className={cn(
+                            "p-6 rounded-2xl border-4 font-black uppercase tracking-widest text-sm transition-all text-center",
+                            roofPitch === pitch 
+                              ? "border-[#fdb612] bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612]" 
+                              : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
+                          )}
+                        >
+                          {pitch}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
                   <button 
-                    onClick={clearFilters}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl border border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-widest transition-all"
+                    onClick={() => setCurrentStep(1)}
+                    className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-3"
                   >
-                    Limpar Filtros
+                    <ArrowLeft className="w-6 h-6" />
+                    Voltar
                   </button>
-
-                  <BrandFilter
-                    label="Inversores"
-                    options={availableInverterBrands}
-                    selectedOptions={inverterBrandFilter}
-                    onChange={setInverterBrandFilter}
-                    isOpen={showInverterFilter}
-                    onToggle={() => {
-                      setShowInverterFilter(!showInverterFilter);
-                      setShowModuleFilter(false);
-                    }}
-                  />
-
-                  <BrandFilter
-                    label="Módulos"
-                    options={availableModuleBrands}
-                    selectedOptions={moduleBrandFilter}
-                    onChange={setModuleBrandFilter}
-                    isOpen={showModuleFilter}
-                    onToggle={() => {
-                      setShowModuleFilter(!showModuleFilter);
-                      setShowInverterFilter(false);
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Kits Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredKits.map((kit) => (
-                  <div 
-                    key={kit.id}
-                    className={cn(
-                      "bg-white dark:bg-[#231d0f]/40 rounded-[2rem] border-2 transition-all overflow-hidden group cursor-pointer active:scale-[0.98]",
-                      selectedKitId === kit.id 
-                        ? "border-[#fdb612] shadow-2xl shadow-[#fdb612]/10 scale-[1.02]" 
-                        : "border-slate-100 dark:border-slate-800 hover:border-[#fdb612]/30 shadow-sm"
-                    )}
-                    onClick={() => setSelectedKitId(kit.id)}
+                  <button 
+                    onClick={() => setCurrentStep(3)}
+                    className="flex-[2] bg-[#fdb612] text-[#231d0f] py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
                   >
-                    <div className="p-8 space-y-8">
-                      {/* Brand Logos */}
-                      <div className="flex justify-between items-center">
-                        <div className="flex gap-2">
-                          <div className="h-8 px-4 bg-slate-50 dark:bg-slate-900/50 rounded-full flex items-center justify-center border border-slate-100 dark:border-slate-800">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{kit.panelBrand || 'TCL'}</span>
-                          </div>
-                        </div>
-                        <div className="h-8 px-4 bg-slate-50 dark:bg-slate-900/50 rounded-full flex items-center justify-center border border-slate-100 dark:border-slate-800">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{kit.inverterBrand || 'SUNGROW'}</span>
-                        </div>
-                      </div>
-
-                      {/* Product Images */}
-                      <div className="relative aspect-video bg-slate-50 dark:bg-slate-900/50 rounded-[1.5rem] overflow-hidden flex items-center justify-center p-8 group-hover:bg-[#fdb612]/5 transition-colors">
-                        <div className="flex items-center gap-8">
-                          <img 
-                            src={kit.panelImage || "https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png"} 
-                            alt="Painel" 
-                            className="h-36 object-contain drop-shadow-2xl transition-transform group-hover:scale-110 duration-500"
-                            referrerPolicy="no-referrer"
-                          />
-                          <img 
-                            src={kit.inverterImage || "https://fortlevsolar.com.br/wp-content/uploads/2021/06/inversor.png"} 
-                            alt="Inversor" 
-                            className="h-28 object-contain drop-shadow-2xl transition-transform group-hover:scale-110 delay-75 duration-500"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <div className="space-y-6">
-                        <div>
-                          <h4 className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase tracking-tight">{kit.name}</h4>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">Kit Solar Completo • {kit.panelBrand || 'Fortlev Solar'}</p>
-                        </div>
-                        
-                        <div className="flex items-end justify-between">
-                          <div className="space-y-1">
-                            <p className="text-3xl font-black text-[#fdb612] tracking-tighter">
-                              <span className="text-sm font-medium mr-1 opacity-60">R$</span>
-                              {kit.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">R$ {(kit.price / (kit.power * 1000)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / Wp</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sobrecarga</p>
-                            <p className="text-lg font-black text-slate-900 dark:text-slate-100">{kit.overload || '64,00'}%</p>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                          <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <Search className="w-4 h-4 text-[#fdb612]" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 truncate">{deliveryCity.split(' - ')[0]}</span>
-                          </div>
-                          <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <Building2 className="w-4 h-4 text-[#fdb612]" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 truncate">{structure.split(' - ')[0]}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-6 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-xs font-black uppercase tracking-widest text-[#fdb612]">Selecionar Kit</span>
-                        <div className={cn(
-                          "size-10 rounded-2xl flex items-center justify-center transition-all shadow-lg",
-                          selectedKitId === kit.id ? "bg-[#fdb612] text-[#231d0f] shadow-[#fdb612]/20" : "bg-slate-100 dark:bg-slate-800 text-slate-400 group-hover:bg-[#fdb612] group-hover:text-[#231d0f] group-hover:shadow-[#fdb612]/20"
-                        )}>
-                          <ArrowRight className="w-5 h-5" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-between mt-8">
-                <button 
-                  onClick={() => setCurrentStep(1)}
-                  className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
-                >
-                  <ArrowRight className="w-4 h-4 rotate-180" />
-                  Voltar
-                </button>
-                <button 
-                  onClick={() => setCurrentStep(3)}
-                  className="px-12 py-5 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 transition-all active:scale-95 shadow-2xl bg-[#fdb612] text-[#231d0f] hover:shadow-[#fdb612]/30 hover:scale-[1.05] cursor-pointer"
-                >
-                  Próximo Passo: Precificação
-                  <div className="size-8 rounded-xl bg-[#231d0f]/10 flex items-center justify-center">
-                    <ArrowRight className="w-5 h-5" />
-                  </div>
-                </button>
+                    Ver Minha Economia
+                    <ArrowRight className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2178,392 +1864,95 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
 
           {currentStep === 3 && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              {/* Breadcrumbs for Step 3 */}
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(1)}>PARÂMETROS</span>
-                <ChevronRight className="w-3 h-3" />
-                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(2)}>CATÁLOGO</span>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-[#fdb612]">PRECIFICAÇÃO</span>
+            <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500">
+              {/* Grand Result Section */}
+              <div className="bg-white dark:bg-[#231d0f]/40 rounded-[3.5rem] border-4 border-[#fdb612]/20 p-12 shadow-2xl relative overflow-hidden text-center">
+                <div className="absolute top-0 left-0 w-full h-2 bg-[#fdb612]" />
+                <div className="size-24 rounded-3xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-8">
+                  <DollarSign className="w-12 h-12 text-emerald-500" />
+                </div>
+                
+                <h3 className="text-2xl font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Sua Economia Estimada</h3>
+                <div className="flex flex-col items-center gap-2 mb-8">
+                  <span className="text-8xl md:text-9xl font-black text-emerald-500 tracking-tighter leading-none">
+                    <span className="text-3xl align-top mt-6 inline-block mr-2">R$</span>
+                    {monthlySavingsValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-xl font-bold text-slate-400 uppercase tracking-widest">Economia todo mês no seu bolso</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
+                    <Zap className="w-8 h-8 text-blue-500 mx-auto mb-4" />
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sistema Ideal</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-white">{parseFloat(systemSize).toFixed(2)} kWp</span>
+                    <span className="block text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">({Math.round(parseFloat(systemSize) / 0.61)} Painéis de 610Wp)</span>
+                  </div>
+                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
+                    <Sun className="w-8 h-8 text-[#fdb612] mx-auto mb-4" />
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Geração Mensal</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-white">{monthlyGeneration.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh</span>
+                  </div>
+                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-4" />
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payback</span>
+                    <span className="text-3xl font-black text-slate-900 dark:text-white">~3.5 Anos</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
-                  {/* Kit Summary */}
-                  <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-[#fdb612]" />
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="size-10 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
-                        <Zap className="w-5 h-5" />
-                      </div>
-                      <h3 className="text-2xl font-black tracking-tight uppercase">Resumo do Kit Selecionado</h3>
-                    </div>
-                    
-                    {selectedKitId ? (
-                      <div className="flex flex-col md:flex-row items-center md:items-start gap-8 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
-                        <div className="size-32 bg-white rounded-2xl p-4 flex items-center justify-center border border-slate-100 shadow-sm shrink-0">
-                          <img 
-                            src={kits.find(k => k.id === selectedKitId)?.panelImage || "https://fortlevsolar.com.br/wp-content/uploads/2021/06/modulo-fotovoltaico.png"} 
-                            alt="Kit" 
-                            className="max-w-full max-h-full object-contain"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                        <div className="flex-1 space-y-4 text-center md:text-left">
-                          <div>
-                            <h4 className="font-black text-2xl text-slate-900 dark:text-slate-100 uppercase tracking-tight">{kits.find(k => k.id === selectedKitId)?.name}</h4>
-                            <p className="text-sm font-medium text-slate-500 line-clamp-2">{kits.find(k => k.id === selectedKitId)?.description}</p>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4 border-t border-slate-200 dark:border-slate-800">
-                            <div>
-                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Potência</span>
-                              <span className="font-black text-slate-900 dark:text-slate-100">{kits.find(k => k.id === selectedKitId)?.power} kWp</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Preço Base</span>
-                              <span className="font-black text-[#fdb612]">R$ {kits.find(k => k.id === selectedKitId)?.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Inversor</span>
-                              <span className="font-black text-slate-900 dark:text-slate-100">{kits.find(k => k.id === selectedKitId)?.inverterBrand}</span>
-                            </div>
-                            <div>
-                              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Módulos</span>
-                              <span className="font-black text-slate-900 dark:text-slate-100">{kits.find(k => k.id === selectedKitId)?.panelBrand}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+              {/* Financing Callout */}
+              <div className="bg-blue-600 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl">
+                <div className="space-y-2 text-center md:text-left">
+                  <h4 className="text-3xl font-black uppercase tracking-tight">Pague com a própria economia!</h4>
+                  <p className="text-blue-100 font-bold text-lg">Parcelas a partir de <span className="text-white font-black">R$ {(monthlySavingsValue * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                </div>
+                <button className="px-10 py-6 bg-white text-blue-600 rounded-[2rem] font-black text-xl uppercase tracking-widest hover:scale-105 transition-all shadow-lg">
+                  Ver Parcelamento
+                </button>
+              </div>
+
+              {/* Final CTA Section */}
+              <div className="flex flex-col items-center gap-8 py-10">
+                <div className="text-center space-y-4">
+                  <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Gostou do resultado?</h2>
+                  <p className="text-slate-400 font-bold text-xl">Fale agora com um de nossos especialistas e comece a economizar.</p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 w-full max-w-2xl">
+                  <button 
+                    onClick={() => window.open(`https://wa.me/5533999032281?text=Olá! Fiz uma simulação e gostaria de saber mais sobre o sistema de ${systemSize}kWp.`, '_blank')}
+                    className="flex-1 bg-[#25D366] text-white py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl shadow-[#25D366]/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4"
+                  >
+                    <Phone className="w-8 h-8" />
+                    WhatsApp
+                  </button>
+                  <button 
+                    onClick={() => setShowProposal(true)}
+                    className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4"
+                  >
+                    <Award className="w-8 h-8" />
+                    Ver Proposta
+                  </button>
+                  <button 
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPDF}
+                    className="flex-1 bg-[#fdb612] text-[#231d0f] py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                  >
+                    {isGeneratingPDF ? (
+                      <Loader2 className="w-8 h-8 animate-spin" />
                     ) : (
-                      <div className="p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[1.5rem]">
-                        <p className="text-slate-400 font-bold italic">Nenhum kit selecionado. Volte ao catálogo para escolher um.</p>
-                      </div>
+                      <FileText className="w-8 h-8" />
                     )}
-                  </section>
-
-                  {/* Componentes do Kit */}
-                  {selectedKitId && (
-                    <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-                        <div className="flex items-center gap-3">
-                          <div className="size-10 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center">
-                            <Package className="w-5 h-5" />
-                          </div>
-                          <h3 className="text-2xl font-black tracking-tight uppercase">Componentes do Kit</h3>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={handleAddComponent}
-                            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Adicionar
-                          </button>
-                          <button 
-                            onClick={handleSaveKitComponents}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20"
-                          >
-                            <Save className="w-4 h-4" />
-                            Salvar Kit
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        {selectedKitComponents.length > 0 ? (
-                          selectedKitComponents.map((comp, idx) => (
-                            <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 relative group">
-                              <div className="md:col-span-3 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nome</label>
-                                <input 
-                                  type="text" 
-                                  value={comp.name}
-                                  onChange={(e) => handleUpdateComponent(idx, 'name', e.target.value)}
-                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                              </div>
-                              <div className="md:col-span-2 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Quantidade</label>
-                                <input 
-                                  type="number" 
-                                  value={comp.quantity}
-                                  onChange={(e) => handleUpdateComponent(idx, 'quantity', parseInt(e.target.value) || 0)}
-                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                              </div>
-                              <div className="md:col-span-3 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Marca</label>
-                                <input 
-                                  type="text" 
-                                  value={comp.brand || ''}
-                                  onChange={(e) => handleUpdateComponent(idx, 'brand', e.target.value)}
-                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                              </div>
-                              <div className="md:col-span-2 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Modelo</label>
-                                <input 
-                                  type="text" 
-                                  value={comp.model || ''}
-                                  onChange={(e) => handleUpdateComponent(idx, 'model', e.target.value)}
-                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                              </div>
-                              <div className="md:col-span-3 space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Notas / Observações</label>
-                                <input 
-                                  type="text" 
-                                  value={comp.notes || ''}
-                                  onChange={(e) => handleUpdateComponent(idx, 'notes', e.target.value)}
-                                  placeholder="Ex: Cabo 6mm, Conector MC4..."
-                                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                />
-                              </div>
-                              <div className="md:col-span-1 flex items-end pb-1">
-                                <button 
-                                  onClick={() => handleRemoveComponent(idx)}
-                                  className="size-10 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-xl flex items-center justify-center transition-all"
-                                  title="Remover Componente"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[1.5rem]">
-                            <p className="text-slate-400 font-bold italic">Nenhum componente cadastrado para este kit.</p>
-                          </div>
-                        )}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Services & Costs */}
-                  <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl">
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="size-10 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5" />
-                      </div>
-                      <h3 className="text-2xl font-black tracking-tight uppercase">Serviços e Custos Adicionais</h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Instalação (R$)</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">R$</span>
-                          <input 
-                            type="number" 
-                            value={installationPrice}
-                            onChange={(e) => handleNumericalChange(e.target.value, 'Instalação', setInstallationPrice, setInstallationPriceError)}
-                            className={cn(
-                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                              installationPriceError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                            )}
-                          />
-                        </div>
-                        {installationPriceError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{installationPriceError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Engenharia / Projeto (R$)</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">R$</span>
-                          <input 
-                            type="number" 
-                            value={engineeringPrice}
-                            onChange={(e) => handleNumericalChange(e.target.value, 'Engenharia', setEngineeringPrice, setEngineeringPriceError)}
-                            className={cn(
-                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                              engineeringPriceError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                            )}
-                          />
-                        </div>
-                        {engineeringPriceError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{engineeringPriceError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Outros Custos (R$)</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">R$</span>
-                          <input 
-                            type="number" 
-                            value={additionalCosts}
-                            onChange={(e) => handleNumericalChange(e.target.value, 'Outros Custos', setAdditionalCosts, setAdditionalCostsError)}
-                            className={cn(
-                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                              additionalCostsError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                            )}
-                          />
-                        </div>
-                        {additionalCostsError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{additionalCostsError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Ajuste de Preço do Kit (R$)</label>
-                        <div className="relative group">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">R$</span>
-                          <input 
-                            type="number" 
-                            value={kitPriceAdjustment}
-                            onChange={(e) => handleNumericalChange(e.target.value, 'Ajuste do Kit', setKitPriceAdjustment, setKitPriceAdjustmentError)}
-                            className={cn(
-                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 pl-12 pr-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                              kitPriceAdjustmentError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                            )}
-                          />
-                        </div>
-                        {kitPriceAdjustmentError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{kitPriceAdjustmentError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Margem de Lucro (%)</label>
-                        <div className="relative group">
-                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm group-focus-within:text-[#fdb612] transition-colors">%</span>
-                          <input 
-                            type="number" 
-                            value={marginPercentage}
-                            onChange={(e) => handleNumericalChange(e.target.value, 'Margem', setMarginPercentage, setMarginPercentageError)}
-                            className={cn(
-                              "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 px-6 text-sm focus:ring-2 outline-none font-black transition-all",
-                              marginPercentageError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                            )}
-                          />
-                        </div>
-                        {marginPercentageError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{marginPercentageError}</p>}
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Financial Parameters */}
-                  <section className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl">
-                    <div className="flex items-center gap-3 mb-8">
-                      <div className="size-10 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
-                        <TrendingUp className="w-5 h-5" />
-                      </div>
-                      <h3 className="text-2xl font-black tracking-tight uppercase">Parâmetros de ROI</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Inflação Energética (%)</label>
-                        <input 
-                          type="number" 
-                          value={energyInflation}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Inflação', setEnergyInflation, setEnergyInflationError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl p-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                            energyInflationError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        {energyInflationError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{energyInflationError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Depreciação (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.1"
-                          value={panelDepreciation}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Depreciação', setPanelDepreciation, setPanelDepreciationError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl p-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                            panelDepreciationError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        {panelDepreciationError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{panelDepreciationError}</p>}
-                      </div>
-                      <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Manutenção (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.1"
-                          value={maintenanceRate}
-                          onChange={(e) => handleNumericalChange(e.target.value, 'Manutenção', setMaintenanceRate, setMaintenanceRateError)}
-                          className={cn(
-                            "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl p-4 text-sm focus:ring-2 outline-none font-black transition-all",
-                            maintenanceRateError ? "border-red-500 focus:ring-red-500" : "border-slate-200 dark:border-slate-700 focus:ring-[#fdb612]"
-                          )}
-                        />
-                        {maintenanceRateError && <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mt-1">{maintenanceRateError}</p>}
-                      </div>
-                    </div>
-                  </section>
+                    Baixar PDF
+                  </button>
                 </div>
-
-                {/* Pricing Summary Sidebar */}
-                <div className="space-y-6">
-                  <div className="bg-[#231d0f] text-white p-10 rounded-[2.5rem] shadow-2xl sticky top-8 border border-white/5 overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612]/10 blur-[60px] rounded-full -mr-16 -mt-16" />
-                    
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] mb-10 opacity-40">Resumo do Investimento</h4>
-                    
-                    <div className="space-y-8">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">Kit FV</span>
-                        <span className="font-black text-sm">R$ {(kits.find(k => k.id === selectedKitId)?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">Serviços / Adic.</span>
-                        <span className="font-black text-sm">R$ {(parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="pt-8 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">Custo Total</span>
-                        <span className="font-black text-sm">R$ {((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black uppercase tracking-widest opacity-60">Margem ({marginPercentage}%)</span>
-                        <span className="font-black text-sm text-[#fdb612]">R$ {
-                          ((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) - 
-                          ((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                        }</span>
-                      </div>
-                      
-                      <div className="pt-10 mt-10 border-t border-white/20 relative">
-                        <span className="block text-[10px] font-black uppercase tracking-[0.2em] mb-4 text-[#fdb612]">Preço Final Sugerido</span>
-                        <div className="text-5xl font-black tracking-tighter">
-                          <span className="text-lg font-medium mr-1 opacity-60">R$</span>
-                          {
-                            (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))).toLocaleString('pt-BR', { minimumFractionDigits: 0 })
-                          }
-                        </div>
-                        <div className="mt-4 text-[10px] opacity-40 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                          <div className="h-px flex-1 bg-white/20" />
-                          R$ {((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) / (kits.find(k => k.id === selectedKitId)?.power || 1)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / Wp
-                          <div className="h-px flex-1 bg-white/20" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => setCurrentStep(4)}
-                      className="w-full mt-12 bg-[#fdb612] text-[#231d0f] py-5 rounded-[1.25rem] font-black uppercase tracking-[0.2em] text-xs hover:scale-[1.02] transition-all shadow-2xl shadow-[#fdb612]/20 active:scale-95"
-                    >
-                      PROSSEGUIR PARA VALIDAÇÃO
-                    </button>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-6">Ações Rápidas</h5>
-                    <div className="space-y-3">
-                      <button className="w-full text-left px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all flex items-center gap-3 active:scale-95">
-                        <Save className="w-4 h-4" />
-                        Salvar como Modelo
-                      </button>
-                      <button className="w-full text-left px-5 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all flex items-center gap-3 active:scale-95">
-                        <RefreshCw className="w-4 h-4" />
-                        Recalcular ROI
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-start mt-8">
+                
                 <button 
-                  onClick={() => setCurrentStep(2)}
-                  className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
+                  onClick={() => setCurrentStep(1)}
+                  className="text-slate-400 font-black text-sm uppercase tracking-[0.3em] hover:text-[#fdb612] transition-colors"
                 >
-                  <ArrowRight className="w-4 h-4 rotate-180" />
-                  Voltar
+                  Refazer Simulação
                 </button>
               </div>
             </div>
@@ -2790,7 +2179,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       <input 
                         type="number" 
                         step="0.01"
-                        value={monthlyInterestRate}
+                        value={monthlyInterestRate || ''}
                         onChange={(e) => handleNumericalChange(e.target.value, 'Taxa de Juros', setMonthlyInterestRate, setMonthlyInterestRateError)}
                         className={cn(
                           "w-full bg-slate-50 dark:bg-slate-900/50 border rounded-2xl py-4 px-6 text-sm focus:ring-2 outline-none font-black transition-all",
@@ -2804,7 +2193,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Prazo (Meses)</label>
                     <input 
                       type="number" 
-                      value={financingTerm}
+                      value={financingTerm || 0}
                       onChange={(e) => setFinancingTerm(parseInt(e.target.value) || 0)}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none font-black transition-all"
                     />
@@ -2813,7 +2202,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Carência (Dias)</label>
                     <input 
                       type="number" 
-                      value={gracePeriod}
+                      value={gracePeriod || 0}
                       onChange={(e) => setGracePeriod(parseInt(e.target.value) || 0)}
                       className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none font-black transition-all"
                     />
@@ -2975,7 +2364,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   <div className="flex gap-4">
                     <input 
                       type="text"
-                      value={newTaskText}
+                      value={newTaskText || ''}
                       onChange={(e) => setNewTaskText(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && addTask()}
                       placeholder="Nova tarefa para o projeto..."
@@ -3035,18 +2424,32 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                  <button 
+                    onClick={handleFinalizeSale}
+                    disabled={isGeneratingPDF || isFinalizingSale}
+                    className="group p-8 bg-emerald-600 text-white rounded-[2.5rem] font-black hover:scale-105 hover:shadow-2xl hover:shadow-emerald-500/30 transition-all flex flex-col items-center gap-6 active:scale-95 disabled:opacity-50 border-4 border-transparent hover:border-emerald-400/30"
+                  >
+                    <div className="size-20 bg-white/20 text-white rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-6">
+                      {isFinalizingSale ? <Loader2 className="w-10 h-10 animate-spin" /> : <CheckCircle2 className="w-10 h-10" />}
+                    </div>
+                    <div className="space-y-2">
+                      <span className="block text-xl uppercase tracking-tight">Finalizar Venda</span>
+                      <span className="block text-[10px] uppercase tracking-widest opacity-80 font-black">Registrar Financeiro</span>
+                    </div>
+                  </button>
+
                   <button 
                     onClick={handleFinalizeAndSend}
-                    disabled={isGeneratingPDF}
-                    className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-[#fdb612] hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all flex flex-col items-center gap-6 active:scale-95 disabled:opacity-50"
+                    disabled={isGeneratingPDF || isFinalizingSale}
+                    className="group p-8 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-[#fdb612] hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all flex flex-col items-center gap-6 active:scale-95 disabled:opacity-50"
                   >
-                    <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-[#fdb612]/10 group-hover:text-[#fdb612] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-6 shadow-sm">
+                    <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-[#fdb612]/10 group-hover:text-[#fdb612] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm">
                       {isGeneratingPDF ? <Loader2 className="w-10 h-10 animate-spin" /> : <FileText className="w-10 h-10" />}
                     </div>
                     <div className="space-y-2">
                       <span className="block text-xl uppercase tracking-tight">Gerar Proposta</span>
-                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Download & Enviar E-mail</span>
+                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Download PDF</span>
                     </div>
                   </button>
 
@@ -3055,9 +2458,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                       showToast('Enviando para Fortlev Solar...');
                       setTimeout(() => showToast('Projeto enviado com sucesso!', 'success'), 2000);
                     }}
-                    className="group p-10 bg-[#fdb612] text-[#231d0f] rounded-[2.5rem] font-black hover:scale-105 hover:shadow-2xl hover:shadow-[#fdb612]/30 transition-all flex flex-col items-center gap-6 active:scale-95"
+                    className="group p-8 bg-slate-900 dark:bg-slate-800 text-white rounded-[2.5rem] font-black hover:scale-105 hover:shadow-2xl transition-all flex flex-col items-center gap-6 active:scale-95 border-2 border-slate-800"
                   >
-                    <div className="size-20 bg-[#231d0f] text-[#fdb612] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:-rotate-6 shadow-2xl shadow-[#231d0f]/20">
+                    <div className="size-20 bg-[#fdb612] text-[#231d0f] rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:-rotate-6 shadow-xl shadow-[#fdb612]/20">
                       <Send className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
@@ -3068,14 +2471,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
 
                   <button 
                     onClick={handleRedo}
-                    className="group p-10 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all flex flex-col items-center gap-6 active:scale-95"
+                    className="group p-8 bg-white dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all flex flex-col items-center gap-6 active:scale-95"
                   >
                     <div className="size-20 bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-blue-500/10 group-hover:text-blue-500 rounded-3xl flex items-center justify-center transition-all group-hover:scale-110 group-hover:rotate-12 shadow-sm">
                       <RefreshCw className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
                       <span className="block text-xl uppercase tracking-tight">Nova Simulação</span>
-                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Reiniciar Fluxo</span>
+                      <span className="block text-[10px] uppercase tracking-widest text-slate-400 font-black">Reiniciar</span>
                     </div>
                   </button>
                 </div>
@@ -3162,7 +2565,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
                     <input 
                       type="email"
-                      value={fortlevEmail}
+                      value={fortlevEmail || ''}
                       onChange={(e) => {
                         setFortlevEmail(e.target.value);
                         if (fortlevErrors.email) setFortlevErrors({ ...fortlevErrors, email: undefined });
@@ -3185,7 +2588,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [] }
                     <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
                     <input 
                       type="password"
-                      value={fortlevPassword}
+                      value={fortlevPassword || ''}
                       onChange={(e) => {
                         setFortlevPassword(e.target.value);
                         if (fortlevErrors.password) setFortlevErrors({ ...fortlevErrors, password: undefined });

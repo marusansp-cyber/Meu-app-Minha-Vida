@@ -17,6 +17,7 @@ import {
   X,
   Mail,
   Phone,
+  Sun,
   MessageCircle,
   ChevronRight,
   ChevronDown,
@@ -49,9 +50,10 @@ interface LeadsViewProps {
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
   onLogout: () => void;
+  onStartSimulation: (lead: Lead) => void;
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout }) => {
+export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout, onStartSimulation }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<Lead['status'][]>(['new', 'survey', 'proposal', 'negotiation', 'closed']);
@@ -415,7 +417,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           type="text"
                           placeholder="Nome ou sistema..."
                           className="w-full pl-10 pr-4 py-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
-                          value={searchTerm}
+                          value={searchTerm || ''}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           autoFocus
                         />
@@ -449,7 +451,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           <span className="text-[9px] text-slate-400 font-bold uppercase">Início</span>
                           <input 
                             type="date" 
-                            value={startDate}
+                            value={startDate || ''}
                             onChange={(e) => setStartDate(e.target.value)}
                             className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
                           />
@@ -458,7 +460,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           <span className="text-[9px] text-slate-400 font-bold uppercase">Fim</span>
                           <input 
                             type="date" 
-                            value={endDate}
+                            value={endDate || ''}
                             onChange={(e) => setEndDate(e.target.value)}
                             className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
                           />
@@ -480,7 +482,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
                       <select 
-                        value={selectedRepresentative}
+                        value={selectedRepresentative || 'all'}
                         onChange={(e) => setSelectedRepresentative(e.target.value)}
                         className="w-full px-4 py-3 lg:px-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612] appearance-none"
                       >
@@ -531,7 +533,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                         <input 
                           type="checkbox" 
                           className="size-5 lg:size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
-                          checked={onlyUrgent}
+                          checked={onlyUrgent || false}
                           onChange={(e) => setOnlyUrgent(e.target.checked)}
                         />
                       </label>
@@ -672,6 +674,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                                     lead={lead} 
                                     onDelete={() => setLeadToDelete(lead)}
                                     onClick={() => setSelectedLead(lead)}
+                                    onStartSimulation={() => onStartSimulation(lead)}
                                   />
                                 </div>
                               )}
@@ -763,6 +766,17 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
 
                         {activeActionMenu === lead.id && (
                           <div className="absolute right-6 top-12 w-48 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-30 py-2 animate-in fade-in zoom-in duration-200">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onStartSimulation(lead);
+                                setActiveActionMenu(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm font-bold text-[#fdb612] hover:bg-[#fdb612]/5 flex items-center gap-2"
+                            >
+                              <Sun className="w-4 h-4" />
+                              Iniciar Simulação
+                            </button>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -946,8 +960,10 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           type="email"
                           value={editForm.email || ''}
                           onChange={(e) => {
-                            setEditForm({ ...editForm, email: e.target.value });
-                            if (editErrors.email) setEditErrors({ ...editErrors, email: null });
+                            const val = e.target.value;
+                            setEditForm({ ...editForm, email: val });
+                            const err = validateEmail(val);
+                            setEditErrors({ ...editErrors, email: err });
                           }}
                           className={cn(
                             "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
@@ -966,7 +982,8 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           onChange={(e) => {
                             const masked = maskPhone(e.target.value);
                             setEditForm({ ...editForm, phone: masked });
-                            if (editErrors.phone) setEditErrors({ ...editErrors, phone: null });
+                            const err = validatePhone(masked);
+                            setEditErrors({ ...editErrors, phone: err });
                           }}
                           className={cn(
                             "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
@@ -1264,7 +1281,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
   );
 };
 
-const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void }> = ({ lead, onDelete, onClick }) => {
+const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void; onStartSimulation: () => void }> = ({ lead, onDelete, onClick, onStartSimulation }) => {
   return (
     <div 
       onClick={onClick}
@@ -1273,17 +1290,30 @@ const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void
       "bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border transition-colors cursor-pointer group relative",
       lead.status === 'closed' ? "border-green-500/30" : "border-slate-200 dark:border-slate-700 hover:border-[#fdb612]"
     )}>
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete();
-        }}
-        className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartSimulation();
+          }}
+          className="p-1.5 text-[#fdb612] hover:bg-[#fdb612]/10 rounded-md transition-all"
+          title="Iniciar Simulação"
+        >
+          <Sun className="w-4 h-4" />
+        </button>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="p-1.5 text-slate-300 hover:text-red-500 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
+          title="Excluir"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
 
-      <div className="flex justify-between items-start mb-2 pr-6">
+      <div className="flex justify-between items-start mb-2 pr-12">
         {lead.urgent && (
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded">
             Urgente

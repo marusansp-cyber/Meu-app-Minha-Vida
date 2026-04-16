@@ -15,7 +15,9 @@ import {
   Edit,
   Trash2,
   CheckCircle2,
-  Clock
+  Clock,
+  MessageCircle,
+  Maximize
 } from 'lucide-react';
 import { Client, Proposal, Installation, History as HistoryType } from '../types';
 import { cn } from '../lib/utils';
@@ -112,6 +114,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     };
   };
 
+  const stats = useMemo(() => {
+    const active = clients.filter(c => c.status === 'active').length;
+    const inactive = clients.filter(c => c.status === 'inactive').length;
+    return { active, inactive, total: clients.length };
+  }, [clients]);
+
   return (
     <div className="space-y-6 relative">
       {toast && (
@@ -120,6 +128,42 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           <span className="font-bold text-sm">{toast}</span>
         </div>
       )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Clientes</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.total}</span>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Ativos</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.active}</span>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-slate-500/10 text-slate-500 rounded-2xl flex items-center justify-center">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Inativos</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.inactive}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -197,7 +241,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   <input
                     type="text"
                     placeholder="Buscar clientes..."
-                    value={searchTerm}
+                    value={searchTerm || ''}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all"
                   />
@@ -233,17 +277,42 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       )}
                     >
                       <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#fdb612] transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#fdb612] transition-colors truncate">
                             {client.name}
                           </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 truncate">
                             <Mail className="w-3 h-3" />
                             {client.email}
                           </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            {client.phone}
+                          </p>
+                          
+                          <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a 
+                              href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </a>
+                            <a 
+                              href={`mailto:${client.email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 bg-[#fdb612]/10 text-[#fdb612] rounded-lg hover:bg-[#fdb612] hover:text-[#231d0f] transition-all"
+                              title="E-mail"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
                         </div>
                         <div className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-black uppercase",
+                          "px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0",
                           client.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-500/10 text-slate-500"
                         )}>
                           {client.status}

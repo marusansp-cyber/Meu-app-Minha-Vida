@@ -170,7 +170,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
               <input 
                 required
                 type="text" 
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ex: Kit Residencial 5kWp Premium"
                 className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
@@ -179,7 +179,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
               <select 
-                value={formData.status}
+                value={formData.status || 'active'}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                 className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-[#004a61]"
               >
@@ -230,7 +230,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Descrição do Kit</label>
             <textarea 
               rows={2}
-              value={formData.description}
+              value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Descreva as principais características e benefícios deste kit..."
               className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all resize-none font-medium"
@@ -254,7 +254,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   <input 
                     type="text" 
                     placeholder="Ex: Painel Solar Monocristalino"
-                    value={newComponent.name}
+                    value={newComponent.name || ''}
                     onChange={(e) => setNewComponent({ ...newComponent, name: e.target.value })}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
@@ -265,7 +265,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                     <input 
                       type="text" 
                       placeholder="Ex: Jinko"
-                      value={newComponent.brand}
+                      value={newComponent.brand || ''}
                       onChange={(e) => setNewComponent({ ...newComponent, brand: e.target.value })}
                       className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                     />
@@ -275,7 +275,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                     <input 
                       type="text" 
                       placeholder="Ex: Tiger Neo"
-                      value={newComponent.model}
+                      value={newComponent.model || ''}
                       onChange={(e) => setNewComponent({ ...newComponent, model: e.target.value })}
                       className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                     />
@@ -286,7 +286,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   <input 
                     type="text" 
                     placeholder="Ex: Cabo 6mm, Conector MC4..."
-                    value={newComponent.notes}
+                    value={newComponent.notes || ''}
                     onChange={(e) => setNewComponent({ ...newComponent, notes: e.target.value })}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
@@ -297,7 +297,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Quantidade</span>
                   <input 
                     type="number" 
-                    value={newComponent.quantity}
+                    value={newComponent.quantity ?? 1}
                     onChange={(e) => setNewComponent({ ...newComponent, quantity: Number(e.target.value) })}
                     className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />

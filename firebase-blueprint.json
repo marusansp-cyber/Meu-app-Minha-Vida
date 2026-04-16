@@ -170,6 +170,15 @@
         "status": { "type": "string", "enum": ["active", "inactive"] }
       },
       "required": ["name", "email", "status"]
+    },
+    "CompanySettings": {
+      "title": "Company Settings",
+      "description": "Global company settings like logo and name",
+      "type": "object",
+      "properties": {
+        "logo": { "type": "string" },
+        "name": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -204,6 +213,10 @@
     "/clients": {
       "schema": "Client",
       "description": "Collection of registered clients"
+    },
+    "/settings": {
+      "schema": "CompanySettings",
+      "description": "Global settings"
     }
   }
 }

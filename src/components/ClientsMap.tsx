@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Loader2, AlertCircle, Users } from 'lucide-react';
+import { MapPin, Loader2, AlertCircle, Users, Maximize } from 'lucide-react';
 import { Client } from '../types';
 
 // Fix for default marker icons in Leaflet
@@ -35,10 +35,22 @@ const RecenterMap = ({ coords }: { coords: [number, number] }) => {
   return null;
 };
 
+const FitBounds = ({ markers, trigger }: { markers: ClientMarker[], trigger: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (markers.length > 0) {
+      const bounds = L.latLngBounds(markers.map(m => m.coords));
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [trigger, markers, map]);
+  return null;
+};
+
 export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, className, onSelectClient }) => {
   const [markers, setMarkers] = useState<ClientMarker[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fitTrigger, setFitTrigger] = useState(0);
 
   useEffect(() => {
     const geocodeClients = async () => {
@@ -106,6 +118,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, className, onSe
 
   return (
     <div className={`rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm relative z-0 ${className}`}>
+      {markers.length > 0 && (
+        <button
+          onClick={() => setFitTrigger(prev => prev + 1)}
+          className="absolute top-4 right-4 z-[1000] bg-white dark:bg-[#231d0f] p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-[#fdb612] transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest"
+          title="Centralizar todos os marcadores"
+        >
+          <Maximize className="w-4 h-4" />
+          Centralizar Tudo
+        </button>
+      )}
       <MapContainer 
         center={center} 
         zoom={12} 
@@ -143,7 +165,7 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, className, onSe
             </Popup>
           </Marker>
         ))}
-        {markers.length > 0 && <RecenterMap coords={markers[0].coords} />}
+        {markers.length > 0 && <FitBounds markers={markers} trigger={fitTrigger} />}
       </MapContainer>
     </div>
   );

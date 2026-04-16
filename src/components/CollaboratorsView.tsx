@@ -130,7 +130,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
                 required
                 type="text" 
                 placeholder="Name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md outline-none focus:ring-2 focus:ring-[#1a9fb4] transition-all text-slate-700 dark:text-slate-200"
               />
@@ -143,7 +143,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
               <div className="relative">
                 <select 
                   required
-                  value={formData.role}
+                  value={formData.role || 'Vendedor'}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
                   className="w-full px-4 py-4 bg-white dark:bg-slate-900 border border-[#1a9fb4] rounded-md outline-none appearance-none cursor-pointer text-slate-700 dark:text-slate-200 font-medium"
                 >
@@ -161,14 +161,14 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
               <input 
                 type="email" 
                 placeholder="E-mail (Optional)"
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md outline-none focus:ring-2 focus:ring-[#1a9fb4] transition-all"
               />
               <input 
                 type="text" 
                 placeholder="Phone (Optional)"
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-4 py-4 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md outline-none focus:ring-2 focus:ring-[#1a9fb4] transition-all"
               />
@@ -189,7 +189,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
               <input 
                 type="text" 
                 placeholder="Search by name or role..."
-                value={searchTerm}
+                value={searchTerm || ''}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#1a9fb4] transition-all"
               />

@@ -17,15 +17,17 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { View, User as UserType } from '../types';
+import { Logo } from './Logo';
 
 interface SidebarProps {
   currentView: View;
   onViewChange: (view: View) => void;
   onLogout: () => void;
   user: UserType | null;
+  companyLogo?: string | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, user, companyLogo }) => {
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard, roles: ['admin', 'sales', 'engineer', 'installer'] },
     { id: 'leads', label: 'Leads', icon: Users, roles: ['admin', 'sales'] },
@@ -48,14 +50,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
 
   return (
     <aside className="w-64 border-r border-[#fdb612]/20 bg-white dark:bg-[#231d0f] flex flex-col h-screen">
-      <div className="p-6 flex items-center gap-3">
-        <div className="h-10 w-10 bg-[#fdb612] rounded-lg flex items-center justify-center">
-          <Sun className="text-[#231d0f] w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="font-display font-bold text-lg leading-tight">Vieira's Solar</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Engenharia & Energia</p>
-        </div>
+      <div className="p-6">
+        <Logo className="scale-90 -ml-2" variant="dark" src={companyLogo} />
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">

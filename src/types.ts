@@ -6,6 +6,8 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  phone?: string;
+  address?: string;
 }
 
 export type View = 'dashboard' | 'leads' | 'installations' | 'config' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients';

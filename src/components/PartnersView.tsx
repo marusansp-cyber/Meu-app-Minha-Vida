@@ -136,7 +136,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
           <input 
             type="text" 
             placeholder="Buscar por nome, CNPJ ou contato..."
-            value={searchTerm}
+            value={searchTerm || ''}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
           />
@@ -509,7 +509,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 required
                 disabled={isViewOnly}
                 type="text" 
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
@@ -527,7 +527,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 required
                 disabled={isViewOnly}
                 type="text" 
-                value={formData.cnpj}
+                value={formData.cnpj || ''}
                 onChange={(e) => handleCnpjChange(e.target.value)}
                 placeholder="00.000.000/0000-00"
                 className={cn(
@@ -551,7 +551,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 required
                 disabled={isViewOnly}
                 type="text" 
-                value={formData.contactName}
+                value={formData.contactName || ''}
                 onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
@@ -562,7 +562,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 required
                 disabled={isViewOnly}
                 type="text" 
-                value={formData.phone}
+                value={formData.phone || ''}
                 onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               />
@@ -573,7 +573,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 required
                 disabled={isViewOnly}
                 type="email" 
-                value={formData.email}
+                value={formData.email || ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   setFormData({ ...formData, email: val });
@@ -590,7 +590,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Parceria</label>
               <select 
                 disabled={isViewOnly}
-                value={formData.type}
+                value={formData.type || 'integrator'}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               >
@@ -605,7 +605,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
               <input 
                 disabled={isViewOnly}
                 type="number" 
-                value={formData.commissionRate}
+                value={formData.commissionRate || 0}
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setFormData({ ...formData, commissionRate: val });
@@ -622,7 +622,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</label>
               <select 
                 disabled={isViewOnly}
-                value={formData.status}
+                value={formData.status || 'active'}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
               >
@@ -638,7 +638,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
             <input 
               disabled={isViewOnly}
               type="text" 
-              value={formData.address}
+              value={formData.address || ''}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
             />
@@ -649,7 +649,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
             <textarea 
               disabled={isViewOnly}
               rows={3}
-              value={formData.notes}
+              value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all resize-none disabled:opacity-70"
             />

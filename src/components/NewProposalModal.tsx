@@ -167,9 +167,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const handleAutoCalculateSystemSize = () => {
     const consumption = parseFloat(formData.energyConsumption);
     if (!isNaN(consumption) && consumption > 0) {
-      const calculatedSize = consumption / efficiency;
+      const panelPower = 0.61;
+      const numPanels = Math.ceil(consumption / (efficiency * panelPower));
+      const calculatedSize = numPanels * panelPower;
       setFormData(prev => ({ ...prev, systemSize: calculatedSize.toFixed(2) }));
-      showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp`);
+      showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp (${numPanels} painéis de 610Wp)`);
 
       // Automatically suggest the best kit
       if (fortlevKits.length > 0) {
@@ -301,10 +303,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   useEffect(() => {
     if (initialData) {
       setFormData({
-        client: initialData.client,
-        value: initialData.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.'),
-        systemSize: initialData.systemSize.replace(' kWp', ''),
-        representative: initialData.representative,
+        client: initialData.client || '',
+        value: initialData.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.') || '',
+        systemSize: initialData.systemSize.replace(' kWp', '') || '',
+        representative: initialData.representative || 'Marusan Pinto',
         roi: initialData.roi || '385%',
         payback: initialData.payback?.replace(' Anos', '') || '4.2',
         feasibilityStudy: initialData.feasibilityStudy || '',
@@ -316,6 +318,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         discount: initialData.discount?.toString() || '0',
         financingBank: initialData.financingBank || 'Nenhum',
         financingInstallments: initialData.financingInstallments?.toString() || '0',
+        email: initialData.email || '',
       });
       setCurrentStep('ucs');
     } else {
@@ -502,7 +505,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <input 
                         type="text" 
                         required
-                        value={formData.client}
+                        value={formData.client || ''}
                         onChange={(e) => {
                           setFormData({ ...formData, client: e.target.value });
                           if (validationErrors.client) {
@@ -530,7 +533,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input 
                         type="email" 
-                        value={formData.email}
+                        value={formData.email || ''}
                         onChange={(e) => {
                           setFormData({ ...formData, email: e.target.value });
                           if (validationErrors.email) {
@@ -556,7 +559,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número da UC</label>
                     <input 
                       type="text" 
-                      value={formData.ucNumber}
+                      value={formData.ucNumber || ''}
                       onChange={(e) => {
                         setFormData({ ...formData, ucNumber: e.target.value });
                         if (validationErrors.ucNumber) {
@@ -591,7 +594,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
                     <input 
                       type="number" 
-                      value={formData.energyConsumption}
+                      value={formData.energyConsumption || ''}
                       onChange={(e) => {
                         setFormData({ ...formData, energyConsumption: e.target.value });
                         if (validationErrors.energyConsumption) {
@@ -616,7 +619,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor da Conta (R$)</label>
                     <input 
                       type="number" 
-                      value={formData.value}
+                      value={formData.value || ''}
                       onChange={(e) => {
                         setFormData({ ...formData, value: e.target.value });
                         if (validationErrors.value) {
@@ -654,7 +657,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <div className="flex items-center gap-2">
                         <input 
                           type="number" 
-                          value={losses}
+                          value={losses || 0}
                           onChange={(e) => setLosses(Number(e.target.value))}
                           className="w-16 bg-white/10 border-none rounded p-1 text-sm focus:ring-1 focus:ring-[#fdb612]"
                         />
@@ -694,7 +697,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <input 
                         type="number" 
                         step="0.1"
-                        value={formData.systemSize}
+                        value={formData.systemSize || ''}
                         onChange={(e) => setFormData({ ...formData, systemSize: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                       />
@@ -742,7 +745,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="space-y-1">
                           <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Inversores</label>
                           <select 
-                            value={inverterBrandFilter}
+                            value={inverterBrandFilter || 'all'}
                             onChange={(e) => setInverterBrandFilter(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
                           >
@@ -755,7 +758,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="space-y-1">
                           <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Módulos</label>
                           <select 
-                            value={moduleBrandFilter}
+                            value={moduleBrandFilter || 'all'}
                             onChange={(e) => setModuleBrandFilter(e.target.value)}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
                           >
@@ -772,7 +775,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <input 
                           type="text"
                           placeholder="Buscar por nome, marca ou modelo..."
-                          value={searchTerm}
+                          value={searchTerm || ''}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] outline-none focus:ring-1 focus:ring-[#fdb612]"
                         />
@@ -881,7 +884,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor do Kit (R$)</label>
                     <input 
                       type="number" 
-                      value={formData.value}
+                      value={formData.value || ''}
                       onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
@@ -890,7 +893,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Desconto (R$)</label>
                     <input 
                       type="number" 
-                      value={formData.discount}
+                      value={formData.discount || ''}
                       onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
@@ -900,7 +903,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
                       <input 
                         type="number" 
-                        value={formData.commission}
+                        value={formData.commission || ''}
                         onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
                         className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                       />
@@ -929,7 +932,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">ROI Estimado</label>
                     <input 
                       type="text" 
-                      value={formData.roi}
+                      value={formData.roi || ''}
                       onChange={(e) => setFormData({ ...formData, roi: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
@@ -938,7 +941,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Payback (Anos)</label>
                     <input 
                       type="text" 
-                      value={formData.payback}
+                      value={formData.payback || ''}
                       onChange={(e) => setFormData({ ...formData, payback: e.target.value })}
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
@@ -1058,7 +1061,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <div className="space-y-2">
                           <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número de Parcelas</label>
                           <select 
-                            value={formData.financingInstallments}
+                            value={formData.financingInstallments || ''}
                             onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
                             className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                           >
@@ -1182,7 +1185,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       type="email" 
-                      value={fortlevEmail}
+                      value={fortlevEmail || ''}
                       onChange={(e) => setFortlevEmail(e.target.value)}
                       className="w-full bg-white border-none rounded-2xl py-4 pl-14 pr-6 shadow-sm focus:ring-2 focus:ring-[#fdb612] transition-all outline-none"
                       placeholder="seu@email.com"
@@ -1195,7 +1198,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       type="password" 
-                      value={fortlevPassword}
+                      value={fortlevPassword || ''}
                       onChange={(e) => setFortlevPassword(e.target.value)}
                       className="w-full bg-white border-none rounded-2xl py-4 pl-14 pr-6 shadow-sm focus:ring-2 focus:ring-[#fdb612] transition-all outline-none"
                       placeholder="••••••••"
