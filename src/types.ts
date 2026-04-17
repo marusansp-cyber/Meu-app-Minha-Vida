@@ -132,6 +132,7 @@ export interface Proposal {
   status: 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
   systemSize: string;
   representative: string;
+  proposalNumber?: string;
   expiryDate?: string | null;
   roi?: string | null;
   payback?: string | null;

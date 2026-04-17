@@ -354,6 +354,8 @@ export default function App() {
                 {currentView === 'config' && (
                   <ConfigView 
                     partners={partners}
+                    clients={clients}
+                    leads={leads}
                     onClose={() => {
                       setCurrentView('dashboard');
                       setSelectedLeadForSimulation(null);

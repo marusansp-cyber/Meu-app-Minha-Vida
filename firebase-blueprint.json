@@ -41,6 +41,7 @@
         "status": { "type": "string", "enum": ["pending", "sent", "accepted", "expired"] },
         "systemSize": { "type": "string" },
         "representative": { "type": "string" },
+        "proposalNumber": { "type": "string" },
         "expiryDate": { "type": "string" },
         "roi": { "type": "string" },
         "payback": { "type": "string" },

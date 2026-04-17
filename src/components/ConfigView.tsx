@@ -40,7 +40,7 @@ import { GoogleGenAI } from "@google/genai";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import Papa from 'papaparse';
-import { Partner, Kit } from '../types';
+import { Partner, Kit, Client, Lead } from '../types';
 import { updateDocument, setDocument } from '../firestoreUtils';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
@@ -52,16 +52,61 @@ import { ProposalView } from './ProposalView';
 interface ConfigViewProps {
   onClose?: () => void;
   partners?: Partner[];
+  clients?: Client[];
+  leads?: Lead[];
   companyLogo?: string | null;
   onUpdateLogo?: (logo: string) => void;
   initialLead?: any | null;
 }
 
-export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], companyLogo, onUpdateLogo, initialLead }) => {
+export const ConfigView: React.FC<ConfigViewProps> = ({ 
+  onClose, 
+  partners = [], 
+  clients = [], 
+  leads = [], 
+  companyLogo, 
+  onUpdateLogo, 
+  initialLead 
+}) => {
   const { showToast, removeToast } = useToast();
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   const [isFinalizingSale, setIsFinalizingSale] = useState(false);
+
+  const getNextProposalNumber = async () => {
+    try {
+      const year = new Date().getFullYear().toString().slice(-2);
+      // Using "25" as prefix as requested in "25(ano)01"
+      const prefix = `25${year}`;
+      
+      const q = query(
+        collection(db, 'proposals'), 
+        where('proposalNumber', '>=', prefix),
+        where('proposalNumber', '<=', prefix + '\uf8ff')
+      );
+      
+      const snapshot = await getDocs(q);
+      let maxNum = 0;
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.proposalNumber) {
+          const numStr = data.proposalNumber.replace(prefix, '');
+          const num = parseInt(numStr);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      
+      const nextNum = (maxNum + 1).toString().padStart(2, '0');
+      return `${prefix}${nextNum}`;
+    } catch (error) {
+      console.error('Error generating proposal number:', error);
+      const year = new Date().getFullYear().toString().slice(-2);
+      return `25${year}01`; // Fallback
+    }
+  };
 
   const handleFinalizeSale = async () => {
     if (!clientName && !initialLead) {
@@ -83,8 +128,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
       const kit = kits.find(k => k.id === selectedKitId);
       const totalInvestment = ((kit?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100));
       
+      const proposalNumber = await getNextProposalNumber();
+      
       const newProposal: any = {
         client: clientName || initialLead?.name || 'Cliente sem nome',
+        proposalNumber,
         value: totalInvestment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         date: new Date().toLocaleDateString('pt-BR'),
         status: 'accepted',
@@ -216,6 +264,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
   const [isConsultingKits, setIsConsultingKits] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<number | string | null>(null);
   const [clientName, setClientName] = useState<string>('');
+  const [selectedRegistryEntry, setSelectedRegistryEntry] = useState<any | null>(null);
+  const [isSearchingClient, setIsSearchingClient] = useState(false);
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [inverterBrandFilter, setInverterBrandFilter] = useState<string[]>([]);
   const [moduleBrandFilter, setModuleBrandFilter] = useState<string[]>([]);
   const [filterByPower, setFilterByPower] = useState(true);
@@ -247,6 +298,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
   const [smtpStatus, setSmtpStatus] = useState<'idle' | 'success' | 'error' | 'unconfigured'>('idle');
 
   const [showProposal, setShowProposal] = useState(false);
+  const [currentProposalNumber, setCurrentProposalNumber] = useState<string>('');
 
   const getPitchFactor = (pitch: any) => {
     switch (pitch) {
@@ -296,6 +348,14 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
       }
     }
   }, [monthlyBill, energyPrice, efficiency, currentStep]);
+
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      const num = await getNextProposalNumber();
+      setCurrentProposalNumber(num);
+    };
+    fetchNextNumber();
+  }, []);
 
   useEffect(() => {
     if (initialLead) {
@@ -1050,6 +1110,35 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
     validatePositiveNumber(value, fieldName, setError);
   };
 
+  const handleSelectRegistryEntry = (entry: any) => {
+    setClientName(entry.name || '');
+    setPartnerEmail(entry.email || '');
+    setPartnerPhone(entry.phone || '');
+    setPartnerCnpj(entry.cnpj || entry.cpf || '');
+    
+    // If entry has a UC number (from leads or specific client data)
+    if (entry.ucNumber) {
+      setUcNumber(entry.ucNumber);
+    }
+
+    if (entry.monthlyBill) setMonthlyBill(entry.monthlyBill.toString());
+    if (entry.monthlyConsumption) setMonthlyConsumption(entry.monthlyConsumption.toString());
+    if (entry.systemSize) setSystemSize(entry.systemSize.toString());
+
+    setSelectedRegistryEntry(entry);
+    setIsSearchingClient(false);
+    setClientSearchTerm('');
+    showToast(`${entry.name} selecionado com sucesso!`, 'success');
+  };
+
+  const filteredRegistry = [...(clients || []), ...(leads || [])].filter(entry => 
+    entry.name?.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    entry.email?.toLowerCase().includes(clientSearchTerm.toLowerCase()) ||
+    entry.cnpj?.includes(clientSearchTerm) ||
+    entry.cpf?.includes(clientSearchTerm) ||
+    entry.phone?.includes(clientSearchTerm)
+  ).slice(0, 5);
+
   const addTask = () => {
     if (newTaskText?.trim()) {
       setTasks([...tasks, { id: Date.now().toString(), text: newTaskText, completed: false }]);
@@ -1156,7 +1245,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
     return 0;
   });
 
-  const generateProposalPDF = async () => {
+  const generateProposalPDF = async (pNumber?: string) => {
     const doc = new jsPDF();
     const kit = kits.find(k => k.id === selectedKitId);
     const totalInvestment = ((kit?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100));
@@ -1168,6 +1257,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
     doc.text("PROPOSTA COMERCIAL", 105, 25, { align: "center" });
+    
+    if (pNumber) {
+      doc.setFontSize(10);
+      doc.text(`PROPOSTA Nº: ${pNumber}`, 190, 10, { align: "right" });
+    }
 
     // Client Info
     doc.setTextColor(0, 0, 0);
@@ -1220,8 +1314,9 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
     setIsGeneratingPDF(true);
     showToast('Gerando PDF...', 'info');
     try {
-      const doc = await generateProposalPDF();
-      const fileName = `simulacao_solar_${clientName.replace(/\s+/g, '_') || 'projeto'}.pdf`;
+      const pNumber = await getNextProposalNumber();
+      const doc = await generateProposalPDF(pNumber);
+      const fileName = `simulacao_solar_${pNumber || clientName.replace(/\s+/g, '_')}.pdf`;
       doc.save(fileName);
       showToast('PDF baixado com sucesso!', 'success');
     } catch (error) {
@@ -1243,10 +1338,11 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
     showToast('Gerando proposta PDF...', 'info');
 
     try {
-      const doc = await generateProposalPDF();
+      const pNumber = await getNextProposalNumber();
+      const doc = await generateProposalPDF(pNumber);
       
       // Always download the PDF first so the user gets it
-      const fileName = `proposta_solar_${partnerCnpj.replace(/\D/g, '') || 'projeto'}.pdf`;
+      const fileName = `proposta_solar_${pNumber}.pdf`;
       doc.save(fileName);
       showToast('PDF gerado e baixado com sucesso!', 'success');
 
@@ -1439,7 +1535,7 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
           paybackMonths={Math.round((((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100))) / monthlySavingsValue)} 
           roiMonthly={(monthlySavingsValue / (((kits.find(k => k.id === selectedKitId)?.price || 0) + parseFloat(kitPriceAdjustment) + parseFloat(installationPrice) + parseFloat(engineeringPrice) + parseFloat(additionalCosts)) / (1 - (parseFloat(marginPercentage) / 100)))) * 100}
           validUntil="23/07/2025"
-          proposalNumber="3881"
+          proposalNumber={currentProposalNumber || '...'}
           onBack={() => setShowProposal(false)}
         />
       </div>
@@ -1669,61 +1765,203 @@ export const ConfigView: React.FC<ConfigViewProps> = ({ onClose, partners = [], 
                     <DollarSign className="w-8 h-8 text-[#fdb612]" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Qual o valor da sua conta de luz?</h3>
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 1 de 3</p>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Cadastro & Dimensionamento</h3>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 1 de 3 • Integração Fortlev</p>
                   </div>
                 </div>
               </div>
               
               <div className="p-10 space-y-10">
-                <div className="space-y-4">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Nome do Cliente (Opcional)</label>
+                <div className="space-y-6">
                   <div className="relative group">
-                    <Users className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-2">Cliente / Lead</label>
+                    <div className="relative">
+                      <Users className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
+                      <input 
+                        type="text"
+                        value={clientName || ''}
+                        onChange={(e) => {
+                          setClientName(e.target.value);
+                          setClientSearchTerm(e.target.value);
+                          if (e.target.value.length > 0) setIsSearchingClient(true);
+                          else setIsSearchingClient(false);
+                        }}
+                        onFocus={() => {
+                          if (clientName.length > 0) setIsSearchingClient(true);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                        placeholder="Nome do Cliente ou Lead..."
+                      />
+                      
+                      {isSearchingClient && clientSearchTerm.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                          {filteredRegistry.length > 0 ? (
+                            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                              {filteredRegistry.map((item, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleSelectRegistryEntry(item)}
+                                  className="w-full p-5 flex items-center justify-between hover:bg-[#fdb612]/5 transition-colors text-left group"
+                                >
+                                  <div className="flex items-center gap-4">
+                                    <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400 group-hover:bg-[#fdb612] group-hover:text-[#231d0f] transition-all">
+                                      <Users className="size-5" />
+                                    </div>
+                                    <div>
+                                      <p className="font-black text-slate-900 dark:text-white uppercase text-sm tracking-tight">{item.name}</p>
+                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.email || item.phone || 'Sem contato'}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn(
+                                      "text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
+                                      'status' in item ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500" // Lead vs Client
+                                    )}>
+                                      {'status' in item ? "Lead" : "Cliente"}
+                                    </span>
+                                    <Plus className="size-4 text-[#fdb612]" />
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-8 text-center">
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Nenhum registro encontrado para "{clientSearchTerm}"</p>
+                            </div>
+                          )}
+                          <div className="p-3 bg-slate-50 dark:bg-slate-900/50 text-center">
+                            <button 
+                              onClick={() => setIsSearchingClient(false)}
+                              className="text-[10px] font-black text-slate-400 uppercase hover:text-[#fdb612] transition-colors"
+                            >
+                              Fechar busca
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedRegistryEntry && (
+                    <div className="bg-[#fdb612]/5 border-2 border-[#fdb612]/20 rounded-[2.5rem] p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-xl shadow-[#fdb612]/5">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="flex items-center gap-6">
+                          <div className="relative">
+                            <div className="absolute inset-0 bg-[#fdb612] blur-xl opacity-20 animate-pulse" />
+                            <div className="relative size-16 rounded-[1.5rem] bg-[#fdb612] text-[#231d0f] flex items-center justify-center text-2xl font-black shadow-lg shadow-[#fdb612]/20">
+                              {selectedRegistryEntry.name?.charAt(0)}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-black text-slate-900 dark:text-white uppercase text-lg tracking-tight leading-none">{selectedRegistryEntry.name}</h4>
+                              <span className="bg-[#fdb612] text-[#231d0f] text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-[0.2em]">INTEGRADO</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              <span className="flex items-center gap-1"><MapPin className="size-3" /> {selectedRegistryEntry.deliveryCity || 'Localização OK'}</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1"><FileText className="size-3" /> {selectedRegistryEntry.cnpj || selectedRegistryEntry.cpf || 'Documento OK'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Potencial Solar</p>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-24 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 w-[95%]" />
+                              </div>
+                              <span className="text-xs font-black text-emerald-500 tracking-widest">EXCELENTE</span>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              setSelectedRegistryEntry(null);
+                              setClientName('');
+                              setPartnerEmail('');
+                              setPartnerPhone('');
+                              setPartnerCnpj('');
+                              setUcNumber('');
+                            }}
+                            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all flex items-center justify-center hover:bg-red-50"
+                          >
+                            <X className="size-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">E-mail do Cliente</label>
+                      <Mail className="size-3 text-slate-300" />
+                    </div>
+                    <input 
+                      type="email"
+                      value={partnerEmail || ''}
+                      onChange={(e) => setPartnerEmail(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                      placeholder="exemplo@email.com"
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Número da UC</label>
+                      <div className="flex items-center gap-1">
+                        <Zap className="size-3 text-[#fdb612]" />
+                        <span className="text-[8px] font-black bg-[#fdb612]/10 text-[#fdb612] px-2 py-0.5 rounded-full uppercase tracking-widest">Integração Fortlev</span>
+                      </div>
+                    </div>
                     <input 
                       type="text"
-                      value={clientName || ''}
-                      onChange={(e) => setClientName(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="Ex: João Silva"
+                      value={ucNumber || ''}
+                      onChange={(e) => setUcNumber(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                      placeholder="0000000000"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-6">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Valor da Fatura (Média)</label>
-                    <div className="relative group">
-                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-slate-300">R$</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Valor da Fatura (Média)</label>
+                      <DollarSign className="size-3 text-slate-300" />
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300">R$</span>
                       <input 
                         type="number"
                         value={monthlyBill || ''}
                         onChange={(e) => handleNumericalChange(e.target.value, 'Fatura Mensal', setMonthlyBill, setMonthlyBillError)}
                         className={cn(
-                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-8 pl-20 text-3xl font-black focus:ring-4 transition-all outline-none",
+                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-6 pl-16 text-2xl font-black focus:ring-4 transition-all outline-none",
                           monthlyBillError ? "border-red-500 focus:ring-red-500" : "border-slate-100 dark:border-slate-800 focus:ring-[#fdb612]"
                         )}
-                        placeholder="0,00"
+                        placeholder="Ex: 350"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Tarifa de Energia (R$/kWh)</label>
-                    <div className="relative group">
-                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-slate-300">R$</span>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        value={energyPrice || ''}
-                        onChange={(e) => handleNumericalChange(e.target.value, 'Tarifa', setEnergyPrice, setEnergyPriceError)}
-                        className={cn(
-                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-8 pl-20 text-3xl font-black focus:ring-4 transition-all outline-none",
-                          energyPriceError ? "border-red-500 focus:ring-red-500" : "border-slate-100 dark:border-slate-800 focus:ring-[#fdb612]"
-                        )}
-                        placeholder="0,95"
-                      />
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Consumo Mensal (kWh)</label>
+                      <div className="flex items-center gap-1">
+                        <Sparkles className="size-3 text-amber-500" />
+                        <span className="text-[8px] font-black bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-widest">Automático</span>
+                      </div>
                     </div>
+                    <input 
+                      type="number"
+                      value={monthlyConsumption || ''}
+                      onChange={(e) => setMonthlyConsumption(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-2xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                      placeholder="Ex: 1300"
+                    />
                   </div>
                 </div>
 
