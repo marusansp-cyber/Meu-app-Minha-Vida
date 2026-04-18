@@ -339,6 +339,25 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     showToast(`Envio concluído: ${successCount} sucesso, ${failCount} erros.`, successCount > 0 ? 'success' : 'info', true);
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedProposalIds.length === 0) return;
+    
+    if (window.confirm(`Tem certeza que deseja excluir ${selectedProposalIds.length} propostas permanentemente?`)) {
+      showToast(`Excluindo ${selectedProposalIds.length} propostas...`, 'info');
+      
+      try {
+        for (const id of selectedProposalIds) {
+          await deleteDocument('proposals', id);
+        }
+        setSelectedProposalIds([]);
+        showToast(`${selectedProposalIds.length} propostas excluídas com sucesso!`);
+      } catch (error) {
+        console.error('Erro ao excluir propostas em massa:', error);
+        showToast('Erro ao realizar exclusão em massa.', 'info');
+      }
+    }
+  };
+
   const handleDeleteClick = (proposal: Proposal) => {
     setProposalToDelete(proposal);
     setIsDeleteModalOpen(true);
@@ -646,18 +665,27 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
               Exportar CSV
             </button>
             {selectedProposalIds.length > 0 && (
-              <button 
-                onClick={handleBulkSend}
-                disabled={isSendingBulk}
-                className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20 disabled:opacity-50"
-              >
-                {isSendingBulk ? (
-                  <Clock className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                Enviar Massa ({selectedProposalIds.length})
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleBulkDelete}
+                  className="flex-1 md:flex-none px-4 py-2.5 bg-rose-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-rose-600 transition-all active:scale-95 shadow-lg shadow-rose-600/20"
+                >
+                  <X className="w-4 h-4" />
+                  Excluir ({selectedProposalIds.length})
+                </button>
+                <button 
+                  onClick={handleBulkSend}
+                  disabled={isSendingBulk}
+                  className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                >
+                  {isSendingBulk ? (
+                    <Clock className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Enviar Massa ({selectedProposalIds.length})
+                </button>
+              </div>
             )}
           </div>
         </div>

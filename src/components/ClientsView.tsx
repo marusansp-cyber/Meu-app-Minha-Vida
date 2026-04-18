@@ -101,6 +101,16 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     }
   };
 
+  const getClientProjects = (client: Client) => {
+    const clientProposals = proposals.filter(p => p.client === client.name);
+    const clientInstallations = installations.filter(i => i.name === client.name);
+    
+    return {
+      proposals: clientProposals,
+      installations: clientInstallations
+    };
+  };
+
   const filteredClients = useMemo(() => {
     return clients.filter(client => {
       const projects = getClientProjects(client);
@@ -148,16 +158,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       return 0;
     });
   }, [clients, searchTerm, filterStatus, clientFilters, sortBy, proposals, installations]);
-
-  const getClientProjects = (client: Client) => {
-    const clientProposals = proposals.filter(p => p.client === client.name);
-    const clientInstallations = installations.filter(i => i.name === client.name);
-    
-    return {
-      proposals: clientProposals,
-      installations: clientInstallations
-    };
-  };
 
   const stats = useMemo(() => {
     const active = clients.filter(c => c.status === 'active').length;
