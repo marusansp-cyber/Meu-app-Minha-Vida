@@ -28,7 +28,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Proposal, Kit, User as UserType } from '../types';
+import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument } from '../firestoreUtils';
 
 interface NewProposalModalProps {
@@ -37,6 +37,8 @@ interface NewProposalModalProps {
   onAdd: (proposal: Proposal) => void;
   initialData?: Proposal | null;
   user: UserType | null;
+  leads?: Lead[];
+  clients?: Client[];
 }
 
 type Step = 'ucs' | 'kit' | 'pricing' | 'financing' | 'finalization';
@@ -49,16 +51,54 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'finalization', label: 'Finalização', icon: CheckCircle2 },
 ];
 
-export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData, user }) => {
+export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData, user, leads = [], clients = [] }) => {
   const [currentStep, setCurrentStep] = useState<Step>('ucs');
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
   const [efficiency, setEfficiency] = useState<number>(109.54);
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearchTerm.trim()) return [];
+    
+    const term = clientSearchTerm.toLowerCase();
+    
+    const clientMatches = clients.map(c => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      source: 'Cliente' as const
+    })).filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
+
+    const leadMatches = leads.map(l => ({
+      id: l.id,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      ucNumber: l.id, // Some leads might use ID as UC or something else, but ucNumber isn't in Lead type usually
+      source: 'Lead' as const
+    })).filter(l => l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term));
+
+    return [...clientMatches, ...leadMatches].slice(0, 5);
+  }, [clientSearchTerm, clients, leads]);
+
+  const selectSuggestedClient = (suggestion: any) => {
+    setFormData(prev => ({
+      ...prev,
+      client: suggestion.name,
+      email: suggestion.email,
+      ucNumber: suggestion.ucNumber || prev.ucNumber
+    }));
+    setClientSearchTerm('');
+    setShowClientSuggestions(false);
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -382,7 +422,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         required
                         value={formData.client || ''}
                         onChange={(e) => {
-                          setFormData({ ...formData, client: e.target.value });
+                          const value = e.target.value;
+                          setFormData({ ...formData, client: value });
+                          setClientSearchTerm(value);
+                          setShowClientSuggestions(true);
                           if (validationErrors.client) {
                             setValidationErrors(prev => {
                               const next = { ...prev };
@@ -391,12 +434,40 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             });
                           }
                         }}
+                        onBlur={() => setTimeout(() => setShowClientSuggestions(false), 200)}
                         placeholder="Nome do cliente ou empresa"
                         className={cn(
                           "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
                           validationErrors.client ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
                         )}
                       />
+                      
+                      {showClientSuggestions && filteredClients.length > 0 && (
+                        <div className="absolute z-[100] top-full left-0 w-full mt-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                          {filteredClients.map((suggestion, idx) => (
+                            <button
+                              key={`${suggestion.id}-${idx}`}
+                              type="button"
+                              onClick={() => selectSuggestedClient(suggestion)}
+                              className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-b last:border-none border-slate-100 dark:border-slate-800"
+                            >
+                              <div className="text-left">
+                                <p className="text-sm font-bold">{suggestion.name}</p>
+                                <p className="text-[10px] text-slate-400">{suggestion.email}</p>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] font-black px-2 py-0.5 rounded-full uppercase",
+                                suggestion.source === 'Cliente' 
+                                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                              )}>
+                                {suggestion.source}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
                       {validationErrors.client && (
                         <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.client}</p>
                       )}

@@ -37,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
     { id: 'sales', label: 'Vendas', icon: TrendingUp, roles: ['admin', 'sales'] },
     { id: 'proposals', label: 'Propostas', icon: FileText, roles: ['admin', 'sales'] },
     { id: 'finance', label: 'Financeiro', icon: Wallet, roles: ['admin', 'finance'] },
+    { id: 'reports', label: 'Relatórios', icon: TrendingUp, roles: ['admin', 'finance', 'sales'] },
     { id: 'kits', label: 'Kits', icon: LayoutGrid, roles: ['admin', 'sales', 'engineer'] },
     { id: 'collaborators', label: 'Colaboradores', icon: UserPlus, roles: ['admin'] },
     { id: 'partners', label: 'Parceiros', icon: Building2, roles: ['admin'] },

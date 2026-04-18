@@ -33,6 +33,7 @@ interface ClientsViewProps {
   onAddClient: (client: Partial<Client>) => Promise<void>;
   onUpdateClient: (id: string, client: Partial<Client>) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
+  onCreateProposal?: (client: Client) => void;
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({ 
@@ -41,7 +42,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   installations,
   onAddClient,
   onUpdateClient,
-  onDeleteClient
+  onDeleteClient,
+  onCreateProposal
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -491,6 +493,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {onCreateProposal && (
+                            <button 
+                              onClick={() => onCreateProposal(selectedClient)}
+                              className="flex items-center gap-2 px-4 py-3 bg-[#fdb612]/10 text-[#fdb612] rounded-xl font-bold text-sm hover:bg-[#fdb612] hover:text-[#231d0f] transition-all group"
+                            >
+                              <FileText className="w-4 h-4" />
+                              <span className="hidden sm:inline">Criar Proposta</span>
+                            </button>
+                          )}
                           <button 
                             onClick={() => {
                               setEditingClient(selectedClient);

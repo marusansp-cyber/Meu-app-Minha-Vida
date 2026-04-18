@@ -54,9 +54,10 @@ interface LeadsViewProps {
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
   onLogout: () => void;
+  onCreateProposal?: (lead: Lead) => void;
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout }) => {
+export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout, onCreateProposal }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<Lead['status'][]>(['new', 'survey', 'proposal', 'negotiation', 'closed']);
@@ -794,6 +795,19 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                               <FileText className="w-4 h-4 text-slate-400" />
                               Ver Detalhes
                             </button>
+                            {onCreateProposal && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onCreateProposal(lead);
+                                  setActiveActionMenu(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm font-bold text-[#fdb612] hover:bg-[#fdb612]/10 flex items-center gap-2"
+                              >
+                                <Zap className="w-4 h-4" />
+                                Criar Proposta
+                              </button>
+                            )}
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();

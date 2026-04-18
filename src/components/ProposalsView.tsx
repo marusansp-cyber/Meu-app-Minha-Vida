@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { Proposal, User as UserType } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
+import { Proposal, User as UserType, Lead, Client } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
@@ -14,9 +15,21 @@ interface ProposalsViewProps {
   proposals: Proposal[];
   user: UserType | null;
   kits: any[];
+  leads: Lead[];
+  clients: Client[];
+  preFill?: Partial<Proposal> | null;
+  onPreFillComplete?: () => void;
 }
 
-export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initialProposals, user, kits }) => {
+export const ProposalsView: React.FC<ProposalsViewProps> = ({ 
+  proposals: initialProposals, 
+  user, 
+  kits, 
+  leads, 
+  clients,
+  preFill,
+  onPreFillComplete
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -38,7 +51,16 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
   });
   const [selectedProposalIds, setSelectedProposalIds] = useState<string[]>([]);
   const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [isUpdatingCommission, setIsUpdatingCommission] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (preFill) {
+      setSelectedProposal(preFill as Proposal);
+      setIsModalOpen(true);
+      if (onPreFillComplete) onPreFillComplete();
+    }
+  }, [preFill]);
 
   const proposals = initialProposals;
 
@@ -473,6 +495,25 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     return result;
   }, [proposals, searchTerm, statusFilter, representativeFilter, filters, sortConfig]);
 
+  const handleToggleCommissionStatus = async (proposal: Proposal, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!proposal.id) return;
+    
+    setIsUpdatingCommission(proposal.id);
+    try {
+      const newStatus = proposal.commissionStatus === 'paid' ? 'pending' : 'paid';
+      await updateDocument('proposals', proposal.id, { 
+        commissionStatus: newStatus 
+      });
+      showToast(`Comissão de ${proposal.client} marcada como ${newStatus === 'paid' ? 'Paga' : 'Pendente'}`);
+    } catch (error) {
+      console.error('Error updating commission status:', error);
+      showToast('Erro ao atualizar status da comissão.', 'info');
+    } finally {
+      setIsUpdatingCommission(null);
+    }
+  };
+
   const handleSort = (key: keyof Proposal | 'value_num') => {
     setSortConfig(current => {
       if (current?.key === key) {
@@ -564,6 +605,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
         onAdd={handleAddProposal}
         initialData={selectedProposal}
         user={user}
+        leads={leads}
+        clients={clients}
       />
 
       <ProposalDetailsModal 
@@ -941,16 +984,23 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredProposals.length > 0 ? filteredProposals.map((prop, index) => (
-                <tr 
-                  key={prop.id || `prop-${index}`} 
-                  onClick={() => handleViewDetails(prop)}
-                  className={cn(
-                    "hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group cursor-pointer border-l-4 border-transparent",
-                    prop.status === 'expired' && "bg-rose-50/50 dark:bg-rose-900/10 border-l-rose-500",
-                    selectedProposalIds.includes(prop.id!) && "bg-[#fdb612]/5 dark:bg-[#fdb612]/5"
-                  )}
-                >
+              {filteredProposals.length > 0 ? (
+                <AnimatePresence>
+                  {filteredProposals.map((prop, index) => (
+                    <motion.tr 
+                      key={prop.id || `prop-${index}`} 
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ delay: index * 0.05 }}
+                      onClick={() => handleViewDetails(prop)}
+                      className={cn(
+                        "hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group cursor-pointer border-l-4 border-transparent",
+                        prop.status === 'expired' && "bg-rose-50/50 dark:bg-rose-900/10 border-l-rose-500",
+                        selectedProposalIds.includes(prop.id!) && "bg-[#fdb612]/5 dark:bg-[#fdb612]/5"
+                      )}
+                    >
                   <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                     <input 
                       type="checkbox" 
@@ -994,7 +1044,15 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         {getStatusBadge(prop.status)}
-                        {prop.status === 'accepted' && getCommissionBadge(prop.commissionStatus)}
+                        {prop.status === 'accepted' && (
+                          <button 
+                            onClick={(e) => handleToggleCommissionStatus(prop, e)}
+                            className="transition-transform active:scale-95"
+                            disabled={isUpdatingCommission === prop.id}
+                          >
+                            {getCommissionBadge(prop.commissionStatus)}
+                          </button>
+                        )}
                       </div>
                       {prop.expiryDate && (
                         <span className={cn(
@@ -1161,8 +1219,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                       </div>
                     </div>
                   </td>
-                </tr>
-              )) : (
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                     Nenhuma proposta encontrada.

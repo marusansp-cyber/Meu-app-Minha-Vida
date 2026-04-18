@@ -14,11 +14,13 @@ import { CollaboratorsView } from './components/CollaboratorsView';
 import { KitsView } from './components/KitsView';
 import { FinanceView } from './components/FinanceView';
 import { ClientsView } from './components/ClientsView';
+import { ReportsView } from './components/ReportsView';
 import { LoginView } from './components/LoginView';
 import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
-import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2 } from 'lucide-react';
+import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
 import { cn } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
+import { GlobalSearch } from './components/GlobalSearch';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument } from './firestoreUtils';
@@ -36,6 +38,8 @@ export default function App() {
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [proposalPreFill, setProposalPreFill] = useState<Partial<Proposal> | null>(null);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -192,11 +196,11 @@ export default function App() {
     if (user.role === 'admin') return true;
     
     const permissions: Record<string, string[]> = {
-      sales: ['dashboard', 'leads', 'sales', 'proposals', 'clients'],
+      sales: ['dashboard', 'leads', 'sales', 'proposals', 'clients', 'reports'],
       engineer: ['dashboard', 'installations', 'clients'],
       installer: ['dashboard', 'installations'],
-      finance: ['dashboard', 'finance', 'proposals', 'clients'],
-      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients']
+      finance: ['dashboard', 'finance', 'proposals', 'clients', 'reports'],
+      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -213,6 +217,11 @@ export default function App() {
     );
   }
 
+  const handleOpenProposalsWithPreFill = (data: Partial<Proposal>) => {
+    setProposalPreFill(data);
+    setCurrentView('proposals');
+  };
+
   if (!isAuthenticated) {
     return <LoginView onLogin={handleLogin} />;
   }
@@ -220,6 +229,32 @@ export default function App() {
   return (
     <ToastProvider>
       <div className="flex min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] text-slate-900 dark:text-slate-100">
+        {/* Mobile Search Modal */}
+        {isMobileSearchOpen && (
+          <div className="fixed inset-0 z-[200] bg-white dark:bg-[#231d0f] p-4 flex flex-col items-center animate-in fade-in slide-in-from-top duration-300">
+            <div className="w-full flex items-center justify-between mb-6">
+              <span className="font-black text-lg uppercase tracking-widest text-[#fdb612]">Sua Busca</span>
+              <button 
+                onClick={() => setIsMobileSearchOpen(false)} 
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
+                aria-label="Fechar busca"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="w-full">
+              <GlobalSearch 
+                clients={clients}
+                proposals={proposals}
+                installations={installations}
+                onResultClick={(view, id) => {
+                  setCurrentView(view);
+                  setIsMobileSearchOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
         {/* Mobile Sidebar Overlay */}
         {isSidebarOpen && (
           <div 
@@ -248,7 +283,14 @@ export default function App() {
           {/* Mobile Header */}
           <header className="lg:hidden flex items-center justify-between p-4 border-b border-[#fdb612]/10 bg-white dark:bg-[#231d0f] sticky top-0 z-30">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-[#fdb612] rounded flex items-center justify-center">
+              <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+                aria-label="Menu"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div className="h-8 w-8 bg-[#fdb612] rounded flex items-center justify-center ml-1">
                 <Sun className="text-[#231d0f] w-5 h-5" />
               </div>
               <span className="font-bold text-sm">Vieira's Solar</span>
@@ -256,16 +298,29 @@ export default function App() {
             <div className="flex items-center gap-2">
               <NotificationCenter proposals={proposals} />
               <button 
-                onClick={() => setIsSidebarOpen(true)}
-                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
+                onClick={() => setIsMobileSearchOpen(true)}
+                className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
+                aria-label="Abrir busca"
               >
-                <Menu className="w-6 h-6" />
+                <Search className="w-5 h-5" />
               </button>
             </div>
           </header>
 
           {/* Desktop Header */}
-          <header className="hidden lg:flex items-center justify-end px-8 py-4 bg-white/50 dark:bg-[#231d0f]/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+          <header className="hidden lg:flex items-center justify-between px-8 py-4 bg-white/50 dark:bg-[#231d0f]/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+            <div className="flex-1 max-w-xl">
+              <GlobalSearch 
+                clients={clients}
+                proposals={proposals}
+                installations={installations}
+                onResultClick={(view, id) => {
+                  setCurrentView(view);
+                  // Optional: handle scrolling or opening details modal
+                }}
+              />
+            </div>
+
             <div className="flex items-center gap-6">
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
@@ -328,6 +383,14 @@ export default function App() {
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
                     onLogout={handleLogout}
+                    onCreateProposal={(lead) => {
+                      handleOpenProposalsWithPreFill({
+                        client: lead.name,
+                        email: lead.email,
+                        value: lead.value,
+                        systemSize: lead.systemSize
+                      });
+                    }}
                   />
                 )}
                 {currentView === 'installations' && (
@@ -347,12 +410,30 @@ export default function App() {
                 )}
                 {currentView === 'team' && <TeamView />}
                 {currentView === 'sales' && <SalesView />}
-                {currentView === 'proposals' && <ProposalsView proposals={proposals} user={user} kits={kits} />}
+                {currentView === 'proposals' && (
+                  <ProposalsView 
+                    proposals={proposals} 
+                    user={user} 
+                    kits={kits} 
+                    leads={leads} 
+                    clients={clients} 
+                    preFill={proposalPreFill}
+                    onPreFillComplete={() => setProposalPreFill(null)}
+                  />
+                )}
                 {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
                 {currentView === 'partners' && <PartnersView partners={partners} />}
                 {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
                 {currentView === 'kits' && <KitsView kits={kits} />}
                 {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
+                {currentView === 'reports' && (
+                  <ReportsView 
+                    proposals={proposals} 
+                    installations={installations}
+                    leads={leads}
+                    clients={clients}
+                  />
+                )}
                 {currentView === 'clients' && (
                   <ClientsView 
                     clients={clients} 
@@ -361,6 +442,12 @@ export default function App() {
                     onAddClient={addClient}
                     onUpdateClient={updateClient}
                     onDeleteClient={deleteClient}
+                    onCreateProposal={(client) => {
+                      handleOpenProposalsWithPreFill({
+                        client: client.name,
+                        email: client.email
+                      });
+                    }}
                   />
                 )}
               </>
