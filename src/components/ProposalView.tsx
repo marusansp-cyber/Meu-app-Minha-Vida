@@ -308,7 +308,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
           onClick={onBack}
           className="px-10 py-5 border-2 border-slate-200 dark:border-slate-800 rounded-[2rem] font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
         >
-          Voltar ao Simulador
+          Voltar às Propostas
         </button>
         <button 
           onClick={() => window.open(`https://wa.me/5533999032281?text=Olá! Acabei de ver a proposta técnica para o sistema de ${systemSize} e gostaria de tirar algumas dúvidas.`, '_blank')}

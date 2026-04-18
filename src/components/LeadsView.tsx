@@ -54,10 +54,9 @@ interface LeadsViewProps {
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
   onLogout: () => void;
-  onStartSimulation: (lead: Lead) => void;
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout, onStartSimulation }) => {
+export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<Lead['status'][]>(['new', 'survey', 'proposal', 'negotiation', 'closed']);
@@ -693,7 +692,6 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                                     lead={lead} 
                                     onDelete={() => setLeadToDelete(lead)}
                                     onClick={() => setSelectedLead(lead)}
-                                    onStartSimulation={() => onStartSimulation(lead)}
                                   />
                                 </div>
                               )}
@@ -785,17 +783,6 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
 
                         {activeActionMenu === lead.id && (
                           <div className="absolute right-6 top-12 w-48 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-30 py-2 animate-in fade-in zoom-in duration-200">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onStartSimulation(lead);
-                                setActiveActionMenu(null);
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm font-bold text-[#fdb612] hover:bg-[#fdb612]/5 flex items-center gap-2"
-                            >
-                              <Sun className="w-4 h-4" />
-                              Iniciar Simulação
-                            </button>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1326,13 +1313,6 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                       Fechar
-                    </button>
-                    <button 
-                      onClick={() => onStartSimulation(selectedLead)}
-                      className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Sun className="w-4 h-4" />
-                      Iniciar Simulação
                     </button>
                     <button 
                       onClick={() => handleEditLead(selectedLead)}

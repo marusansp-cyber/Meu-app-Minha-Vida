@@ -96,11 +96,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
 
     const pendingCommission = totalCommission - paidCommission;
 
+    const commissionPieData = [
+      { name: 'Pagas', value: paidCommission, color: '#10b981' },
+      { name: 'Pendentes', value: pendingCommission, color: '#f59e0b' }
+    ];
+
     return {
       totalRevenue,
       totalCommission,
       paidCommission,
-      pendingCommission
+      pendingCommission,
+      commissionPieData
     };
   }, [filteredProposals]);
 
@@ -352,7 +358,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h4 className="text-lg font-black font-display">Faturamento vs Comissões</h4>
@@ -397,6 +403,59 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 <Bar dataKey="commission" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <h4 className="text-lg font-black font-display mb-8 uppercase tracking-widest text-center">Status Global</h4>
+          <div className="h-[200px] w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={stats.commissionPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {stats.commissionPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Total']}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Pagas</span>
+              <span className="text-lg font-black text-emerald-600">
+                {stats.totalCommission > 0 ? ((stats.paidCommission / stats.totalCommission) * 100).toFixed(0) : 0}%
+              </span>
+            </div>
+          </div>
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/20">
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Pagas</span>
+              </div>
+              <span className="text-sm font-black text-emerald-600">
+                R$ {stats.paidCommission.toLocaleString('pt-BR')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/20">
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-amber-500" />
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Pendentes</span>
+              </div>
+              <span className="text-sm font-black text-amber-600">
+                R$ {stats.pendingCommission.toLocaleString('pt-BR')}
+              </span>
+            </div>
           </div>
         </div>
 

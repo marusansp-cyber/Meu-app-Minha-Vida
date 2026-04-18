@@ -3,7 +3,6 @@ import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { LeadsView } from './components/LeadsView';
 import { InstallationsView } from './components/InstallationsView';
-import { ConfigView } from './components/ConfigView';
 import { TeamView } from './components/TeamView';
 import { SalesView } from './components/SalesView';
 import { NewProjectModal } from './components/NewProjectModal';
@@ -36,7 +35,6 @@ export default function App() {
   const [editingProject, setEditingProject] = useState<Installation | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedLeadForSimulation, setSelectedLeadForSimulation] = useState<Lead | null>(null);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -195,10 +193,10 @@ export default function App() {
     
     const permissions: Record<string, string[]> = {
       sales: ['dashboard', 'leads', 'sales', 'proposals', 'clients'],
-      engineer: ['dashboard', 'installations', 'config', 'clients'],
+      engineer: ['dashboard', 'installations', 'clients'],
       installer: ['dashboard', 'installations'],
       finance: ['dashboard', 'finance', 'proposals', 'clients'],
-      admin_staff: ['dashboard', 'leads', 'installations', 'config', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients']
+      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -330,10 +328,6 @@ export default function App() {
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
                     onLogout={handleLogout}
-                    onStartSimulation={(lead) => {
-                      setSelectedLeadForSimulation(lead);
-                      setCurrentView('config');
-                    }}
                   />
                 )}
                 {currentView === 'installations' && (
@@ -351,23 +345,9 @@ export default function App() {
                     onDeleteInstallation={deleteInstallation}
                   />
                 )}
-                {currentView === 'config' && (
-                  <ConfigView 
-                    partners={partners}
-                    clients={clients}
-                    leads={leads}
-                    onClose={() => {
-                      setCurrentView('dashboard');
-                      setSelectedLeadForSimulation(null);
-                    }} 
-                    companyLogo={companyLogo}
-                    onUpdateLogo={setCompanyLogo}
-                    initialLead={selectedLeadForSimulation}
-                  />
-                )}
                 {currentView === 'team' && <TeamView />}
                 {currentView === 'sales' && <SalesView />}
-                {currentView === 'proposals' && <ProposalsView proposals={proposals} user={user} />}
+                {currentView === 'proposals' && <ProposalsView proposals={proposals} user={user} kits={kits} />}
                 {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
                 {currentView === 'partners' && <PartnersView partners={partners} />}
                 {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}

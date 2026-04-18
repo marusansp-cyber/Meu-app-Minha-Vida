@@ -11,7 +11,6 @@ import {
   Check, 
   Search, 
   Info, 
-  ShieldCheck, 
   CreditCard, 
   CheckCircle2,
   RefreshCw,
@@ -40,13 +39,12 @@ interface NewProposalModalProps {
   user: UserType | null;
 }
 
-type Step = 'ucs' | 'kit' | 'pricing' | 'validation' | 'financing' | 'finalization';
+type Step = 'ucs' | 'kit' | 'pricing' | 'financing' | 'finalization';
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'ucs', label: 'Cadastro UCs', icon: User },
   { id: 'kit', label: 'Kit FV', icon: Zap },
   { id: 'pricing', label: 'Precificação', icon: DollarSign },
-  { id: 'validation', label: 'Validação', icon: ShieldCheck },
   { id: 'financing', label: 'Financiamento', icon: CreditCard },
   { id: 'finalization', label: 'Finalização', icon: CheckCircle2 },
 ];
@@ -56,62 +54,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isFortlevConnected, setIsFortlevConnected] = useState(false);
-  const [showFortlevLogin, setShowFortlevLogin] = useState(false);
-  const [isConsultingKits, setIsConsultingKits] = useState(false);
-  const [fortlevKits, setFortlevKits] = useState<any[]>([]);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
-  const [inverterBrandFilter, setInverterBrandFilter] = useState<string>('all');
-  const [moduleBrandFilter, setModuleBrandFilter] = useState<string>('all');
-  const [filterByPower, setFilterByPower] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
   const [efficiency, setEfficiency] = useState<number>(109.54);
-
-  const [fortlevEmail, setFortlevEmail] = useState('');
-  const [fortlevPassword, setFortlevPassword] = useState('');
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleFortlevLogin = async () => {
-    try {
-      const response = await fetch('/api/fortlev/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: fortlevEmail, password: fortlevPassword }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setIsFortlevConnected(true);
-        setShowFortlevLogin(false);
-        showToast(`Conectado como ${data.user.name}`);
-      } else {
-        showToast(data.message || 'Erro ao conectar com Fortlev');
-      }
-    } catch (error) {
-      showToast('Erro de conexão com o servidor');
-    }
-  };
-
-  const handleConsultKits = async () => {
-    setIsConsultingKits(true);
-    showToast('Consultando kits Fortlev...');
-    try {
-      const response = await fetch('/api/fortlev/kits');
-      const data = await response.json();
-      setFortlevKits(data);
-      setIsConsultingKits(false);
-      showToast('Kits Fortlev carregados com sucesso!');
-    } catch (error) {
-      setIsConsultingKits(false);
-      showToast('Erro ao consultar kits');
-    }
-  };
 
   const [formData, setFormData] = useState({
     client: initialData?.client || '',
@@ -172,27 +125,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       const calculatedSize = numPanels * panelPower;
       setFormData(prev => ({ ...prev, systemSize: calculatedSize.toFixed(2) }));
       showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp (${numPanels} painéis de 610Wp)`);
-
-      // Automatically suggest the best kit
-      if (fortlevKits.length > 0) {
-        const bestKit = fortlevKits.reduce((prev, curr) => {
-          const prevDiff = Math.abs(parseFloat(prev.power) - calculatedSize);
-          const currDiff = Math.abs(parseFloat(curr.power) - calculatedSize);
-          return currDiff < prevDiff ? curr : prev;
-        });
-
-        if (bestKit) {
-          setSelectedKitId(bestKit.id);
-          setFormData(prev => ({ 
-            ...prev, 
-            kitId: bestKit.id, 
-            value: bestKit.price.toString(),
-            systemSize: calculatedSize.toFixed(2) // Keep the calculated size but use the kit
-          }));
-          calculateAutomaticValues(bestKit.price.toString(), calculatedSize.toFixed(2));
-          showToast(`Sugestão: Kit ${bestKit.name} selecionado.`);
-        }
-      }
     } else {
       showToast('Por favor, insira o consumo mensal primeiro.');
     }
@@ -207,7 +139,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       if (!formData.client?.trim()) errors.client = 'Nome do cliente é obrigatório';
       if (!formData.email?.trim()) {
         errors.email = 'E-mail do cliente é obrigatório';
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
         errors.email = 'E-mail inválido';
       }
       if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
@@ -235,60 +167,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     return Object.keys(errors).length === 0;
   };
 
-  useEffect(() => {
-    if (currentStep === 2 && fortlevKits.length === 0 && !isConsultingKits) {
-      handleConsultKits();
-    }
-  }, [currentStep, fortlevKits.length, isConsultingKits]);
-
-  const availableInverterBrands = useMemo(() => {
-    return Array.from(new Set(fortlevKits.map(k => k.inverterBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('inversor'))?.brand).filter(Boolean)));
-  }, [fortlevKits]);
-
-  const availableModuleBrands = useMemo(() => {
-    return Array.from(new Set(fortlevKits.map(k => k.panelBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('painel') || c.name?.toLowerCase().includes('módulo'))?.brand).filter(Boolean)));
-  }, [fortlevKits]);
-
-  const filteredFortlevKits = useMemo(() => {
-    let filtered = fortlevKits;
-    
-    // Brand filtering
-    if (inverterBrandFilter !== 'all') {
-      filtered = filtered.filter(k => {
-        const brand = k.inverterBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('inversor'))?.brand;
-        return brand === inverterBrandFilter;
-      });
-    }
-    
-    if (moduleBrandFilter !== 'all') {
-      filtered = filtered.filter(k => {
-        const brand = k.panelBrand || k.components?.find((c: any) => c.name?.toLowerCase().includes('painel') || c.name?.toLowerCase().includes('módulo'))?.brand;
-        return brand === moduleBrandFilter;
-      });
-    }
-
-    // Power filtering
-    const size = parseFloat(formData.systemSize);
-    if (filterByPower && !isNaN(size) && size > 0) {
-      filtered = filtered.filter(k => {
-        const kitPower = parseFloat(k.power);
-        return !isNaN(kitPower) && kitPower >= size * 0.7 && kitPower <= size * 1.5;
-      });
-    }
-
-    if (!searchTerm) return filtered;
-    const term = searchTerm.toLowerCase();
-    return filtered.filter(kit => 
-      kit.name.toLowerCase().includes(term) ||
-      kit.description.toLowerCase().includes(term) ||
-      kit.power.toString().includes(term) ||
-      kit.components?.some((c: any) => 
-        c.name.toLowerCase().includes(term) ||
-        c.brand?.toLowerCase().includes(term) ||
-        c.model?.toLowerCase().includes(term)
-      )
-    );
-  }, [fortlevKits, searchTerm, inverterBrandFilter, moduleBrandFilter, filterByPower, formData.systemSize]);
 
   const validateROI = (value: string) => {
     const roiRegex = /^\d+(\.\d+)?%$/;
@@ -298,6 +176,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       setRoiError(null);
     }
   };
+
+  const filteredKits = useMemo(() => {
+    let filtered = kits;
+    if (!searchTerm) return filtered;
+    const term = searchTerm.toLowerCase();
+    return filtered.filter(kit => 
+      kit.name.toLowerCase().includes(term) ||
+      kit.description.toLowerCase().includes(term) ||
+      kit.power.toString().includes(term)
+    );
+  }, [kits, searchTerm]);
 
   // Update form data when initialData changes
   useEffect(() => {
@@ -428,24 +317,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <h3 className="text-2xl font-black tracking-tight">{initialData ? 'Editar Proposta' : 'Nova Proposta Solar'}</h3>
-              <p className="text-sm text-slate-500 font-medium">Configuração avançada com integração Fortlev</p>
+              <p className="text-sm text-slate-500 font-medium">Configuração avançada de proposta</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {!isFortlevConnected ? (
-              <button 
-                onClick={() => setShowFortlevLogin(true)}
-                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <RefreshCw className="w-3 h-3" />
-                Conectar Fortlev
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-bold">
-                <CheckCircle2 className="w-3 h-3" />
-                Fortlev Conectado
-              </div>
-            )}
             <button 
               onClick={onClose}
               className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
@@ -712,8 +587,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       </button>
                       <button 
                         type="button"
-                        onClick={handleConsultKits}
-                        className="flex flex-col items-center justify-center p-6 bg-[#0a3d54] text-white rounded-2xl hover:opacity-90 transition-all"
+                        className="flex flex-col items-center justify-center p-6 bg-[#0a3d54] text-white rounded-2xl hover:opacity-90 transition-all cursor-default"
                       >
                         <LayoutGrid className="w-6 h-6 mb-2" />
                         <span className="text-[10px] font-black uppercase">Kits Registrados</span>
@@ -721,127 +595,60 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
                   </div>
 
-                  <div className="bg-slate-900 rounded-3xl p-6 text-white">
+                  <div className="bg-slate-900 rounded-3xl p-6 text-white leading-relaxed">
                     <h4 className="text-xs font-black uppercase tracking-widest text-[#fdb612] mb-4 flex items-center gap-2">
-                      <Sun className="w-4 h-4" />
-                      Kits Fortlev Solar
+                      <Zap className="w-4 h-4" />
+                      Kits Disponíveis
                     </h4>
                     
-                    <div className="space-y-4 mb-4">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
-                          <input 
-                            type="checkbox" 
-                            id="modalFilterByPower"
-                            checked={filterByPower}
-                            onChange={(e) => setFilterByPower(e.target.checked)}
-                            className="size-3 rounded border-white/20 text-[#fdb612] focus:ring-[#fdb612] bg-transparent"
-                          />
-                          <label htmlFor="modalFilterByPower" className="text-[9px] font-black uppercase tracking-widest text-slate-400 cursor-pointer">Filtrar por Potência</label>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Inversores</label>
-                          <select 
-                            value={inverterBrandFilter || 'all'}
-                            onChange={(e) => setInverterBrandFilter(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
-                          >
-                            <option value="all">Todas ({availableInverterBrands.length})</option>
-                            {availableInverterBrands.map(brand => (
-                              <option key={brand} value={brand}>{brand}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-500 px-1">Módulos</label>
-                          <select 
-                            value={moduleBrandFilter || 'all'}
-                            onChange={(e) => setModuleBrandFilter(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-1 focus:ring-[#fdb612] appearance-none"
-                          >
-                            <option value="all">Todas ({availableModuleBrands.length})</option>
-                            {availableModuleBrands.map(brand => (
-                              <option key={brand} value={brand}>{brand}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
-                        <input 
-                          type="text"
-                          placeholder="Buscar por nome, marca ou modelo..."
-                          value={searchTerm || ''}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[10px] outline-none focus:ring-1 focus:ring-[#fdb612]"
-                        />
-                      </div>
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                      <input 
+                        type="text"
+                        placeholder="Buscar por nome ou potência..."
+                        value={searchTerm || ''}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:ring-1 focus:ring-[#fdb612] outline-none"
+                      />
                     </div>
-                    {isConsultingKits ? (
-                      <div className="flex flex-col items-center justify-center py-12 gap-4">
-                        <Loader2 className="w-8 h-8 text-[#fdb612] animate-spin" />
-                        <p className="text-xs text-slate-400">Consultando estoque...</p>
-                      </div>
-                    ) : filteredFortlevKits.length > 0 ? (
-                      <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                        {filteredFortlevKits.map(kit => (
+
+                    {filteredKits.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        {filteredKits.map(kit => (
                           <div 
                             key={kit.id}
                             onClick={() => {
                               setSelectedKitId(kit.id);
-                              setFormData(prev => ({ 
-                                ...prev, 
-                                kitId: kit.id, 
-                                value: kit.price.toString(), 
-                                systemSize: kit.power.toString() 
-                              }));
-                              if (validationErrors.kit) {
-                                setValidationErrors(prev => {
-                                  const next = { ...prev };
-                                  delete next.kit;
-                                  return next;
-                                });
-                              }
+                              handleKitSelect(kit);
                             }}
                             className={cn(
-                              "p-3 rounded-xl border transition-all cursor-pointer",
+                              "p-4 rounded-2xl border transition-all cursor-pointer group",
                               selectedKitId === kit.id 
-                                ? "border-[#fdb612] bg-[#fdb612]/10" 
+                                ? "bg-[#fdb612]/10 border-[#fdb612]" 
                                 : "border-white/10 hover:border-white/20 bg-white/5"
                             )}
                           >
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="text-xs font-bold">{kit.name}</span>
-                              <span className="text-[10px] font-black text-[#fdb612]">R$ {kit.price.toLocaleString('pt-BR')}</span>
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <h5 className="font-bold text-slate-100">{kit.name}</h5>
+                                <p className="text-xs text-slate-500">{kit.power} kWp</p>
+                              </div>
+                              <span className="text-sm font-black text-[#fdb612]">
+                                R$ {kit.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
                             </div>
-                            <p className="text-[9px] text-slate-400 mb-2">{kit.description}</p>
-                            {kit.components && (
-                              <div className="flex flex-wrap gap-1">
-                                {kit.components.map((c: any, idx: number) => (
-                                  <span key={idx} className="text-[8px] bg-white/10 px-1.5 py-0.5 rounded text-slate-300">
-                                    {c.brand} {c.model}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/10">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Potência: {kit.power} kWp</span>
-                              </div>
+                            <p className="text-[10px] text-slate-400 line-clamp-2 mb-4">{kit.description}</p>
+                            <div className="flex justify-end">
                               <div className={cn(
-                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1",
+                                "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
                                 selectedKitId === kit.id 
                                   ? "bg-[#fdb612] text-slate-900" 
-                                  : "bg-white/10 text-white hover:bg-white/20"
+                                  : "bg-white/10 text-white group-hover:bg-white/20"
                               )}>
                                 {selectedKitId === kit.id ? (
-                                  <>Selecionado <Check className="w-2 h-2" /></>
+                                  <>Selecionado <Check className="w-3 h-3" /></>
                                 ) : (
-                                  <>Selecionar Kit <ChevronRight className="w-2 h-2" /></>
+                                  <>Selecionar <ChevronRight className="w-3 h-3" /></>
                                 )}
                               </div>
                             </div>
@@ -849,9 +656,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         ))}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <Building2 className="w-8 h-8 text-slate-700 mb-2" />
-                        <p className="text-[10px] text-slate-500">Conecte ao Fortlev para visualizar kits exclusivos de fornecedores.</p>
+                      <div className="flex flex-col items-center justify-center py-20 text-center text-slate-500">
+                        <Zap className="w-10 h-10 mb-4 opacity-20" />
+                        <p className="text-sm font-medium">Nenhum kit encontrado.</p>
                       </div>
                     )}
                   </div>
@@ -968,54 +775,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
               </div>
             )}
 
-            {currentStep === 'validation' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-blue-50 dark:bg-blue-900/10 p-8 rounded-[32px] border border-blue-100 dark:border-blue-800 text-center">
-                  <div className="size-16 bg-blue-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
-                    <ShieldCheck className="w-8 h-8" />
-                  </div>
-                  <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-2">Validação Técnica Fortlev</h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 max-w-md mx-auto mb-8">
-                    Sincronize os dados do projeto com a plataforma Fortlev para validar a viabilidade técnica e disponibilidade de estoque.
-                  </p>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      showToast('Validando projeto com Fortlev AI...');
-                      setTimeout(() => showToast('Projeto validado com sucesso!'), 2000);
-                    }}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-3 mx-auto"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                    EXECUTAR VALIDAÇÃO
-                  </button>
-                </div>
-                <div className="flex justify-between">
-                  <button 
-                    type="button"
-                    onClick={prevStep}
-                    className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-                  >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
-                    Voltar
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={nextStep}
-                    className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
-                  >
-                    Próximo Passo
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             {currentStep === 'financing' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
-                    { bank: 'Banco Fortlev', rate: 0.99, term: 96, highlight: true },
+                    { bank: 'Banco Marusan', rate: 0.99, term: 96, highlight: true },
                     { bank: 'Santander', rate: 1.29, term: 72 },
                     { bank: 'BV Financeira', rate: 1.35, term: 84 },
                   ].map((option) => (
@@ -1083,7 +847,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             const principal = parseFloat(formData.value || '0') - parseFloat(formData.discount || '0');
                             const installments = parseInt(formData.financingInstallments || '1');
                             const bank = [
-                              { bank: 'Banco Fortlev', rate: 0.99 },
+                              { bank: 'Banco Marusan', rate: 0.99 },
                               { bank: 'Santander', rate: 1.29 },
                               { bank: 'BV Financeira', rate: 1.35 },
                             ].find(b => b.bank === formData.financingBank);
@@ -1154,74 +918,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
           </form>
         </div>
       </div>
-
-      {/* Fortlev Login Modal */}
-      {showFortlevLogin && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-[#f2f2f2] w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-12 space-y-8">
-              <div className="flex flex-col items-center gap-6">
-                <div className="relative">
-                  <div className="size-24 rounded-full border-[12px] border-[#fdb612] border-t-transparent animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <img 
-                      src="https://fortlevsolar.com.br/wp-content/uploads/2021/06/logo-fortlev-solar.png" 
-                      alt="Fortlev Solar" 
-                      className="w-12 h-auto"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                </div>
-                <div className="text-center">
-                  <h3 className="text-3xl font-black text-slate-900">Fortlev Solar</h3>
-                  <p className="text-slate-500 font-medium mt-1">Plataforma de Integração</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">E-mail de Acesso</label>
-                  <div className="relative">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input 
-                      type="email" 
-                      value={fortlevEmail || ''}
-                      onChange={(e) => setFortlevEmail(e.target.value)}
-                      className="w-full bg-white border-none rounded-2xl py-4 pl-14 pr-6 shadow-sm focus:ring-2 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="seu@email.com"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Senha</label>
-                  <div className="relative">
-                    <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input 
-                      type="password" 
-                      value={fortlevPassword || ''}
-                      onChange={(e) => setFortlevPassword(e.target.value)}
-                      className="w-full bg-white border-none rounded-2xl py-4 pl-14 pr-6 shadow-sm focus:ring-2 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-                <button 
-                  type="button"
-                  onClick={handleFortlevLogin}
-                  className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/20"
-                >
-                  ENTRAR NA PLATAFORMA
-                </button>
-
-                <div className="text-center space-y-4">
-                  <p className="text-slate-600">Não possui uma conta? <a href="https://fortlevsolar.app/" target="_blank" rel="noopener noreferrer" className="font-bold text-slate-900 hover:underline">Cadastre-se Aqui.</a></p>
-                  <button type="button" className="text-slate-900 font-bold hover:underline">Esqueci minha senha.</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

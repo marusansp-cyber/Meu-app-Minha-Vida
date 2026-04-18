@@ -42,7 +42,7 @@ interface KitsViewProps {
 }
 
 export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTargetPower }) => {
-  const [activeSubView, setActiveSubView] = useState<'list' | 'upload' | 'fortlev'>('list');
+  const [activeSubView, setActiveSubView] = useState<'list' | 'upload'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterInverterBrand, setFilterInverterBrand] = useState<string[]>([]);
   const [filterPanelModel, setFilterPanelModel] = useState<string[]>([]);
@@ -59,68 +59,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const [fortlevAuth, setFortlevAuth] = useState({ email: '', password: '' });
-  const [isFortlevConnected, setIsFortlevConnected] = useState(false);
-  const [fortlevKits, setFortlevKits] = useState<any[]>([]);
-  const [fortlevSearchTerm, setFortlevSearchTerm] = useState('');
-  const [isFortlevLoading, setIsFortlevLoading] = useState(false);
-
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleFortlevLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(fortlevAuth.email)) {
-      showToast('Por favor, insira um e-mail válido.');
-      return;
-    }
-
-    setIsFortlevLoading(true);
-    try {
-      const response = await fetch('/api/fortlev/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fortlevAuth)
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        setIsFortlevConnected(true);
-        showToast(`Conectado à Fortlev como ${data.user.name}!`);
-        
-        const kitsResponse = await fetch('/api/fortlev/kits');
-        const kitsData = await kitsResponse.json();
-        setFortlevKits(kitsData);
-      } else {
-        showToast(data.message || 'Erro ao conectar à Fortlev.');
-      }
-    } catch (error) {
-      showToast('Erro ao conectar à Fortlev.');
-    } finally {
-      setIsFortlevLoading(false);
-    }
-  };
-
-  const handleImportFortlevKit = async (kit: any) => {
-    try {
-      await createDocument('kits', {
-        ...kit,
-        status: 'active',
-        createdAt: new Date().toISOString()
-      });
-      showToast(`Kit ${kit.name} importado da Fortlev!`);
-    } catch (error) {
-      showToast('Erro ao importar kit.');
-    }
   };
 
   const handleEditKit = (kit: Kit) => {
@@ -274,15 +218,6 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
 
   const totalPages = Math.ceil(filteredKits.length / itemsPerPage);
 
-  const filteredFortlevKits = useMemo(() => {
-    const searchLower = fortlevSearchTerm.toLowerCase();
-    return fortlevKits.filter(k => {
-      return k.name.toLowerCase().includes(searchLower) || 
-             k.power.toString().includes(searchLower) ||
-             k.description?.toLowerCase().includes(searchLower);
-    });
-  }, [fortlevKits, fortlevSearchTerm]);
-
   const [kitToDelete, setKitToDelete] = useState<{ id: string, name: string } | null>(null);
 
   const handleDeleteKit = async (id: string) => {
@@ -363,7 +298,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       </header>
 
       {/* Sub-navigation based on the image */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <button 
           onClick={() => setActiveSubView('list')}
           className={cn(
@@ -404,19 +339,6 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         >
           <Upload className="w-6 h-6" />
           <span>Upload de Kits</span>
-        </button>
-
-        <button 
-          onClick={() => setActiveSubView('fortlev')}
-          className={cn(
-            "flex items-center gap-4 p-6 rounded-xl transition-all font-black uppercase tracking-widest text-sm",
-            activeSubView === 'fortlev' 
-              ? "bg-[#004a61] text-white shadow-lg shadow-[#004a61]/20" 
-              : "bg-white dark:bg-[#231d0f]/40 text-slate-500 border border-slate-200 dark:border-slate-800 hover:bg-slate-50"
-          )}
-        >
-          <Globe className="w-6 h-6" />
-          <span>Fortlev API</span>
         </button>
       </div>
 
@@ -768,111 +690,6 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
           </div>
         )}
 
-        {activeSubView === 'fortlev' && (
-          <div className="max-w-4xl mx-auto space-y-8">
-            {!isFortlevConnected ? (
-              <div className="max-w-md mx-auto p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl space-y-6">
-                <div className="text-center space-y-2">
-                  <div className="size-16 bg-[#004a61]/10 rounded-2xl flex items-center justify-center text-[#004a61] mx-auto mb-4">
-                    <Lock className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-xl font-black">Conectar Fortlev</h3>
-                  <p className="text-sm text-slate-500">Insira suas credenciais da plataforma Fortlev para importar kits.</p>
-                </div>
-
-                <form onSubmit={handleFortlevLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        required
-                        type="email" 
-                        value={fortlevAuth.email}
-                        onChange={(e) => setFortlevAuth({ ...fortlevAuth, email: e.target.value })}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61]"
-                        placeholder="seu@email.com"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Senha</label>
-                    <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        required
-                        type="password" 
-                        value={fortlevAuth.password}
-                        onChange={(e) => setFortlevAuth({ ...fortlevAuth, password: e.target.value })}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61]"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    type="submit"
-                    disabled={isFortlevLoading}
-                    className="w-full py-4 bg-[#004a61] text-white rounded-xl font-bold text-sm hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    {isFortlevLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                    Conectar Agora
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <h3 className="text-xl font-black uppercase tracking-widest">Kits Disponíveis na Fortlev</h3>
-                  <div className="flex items-center gap-4 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="text"
-                        placeholder="Buscar na Fortlev..."
-                        value={fortlevSearchTerm || ''}
-                        onChange={(e) => setFortlevSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#004a61]"
-                      />
-                    </div>
-                    <button 
-                      onClick={() => setIsFortlevConnected(false)}
-                      className="text-xs font-bold text-rose-500 hover:underline whitespace-nowrap"
-                    >
-                      Desconectar
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filteredFortlevKits.map((kit) => (
-                    <div key={kit.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <h4 className="text-lg font-black">{kit.name}</h4>
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-600 rounded-full text-[10px] font-black uppercase">Disponível</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Potência</span>
-                          <p className="text-xl font-black text-[#004a61]">{kit.power} kWp</p>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Preço</span>
-                          <p className="text-xl font-black text-emerald-600">R$ {kit.price.toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => handleImportFortlevKit(kit)}
-                        className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-[#004a61] hover:text-white rounded-xl font-bold text-xs transition-all"
-                      >
-                        Importar para Meus Kits
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {activeSubView === 'upload' && (
           <div className="max-w-2xl mx-auto py-12 text-center space-y-6">

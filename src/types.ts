@@ -10,7 +10,7 @@ export interface User {
   address?: string;
 }
 
-export type View = 'dashboard' | 'leads' | 'installations' | 'config' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients';
+export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients';
 
 export interface Client {
   id: string;

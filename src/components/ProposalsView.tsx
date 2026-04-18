@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar } from 'lucide-react';
+import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
 import { NewProposalModal } from './NewProposalModal';
@@ -7,13 +7,16 @@ import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { generateProposalPDF } from '../services/pdfService';
 import { sendProposalEmail } from '../services/emailService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface ProposalsViewProps {
   proposals: Proposal[];
   user: UserType | null;
+  kits: any[];
 }
 
-export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initialProposals, user }) => {
+export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initialProposals, user, kits }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -21,7 +24,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [kits, setKits] = useState<any[]>([]);
+  const [representativeFilter, setRepresentativeFilter] = useState('all');
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Proposal | 'value_num'; direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'desc' });
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     id: '',
@@ -72,24 +76,43 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     }
   }, [proposals]);
 
-  useEffect(() => {
-    const fetchKits = async () => {
-      try {
-        const response = await fetch('/api/fortlev/kits');
-        if (response.ok) {
-          const data = await response.json();
-          setKits(data);
-        }
-      } catch (error) {
-        console.error('Error fetching kits:', error);
-      }
-    };
-    fetchKits();
-  }, []);
-
   const showToast = (message: string, type: 'success' | 'info' = 'success', isProminent: boolean = false) => {
     setToast({ message, type, isProminent });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const getNextProposalNumber = async () => {
+    try {
+      const year = new Date().getFullYear().toString().slice(-2);
+      const prefix = year;
+      
+      const q = query(
+        collection(db, 'proposals'), 
+        where('proposalNumber', '>=', prefix),
+        where('proposalNumber', '<=', prefix + '\uf8ff')
+      );
+      
+      const snapshot = await getDocs(q);
+      let maxNum = 0;
+      
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.proposalNumber) {
+          const numStr = data.proposalNumber.replace(prefix, '');
+          const num = parseInt(numStr);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      });
+      
+      const nextNum = (maxNum + 1).toString().padStart(2, '0');
+      return `${prefix}${nextNum}`;
+    } catch (error) {
+      console.error('Error generating proposal number:', error);
+      const year = new Date().getFullYear().toString().slice(-2);
+      return `${year}01`; // Fallback
+    }
   };
 
   const handleAddProposal = async (proposalData: Proposal) => {
@@ -98,8 +121,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
       await updateDocument('proposals', id, data);
       showToast('Proposta atualizada com sucesso!');
     } else {
+      const proposalNumber = await getNextProposalNumber();
       await createDocument('proposals', {
         ...proposalData,
+        proposalNumber,
         date: new Date().toLocaleDateString('pt-BR')
       });
       showToast('Proposta criada com sucesso!');
@@ -138,12 +163,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     
     try {
       // Define CSV headers
-      const headers = ['ID', 'Cliente', 'Valor', 'Data Criacao', 'Status', 'Tamanho Sistema', 'Representante', 'Data Validade', 'Comissao (%)'];
+      const headers = ['ID', 'Cliente', 'E-mail', 'Valor', 'Data Criacao', 'Status', 'Tamanho Sistema', 'Representante', 'Data Validade', 'Comissao (%)'];
       
       // Map data to CSV rows
       const rows = filteredProposals.map(p => [
-        p.id,
+        p.proposalNumber || p.id,
         p.client,
+        p.email || 'N/A',
         p.value.replace('R$ ', '').replace(/\./g, ''), // Clean currency for CSV
         p.date,
         p.status,
@@ -364,7 +390,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
   };
 
   const filteredProposals = useMemo(() => {
-    return proposals.filter(p => {
+    let result = proposals.filter(p => {
       const kit = kits.find(k => k.id === p.kitId);
       const kitSearch = kit ? (
         kit.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -381,6 +407,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                            kitSearch;
       
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesRepFilter = representativeFilter === 'all' || p.representative === representativeFilter;
       
       const matchesId = filters.id === '' || p.id.toLowerCase().includes(filters.id.toLowerCase());
       const matchesClient = filters.client === '' || p.client.toLowerCase().includes(filters.client.toLowerCase());
@@ -390,7 +417,6 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
       
       let matchesDate = true;
       if (filters.startDate || filters.endDate) {
-        // Convert date string "DD/MM/YYYY" to Date object for comparison
         const [day, month, year] = p.date.split('/').map(Number);
         const propDate = new Date(year, month - 1, day);
         
@@ -404,9 +430,57 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
         }
       }
 
-      return matchesSearch && matchesStatus && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate;
+      return matchesSearch && matchesStatus && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate;
     });
-  }, [proposals, searchTerm, statusFilter, filters]);
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.key === 'value_num') {
+          aValue = parseFloat(a.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+          bValue = parseFloat(b.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        } else if (sortConfig.key === 'date' || sortConfig.key === 'expiryDate') {
+          const aKey = a[sortConfig.key];
+          const bKey = b[sortConfig.key];
+          
+          if (sortConfig.key === 'date') {
+            const [ad, am, ay] = a.date.split('/').map(Number);
+            const [bd, bm, by] = b.date.split('/').map(Number);
+            aValue = new Date(ay, am - 1, ad).getTime();
+            bValue = new Date(by, bm - 1, bd).getTime();
+          } else {
+            aValue = aKey ? new Date(aKey).getTime() : 0;
+            bValue = bKey ? new Date(bKey).getTime() : 0;
+          }
+        } else {
+          aValue = a[sortConfig.key as keyof Proposal] || '';
+          bValue = b[sortConfig.key as keyof Proposal] || '';
+          if (typeof aValue === 'string') {
+            return sortConfig.direction === 'asc' 
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [proposals, searchTerm, statusFilter, representativeFilter, filters, sortConfig]);
+
+  const handleSort = (key: keyof Proposal | 'value_num') => {
+    setSortConfig(current => {
+      if (current?.key === key) {
+        return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
 
   const getCommissionBadge = (status: string | undefined) => {
     if (status === 'paid') {
@@ -604,7 +678,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
             />
           </div>
           <div className="flex gap-2 w-full md:w-auto items-center">
-            {(searchTerm || statusFilter !== 'all' || filters.id || filters.client || filters.system || filters.value || filters.representative !== 'all' || filters.startDate || filters.endDate) && (
+            {(searchTerm || statusFilter !== 'all' || representativeFilter !== 'all' || filters.id || filters.client || filters.system || filters.value || filters.representative !== 'all' || filters.startDate || filters.endDate) && (
               <button 
                 onClick={() => {
                   setFilters({
@@ -618,6 +692,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                   });
                   setSearchTerm('');
                   setStatusFilter('all');
+                  setRepresentativeFilter('all');
                 }}
                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 px-2 py-1"
               >
@@ -635,6 +710,19 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
               <Filter className="w-4 h-4" />
               Filtros
             </button>
+            <div className="relative flex-1 md:flex-none">
+              <select 
+                value={representativeFilter || 'all'}
+                onChange={(e) => setRepresentativeFilter(e.target.value)}
+                className="w-full md:w-auto appearance-none pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+              >
+                <option value="all">Todos Consultores</option>
+                <option value="Marusan Pinto">Marusan Pinto</option>
+                <option value="Ana Silva">Ana Silva</option>
+                <option value="Carlos Oliveira">Carlos Oliveira</option>
+              </select>
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
             <div className="relative flex-1 md:flex-none">
               <select 
                 value={statusFilter || 'all'}
@@ -803,12 +891,52 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                     />
                   </div>
                 </th>
-                <th className="px-6 py-4">ID / Data</th>
-                <th className="px-6 py-4">Cliente / Sistema</th>
-                <th className="px-6 py-4">Valor</th>
+                <th className="px-6 py-4">
+                  <button 
+                    onClick={() => handleSort('date')}
+                    className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    ID / Data
+                    <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'date' && sortConfig.direction === 'desc' && "rotate-180")} />
+                  </button>
+                </th>
+                <th className="px-6 py-4">
+                  <button 
+                    onClick={() => handleSort('client')}
+                    className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Cliente / Sistema
+                    <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'client' && sortConfig.direction === 'desc' && "rotate-180")} />
+                  </button>
+                </th>
+                <th className="px-6 py-4">
+                  <button 
+                    onClick={() => handleSort('value_num')}
+                    className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Valor
+                    <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'value_num' && sortConfig.direction === 'desc' && "rotate-180")} />
+                  </button>
+                </th>
                 <th className="px-6 py-4">Comissão</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Representante</th>
+                <th className="px-6 py-4">
+                  <button 
+                    onClick={() => handleSort('status')}
+                    className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Status / Validade
+                    <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'status' && sortConfig.direction === 'desc' && "rotate-180")} />
+                  </button>
+                </th>
+                <th className="px-6 py-4">
+                  <button 
+                    onClick={() => handleSort('representative')}
+                    className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Consultor
+                    <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'representative' && sortConfig.direction === 'desc' && "rotate-180")} />
+                  </button>
+                </th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
@@ -839,7 +967,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{prop.id}</p>
+                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{prop.proposalNumber || prop.id}</p>
                     <div className="flex flex-col">
                       <p className="text-xs text-slate-500">Criada: {prop.date}</p>
                     </div>

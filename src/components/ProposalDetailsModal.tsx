@@ -13,6 +13,7 @@ import {
   TrendingUp, 
   Clock, 
   BarChart3, 
+  Package,
   Edit2, 
   Save,
   Building2,
@@ -92,7 +93,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tight">{proposal.id}</h3>
+              <h3 className="text-xl font-black tracking-tight">{proposal.proposalNumber || proposal.id}</h3>
               <p className="text-xs text-slate-500 font-medium">Proposta para {proposal.client}</p>
             </div>
           </div>
@@ -413,18 +414,18 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div className="bg-slate-900 p-8 rounded-[32px] text-white">
                       <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-2 text-[#fdb612]">
-                          <Sun className="w-5 h-5" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Equipamentos Fortlev</span>
+                          <Zap className="w-5 h-5" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Equipamentos Selecionados</span>
                         </div>
-                        <div className="px-3 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full">Validado</div>
+                        <div className="px-3 py-1 bg-emerald-500 text-white text-[8px] font-black uppercase rounded-full">Garantido</div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="size-12 rounded-2xl bg-white/10 flex items-center justify-center">
-                          <RefreshCw className="w-6 h-6 text-[#fdb612]" />
+                          <Package className="w-6 h-6 text-[#fdb612]" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold">Kit Fortlev Premium</p>
-                          <p className="text-[10px] text-slate-400">Sincronizado com Plataforma</p>
+                          <p className="text-xs font-bold">Kit Fotovoltaico</p>
+                          <p className="text-[10px] text-slate-400">Dimencionamento Realizado</p>
                         </div>
                       </div>
                     </div>
