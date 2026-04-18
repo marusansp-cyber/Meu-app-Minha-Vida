@@ -32,6 +32,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
     startDate: '',
     endDate: ''
   });
+  const [selectedProposalIds, setSelectedProposalIds] = useState<string[]>([]);
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
 
   const proposals = initialProposals;
@@ -275,6 +277,66 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
   const handleViewDetails = (proposal: Proposal) => {
     setSelectedProposal(proposal);
     setIsDetailsModalOpen(true);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProposalIds.length === filteredProposals.length) {
+      setSelectedProposalIds([]);
+    } else {
+      setSelectedProposalIds(filteredProposals.map(p => p.id).filter((id): id is string => !!id));
+    }
+  };
+
+  const toggleSelectProposal = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelectedProposalIds(prev => 
+      prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkSend = async () => {
+    if (selectedProposalIds.length === 0) return;
+    
+    setIsSendingBulk(true);
+    showToast(`Iniciando envio em massa para ${selectedProposalIds.length} propostas...`, 'info');
+    
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const id of selectedProposalIds) {
+      const proposal = proposals.find(p => p.id === id);
+      if (!proposal || !proposal.email) {
+        failCount++;
+        continue;
+      }
+
+      try {
+        const kit = kits.find(k => k.id === proposal.kitId);
+        const pdfBase64 = await generateProposalPDF(proposal, kit);
+        
+        const result = await sendProposalEmail({
+          to: proposal.email,
+          subject: `Proposta Solar - ${proposal.client}`,
+          body: `Olá ${proposal.client},\n\nSegue em anexo a proposta comercial para o seu sistema de energia solar de ${proposal.systemSize}.\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+          pdfBase64,
+          fileName: `proposta_${proposal.id}.pdf`
+        });
+
+        if (result.success) {
+          await updateDocument('proposals', id, { status: 'sent' });
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error(`Erro ao enviar proposta ${id}:`, error);
+        failCount++;
+      }
+    }
+
+    setIsSendingBulk(false);
+    setSelectedProposalIds([]);
+    showToast(`Envio concluído: ${successCount} sucesso, ${failCount} erros.`, successCount > 0 ? 'success' : 'info', true);
   };
 
   const handleDeleteClick = (proposal: Proposal) => {
@@ -583,6 +645,20 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
               <FileText className="w-4 h-4" />
               Exportar CSV
             </button>
+            {selectedProposalIds.length > 0 && (
+              <button 
+                onClick={handleBulkSend}
+                disabled={isSendingBulk}
+                className="flex-1 md:flex-none px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-600/20 disabled:opacity-50"
+              >
+                {isSendingBulk ? (
+                  <Clock className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Enviar Massa ({selectedProposalIds.length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -689,6 +765,16 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
           <table className="w-full text-left">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-white/5 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-200 dark:border-slate-800">
+                <th className="px-6 py-4">
+                  <div className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedProposalIds.length === filteredProposals.length && filteredProposals.length > 0}
+                      onChange={toggleSelectAll}
+                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                    />
+                  </div>
+                </th>
                 <th className="px-6 py-4">ID / Data</th>
                 <th className="px-6 py-4">Cliente / Sistema</th>
                 <th className="px-6 py-4">Valor</th>
@@ -705,9 +791,25 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({ proposals: initial
                   onClick={() => handleViewDetails(prop)}
                   className={cn(
                     "hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group cursor-pointer border-l-4 border-transparent",
-                    prop.status === 'expired' && "bg-rose-50/50 dark:bg-rose-900/10 border-l-rose-500"
+                    prop.status === 'expired' && "bg-rose-50/50 dark:bg-rose-900/10 border-l-rose-500",
+                    selectedProposalIds.includes(prop.id!) && "bg-[#fdb612]/5 dark:bg-[#fdb612]/5"
                   )}
                 >
+                  <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedProposalIds.includes(prop.id!)}
+                      onChange={(e) => {
+                        const id = prop.id;
+                        if (id) {
+                          setSelectedProposalIds(prev => 
+                            prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+                          );
+                        }
+                      }}
+                      className="size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{prop.id}</p>
                     <div className="flex flex-col">

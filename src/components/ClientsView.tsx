@@ -46,6 +46,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [clientFilters, setClientFilters] = useState({
+    cnpj_cpf: '',
+    startDate: '',
+    endDate: '',
+    hasProject: 'all' as 'all' | 'yes' | 'no'
+  });
+  const [sortBy, setSortBy] = useState<'name' | 'recent' | 'projects'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -93,16 +101,53 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     }
   };
 
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = 
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm);
-    
-    const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const projects = getClientProjects(client);
+      const hasProjects = projects.proposals.length > 0 || projects.installations.length > 0;
+
+      const matchesSearch = 
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.phone.includes(searchTerm) ||
+        (client.cnpj_cpf && client.cnpj_cpf.includes(searchTerm));
+      
+      const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
+      
+      const matchesCnpj = !clientFilters.cnpj_cpf || (client.cnpj_cpf && client.cnpj_cpf.includes(clientFilters.cnpj_cpf));
+      
+      let matchesDate = true;
+      if (clientFilters.startDate || clientFilters.endDate) {
+        const regDate = client.createdAt ? new Date(client.createdAt) : null;
+        if (regDate) {
+          if (clientFilters.startDate && regDate < new Date(clientFilters.startDate)) matchesDate = false;
+          if (clientFilters.endDate && regDate > new Date(clientFilters.endDate)) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      const matchesProjectFilter = 
+        clientFilters.hasProject === 'all' || 
+        (clientFilters.hasProject === 'yes' && hasProjects) ||
+        (clientFilters.hasProject === 'no' && !hasProjects);
+      
+      return matchesSearch && matchesStatus && matchesCnpj && matchesDate && matchesProjectFilter;
+    }).sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'recent') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      }
+      if (sortBy === 'projects') {
+        const countA = getClientProjects(a).proposals.length + getClientProjects(a).installations.length;
+        const countB = getClientProjects(b).proposals.length + getClientProjects(b).installations.length;
+        return countB - countA;
+      }
+      return 0;
+    });
+  }, [clients, searchTerm, filterStatus, clientFilters, sortBy, proposals, installations]);
 
   const getClientProjects = (client: Client) => {
     const clientProposals = proposals.filter(p => p.client === client.name);
@@ -236,32 +281,107 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             {/* Clients List */}
             <div className="lg:col-span-1 space-y-4">
               <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar clientes..."
-                    value={searchTerm || ''}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all"
-                  />
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, e-mail, tel ou CNPJ..."
+                      value={searchTerm || ''}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={cn(
+                      "p-2 rounded-xl border transition-all",
+                      showFilters ? "bg-[#fdb612] text-[#231d0f] border-[#fdb612]" : "bg-white dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    <Filter className="w-4 h-4" />
+                  </button>
                 </div>
+
+                {showFilters && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    className="space-y-3 overflow-hidden"
+                  >
+                    <div className="grid grid-cols-1 gap-3 pt-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CNPJ/CPF</label>
+                        <input 
+                          type="text" 
+                          placeholder="Filtro por documento"
+                          value={clientFilters.cnpj_cpf}
+                          onChange={(e) => setClientFilters({ ...clientFilters, cnpj_cpf: e.target.value })}
+                          className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#fdb612]/30"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">De</label>
+                          <input 
+                            type="date"
+                            value={clientFilters.startDate}
+                            onChange={(e) => setClientFilters({ ...clientFilters, startDate: e.target.value })}
+                            className="w-full px-2 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Até</label>
+                          <input 
+                            type="date"
+                            value={clientFilters.endDate}
+                            onChange={(e) => setClientFilters({ ...clientFilters, endDate: e.target.value })}
+                            className="w-full px-2 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Possui Projetos?</label>
+                        <select 
+                          value={clientFilters.hasProject}
+                          onChange={(e) => setClientFilters({ ...clientFilters, hasProject: e.target.value as any })}
+                          className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none"
+                        >
+                          <option value="all">Todos</option>
+                          <option value="yes">Sim</option>
+                          <option value="no">Não</option>
+                        </select>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
                 
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                  {(['all', 'active', 'inactive'] as const).map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setFilterStatus(status)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
-                        filterStatus === status
-                          ? "bg-[#fdb612] text-[#231d0f]"
-                          : "bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"
-                      )}
-                    >
-                      {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <div className="flex items-center gap-1 overflow-x-auto pb-2 custom-scrollbar">
+                    {(['all', 'active', 'inactive'] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap",
+                          filterStatus === status
+                            ? "bg-[#fdb612] text-[#231d0f]"
+                            : "bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"
+                        )}
+                      >
+                        {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
+                      </button>
+                    ))}
+                  </div>
+                  <select 
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none cursor-pointer"
+                  >
+                    <option value="recent">Recent</option>
+                    <option value="name">Nome</option>
+                    <option value="projects">Projetos</option>
+                  </select>
                 </div>
 
                 <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">

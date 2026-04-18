@@ -587,9 +587,12 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
   }, []);
 
   const steps = [
-    { id: 1, label: 'Sua Conta' },
-    { id: 2, label: 'Sua Cidade' },
-    { id: 3, label: 'Sua Economia' },
+    { id: 1, label: 'Parâmetros' },
+    { id: 2, label: 'Catálogo' },
+    { id: 3, label: 'Precificação' },
+    { id: 4, label: 'Validação' },
+    { id: 5, label: 'Financiamento' },
+    { id: 6, label: 'Finalização' },
   ];
 
   const validateROI = (value: string) => {
@@ -1758,343 +1761,354 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
           {currentStep === 1 && (
-            <div className="bg-white dark:bg-[#231d0f]/40 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <div className="bg-white dark:bg-[#231d0f]/40 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-500">
+              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-[#fdb612]/5">
                 <div className="flex items-center gap-4">
                   <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
                     <DollarSign className="w-8 h-8 text-[#fdb612]" />
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Cadastro & Dimensionamento</h3>
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 1 de 3 • Integração Fortlev</p>
+                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Configuração Inicial • Integração Fortlev</p>
                   </div>
+                </div>
+                <div className="text-right flex flex-col items-end">
+                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Passo 1 de 6</span>
+                   <div className="flex gap-1 mt-1">
+                      {[1,2,3,4,5,6].map(s => (
+                        <div key={s} className={cn("h-1 w-4 rounded-full", s === 1 ? "bg-[#fdb612]" : "bg-slate-200 dark:bg-slate-800")} />
+                      ))}
+                   </div>
                 </div>
               </div>
               
-              <div className="p-10 space-y-10">
-                <div className="space-y-6">
-                  <div className="relative group">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-2">Cliente / Lead</label>
-                    <div className="relative">
-                      <Users className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
-                      <input 
-                        type="text"
-                        value={clientName || ''}
-                        onChange={(e) => {
-                          setClientName(e.target.value);
-                          setClientSearchTerm(e.target.value);
-                          if (e.target.value.length > 0) setIsSearchingClient(true);
-                          else setIsSearchingClient(false);
-                        }}
-                        onFocus={() => {
-                          if (clientName.length > 0) setIsSearchingClient(true);
-                        }}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                        placeholder="Nome do Cliente ou Lead..."
-                      />
-                      
-                      {isSearchingClient && clientSearchTerm.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
-                          {filteredRegistry.length > 0 ? (
-                            <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                              {filteredRegistry.map((item, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() => handleSelectRegistryEntry(item)}
-                                  className="w-full p-5 flex items-center justify-between hover:bg-[#fdb612]/5 transition-colors text-left group"
-                                >
-                                  <div className="flex items-center gap-4">
-                                    <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400 group-hover:bg-[#fdb612] group-hover:text-[#231d0f] transition-all">
-                                      <Users className="size-5" />
+              <div className="p-10 space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="relative group">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] px-1 mb-2">Cliente / Lead</label>
+                      <div className="relative">
+                        <Users className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
+                        <input 
+                          type="text"
+                          value={clientName || ''}
+                          onChange={(e) => {
+                            setClientName(e.target.value);
+                            setClientSearchTerm(e.target.value);
+                            if (e.target.value.length > 0) setIsSearchingClient(true);
+                            else setIsSearchingClient(false);
+                          }}
+                          onFocus={() => {
+                            if (clientName.length > 0) setIsSearchingClient(true);
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                          placeholder="Nome do Cliente ou Lead..."
+                        />
+                        
+                        {isSearchingClient && clientSearchTerm.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-[2rem] border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                            {filteredRegistry.length > 0 ? (
+                              <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                                {filteredRegistry.map((item, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => handleSelectRegistryEntry(item)}
+                                    className="w-full p-5 flex items-center justify-between hover:bg-[#fdb612]/5 transition-colors text-left group"
+                                  >
+                                    <div className="flex items-center gap-4">
+                                      <div className="size-10 rounded-xl bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400 group-hover:bg-[#fdb612] group-hover:text-[#231d0f] transition-all">
+                                        <Users className="size-5" />
+                                      </div>
+                                      <div>
+                                        <p className="font-black text-slate-900 dark:text-white uppercase text-sm tracking-tight">{item.name}</p>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.email || item.phone || 'Sem contato'}</p>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <p className="font-black text-slate-900 dark:text-white uppercase text-sm tracking-tight">{item.name}</p>
-                                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.email || item.phone || 'Sem contato'}</p>
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn(
+                                        "text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
+                                        'status' in item ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500"
+                                      )}>
+                                        {'status' in item ? "Lead" : "Cliente"}
+                                      </span>
+                                      <Plus className="size-4 text-[#fdb612]" />
                                     </div>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className={cn(
-                                      "text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                      'status' in item ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500" // Lead vs Client
-                                    )}>
-                                      {'status' in item ? "Lead" : "Cliente"}
-                                    </span>
-                                    <Plus className="size-4 text-[#fdb612]" />
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="p-8 text-center">
-                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Nenhum registro encontrado para "{clientSearchTerm}"</p>
-                            </div>
-                          )}
-                          <div className="p-3 bg-slate-50 dark:bg-slate-900/50 text-center">
-                            <button 
-                              onClick={() => setIsSearchingClient(false)}
-                              className="text-[10px] font-black text-slate-400 uppercase hover:text-[#fdb612] transition-colors"
-                            >
-                              Fechar busca
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {selectedRegistryEntry && (
-                    <div className="bg-[#fdb612]/5 border-2 border-[#fdb612]/20 rounded-[2.5rem] p-8 animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-xl shadow-[#fdb612]/5">
-                      <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="flex items-center gap-6">
-                          <div className="relative">
-                            <div className="absolute inset-0 bg-[#fdb612] blur-xl opacity-20 animate-pulse" />
-                            <div className="relative size-16 rounded-[1.5rem] bg-[#fdb612] text-[#231d0f] flex items-center justify-center text-2xl font-black shadow-lg shadow-[#fdb612]/20">
-                              {selectedRegistryEntry.name?.charAt(0)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="font-black text-slate-900 dark:text-white uppercase text-lg tracking-tight leading-none">{selectedRegistryEntry.name}</h4>
-                              <span className="bg-[#fdb612] text-[#231d0f] text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-[0.2em]">INTEGRADO</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                              <span className="flex items-center gap-1"><MapPin className="size-3" /> {selectedRegistryEntry.deliveryCity || 'Localização OK'}</span>
-                              <span>•</span>
-                              <span className="flex items-center gap-1"><FileText className="size-3" /> {selectedRegistryEntry.cnpj || selectedRegistryEntry.cpf || 'Documento OK'}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Potencial Solar</p>
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-24 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 w-[95%]" />
+                                  </button>
+                                ))}
                               </div>
-                              <span className="text-xs font-black text-emerald-500 tracking-widest">EXCELENTE</span>
+                            ) : (
+                              <div className="p-8 text-center">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest italic">Nenhum registro encontrado para "{clientSearchTerm}"</p>
+                              </div>
+                            )}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-900/50 text-center">
+                              <button 
+                                onClick={() => setIsSearchingClient(false)}
+                                className="text-[10px] font-black text-slate-400 uppercase hover:text-[#fdb612] transition-colors"
+                              >
+                                Fechar busca
+                              </button>
                             </div>
                           </div>
-                          <button 
-                            onClick={() => {
-                              setSelectedRegistryEntry(null);
-                              setClientName('');
-                              setPartnerEmail('');
-                              setPartnerPhone('');
-                              setPartnerCnpj('');
-                              setUcNumber('');
-                            }}
-                            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all flex items-center justify-center hover:bg-red-50"
-                          >
-                            <X className="size-5" />
-                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                      <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Número da UC</label>
+                        <div className="relative">
+                          <Zap className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-[#fdb612]" />
+                          <input 
+                            type="text"
+                            value={ucNumber || ''}
+                            onChange={(e) => setUcNumber(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-3xl p-5 pl-14 text-lg font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                            placeholder="0000000000"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sua Cidade</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300" />
+                          <input 
+                            type="text"
+                            value={deliveryCity || ''}
+                            onChange={(e) => setDeliveryCity(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-3xl p-5 pl-14 text-lg font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                            placeholder="Cidade - UF"
+                          />
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">E-mail do Cliente</label>
-                      <Mail className="size-3 text-slate-300" />
-                    </div>
-                    <input 
-                      type="email"
-                      value={partnerEmail || ''}
-                      onChange={(e) => setPartnerEmail(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="exemplo@email.com"
-                    />
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Número da UC</label>
-                      <div className="flex items-center gap-1">
-                        <Zap className="size-3 text-[#fdb612]" />
-                        <span className="text-[8px] font-black bg-[#fdb612]/10 text-[#fdb612] px-2 py-0.5 rounded-full uppercase tracking-widest">Integração Fortlev</span>
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Teto / Estrutura</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {['Cerâmico', 'Fibrocimento', 'Metálico', 'Laje', 'Solo'].map((type) => (
+                          <button
+                            key={type}
+                            onClick={() => setStructure(type)}
+                            className={cn(
+                              "p-4 rounded-2xl border-2 font-black uppercase tracking-widest text-[10px] transition-all text-center",
+                              structure === type 
+                                ? "border-[#fdb612] bg-[#fdb612]/5 text-[#fdb612]" 
+                                : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
+                            )}
+                          >
+                            {type}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <input 
-                      type="text"
-                      value={ucNumber || ''}
-                      onChange={(e) => setUcNumber(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="0000000000"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Valor da Fatura (Média)</label>
-                      <DollarSign className="size-3 text-slate-300" />
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-300">R$</span>
-                      <input 
-                        type="number"
-                        value={monthlyBill || ''}
-                        onChange={(e) => handleNumericalChange(e.target.value, 'Fatura Mensal', setMonthlyBill, setMonthlyBillError)}
-                        className={cn(
-                          "w-full bg-slate-50 dark:bg-slate-900/50 border-4 rounded-[2rem] p-6 pl-16 text-2xl font-black focus:ring-4 transition-all outline-none",
-                          monthlyBillError ? "border-red-500 focus:ring-red-500" : "border-slate-100 dark:border-slate-800 focus:ring-[#fdb612]"
-                        )}
-                        placeholder="Ex: 350"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Consumo Mensal (kWh)</label>
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="size-3 text-amber-500" />
-                        <span className="text-[8px] font-black bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full uppercase tracking-widest">Automático</span>
+                    <div className="grid grid-cols-2 gap-8">
+                       <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Valor da Fatura (R$)</label>
+                        <input 
+                          type="number"
+                          value={monthlyBill || ''}
+                          onChange={(e) => setMonthlyBill(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-3xl p-5 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Consumo (kWh)</label>
+                        <input 
+                          type="number"
+                          value={monthlyConsumption || ''}
+                          onChange={(e) => setMonthlyConsumption(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-3xl p-5 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none text-[#fdb612]"
+                          placeholder="0"
+                        />
                       </div>
                     </div>
-                    <input 
-                      type="number"
-                      value={monthlyConsumption || ''}
-                      onChange={(e) => setMonthlyConsumption(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 text-2xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                      placeholder="Ex: 1300"
-                    />
                   </div>
                 </div>
 
-                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Consumo Estimado</span>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{monthlyConsumption} <span className="text-xs">kWh/mês</span></p>
+                <div className="p-8 bg-slate-900 dark:bg-black/40 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-[#fdb612]/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-[#fdb612]/10 transition-colors" />
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black text-[#fdb612] uppercase tracking-[0.3em]">Dimensionamento Recomendado</span>
+                      <h4 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">
+                        Potência Estimada: <span className="text-[#fdb612]">{systemSize} kWp</span>
+                      </h4>
+                      <p className="text-slate-400 text-xs font-medium uppercase tracking-widest">Baseado em um consumo anual de {annualUsage} kWh</p>
                     </div>
-                    <div className="h-10 w-px bg-slate-200 dark:bg-slate-800" />
-                    <div className="space-y-1 text-right">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Potência Recomendada</span>
-                      <p className="text-2xl font-black text-[#fdb612]">{systemSize} <span className="text-xs">kWp</span></p>
-                    </div>
+                    <button 
+                      onClick={() => setCurrentStep(2)}
+                      className="px-12 py-6 bg-[#fdb612] text-[#231d0f] rounded-[1.5rem] font-black text-base uppercase tracking-[0.2em] shadow-xl shadow-[#fdb612]/20 hover:scale-105 active:scale-95 transition-all text-center whitespace-nowrap"
+                    >
+                      Explorar Catálogo
+                      <ArrowRight className="inline-block ml-3 w-5 h-5" />
+                    </button>
                   </div>
                 </div>
-
-                <button 
-                  onClick={() => setCurrentStep(2)}
-                  className="w-full bg-[#fdb612] text-[#231d0f] py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
-                >
-                  Próximo Passo
-                  <ArrowRight className="w-6 h-6" />
-                </button>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="bg-white dark:bg-[#231d0f]/40 rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-500">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
-                    <MapPin className="w-8 h-8 text-[#fdb612]" />
+            <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+               {/* Header and Filter Controls */}
+              <div className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
+                      <LayoutGrid className="w-8 h-8 text-[#fdb612]" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Catálogo de Kits</h3>
+                      <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Selecione o melhor conjunto para seu cliente</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Onde você mora?</h3>
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Passo 2 de 3</p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative group flex-1 min-w-[300px]">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
+                      <input 
+                        type="text"
+                        value={kitSearchTerm}
+                        onChange={(e) => setKitSearchTerm(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl p-4 pl-12 text-sm font-bold focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
+                        placeholder="Buscar por marca, modelo ou potência..."
+                      />
+                    </div>
+                    <BrandFilter 
+                      title="Inversores" 
+                      brands={availableInverterBrands as string[]} 
+                      selectedBrands={inverterBrandFilter} 
+                      onChange={setInverterBrandFilter} 
+                      icon={<Building2 className="w-4 h-4" />}
+                    />
+                    <BrandFilter 
+                      title="Módulos" 
+                      brands={availableModuleBrands as string[]} 
+                      selectedBrands={moduleBrandFilter} 
+                      onChange={setModuleBrandFilter} 
+                      icon={<LayoutGrid className="w-4 h-4" />}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="flex justify-between items-center">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faixa de Potência (kWp)</label>
+                       <span className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest">{minPowerFilter || 'Min'} - {maxPowerFilter || 'Max'} kWp</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                       <input 
+                         type="number" 
+                         value={minPowerFilter} 
+                         onChange={(e) => setMinPowerFilter(e.target.value)}
+                         placeholder="Min"
+                         className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl p-3 text-xs font-black outline-none focus:border-[#fdb612]"
+                       />
+                       <input 
+                         type="number" 
+                         value={maxPowerFilter} 
+                         onChange={(e) => setMaxPowerFilter(e.target.value)}
+                         placeholder="Max"
+                         className="bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl p-3 text-xs font-black outline-none focus:border-[#fdb612]"
+                       />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                     <button 
+                       onClick={() => setFilterByPower(!filterByPower)}
+                       className={cn(
+                         "p-4 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest flex-1",
+                         filterByPower 
+                          ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f]" 
+                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400"
+                       )}
+                     >
+                       {filterByPower ? <CheckCircle2 className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+                       Filtro de Potencia
+                     </button>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Resultados</p>
+                    <p className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{filteredKits.length} Kits</p>
                   </div>
                 </div>
               </div>
-              
-              <div className="p-10 space-y-10">
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Sua Cidade</label>
-                    <div className="relative group">
-                      <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-[#fdb612] transition-colors" />
-                      <input 
-                        type="text"
-                        value={deliveryCity || ''}
-                        onChange={(e) => setDeliveryCity(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-4 border-slate-100 dark:border-slate-800 rounded-[2rem] p-6 pl-16 text-xl font-black focus:ring-4 focus:ring-[#fdb612] transition-all outline-none"
-                        placeholder="Ex: São Paulo - SP"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="space-y-3">
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Tipo de Telhado / Estrutura</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        'Cerâmico',
-                        'Fibrocimento / Madeira',
-                        'Fibrocimento / Metálico',
-                        'Metálico',
-                        'Laje',
-                        'Solo'
-                      ].map((type) => (
-                        <button
-                          key={type}
-                          onClick={() => {
-                            setStructure(type);
-                            if (type === 'Cerâmico') setRoofMaterial('Cerâmico');
-                            else if (type.includes('Fibrocimento')) setRoofMaterial('Fibrocimento');
-                            else if (type.includes('Metálico')) setRoofMaterial('Metálico');
-                            else setRoofMaterial('Outro');
-                          }}
-                          className={cn(
-                            "p-6 rounded-2xl border-4 font-black uppercase tracking-widest text-sm transition-all text-center",
-                            structure === type 
-                              ? "border-[#fdb612] bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612]" 
-                              : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
-                          )}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest px-1">Inclinação do Telhado</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {[
-                        'Plano (0-5°)',
-                        'Baixa (5-15°)',
-                        'Ideal (15-25°)',
-                        'Alta (>25°)'
-                      ].map((pitch) => (
-                        <button
-                          key={pitch}
-                          onClick={() => setRoofPitch(pitch)}
-                          className={cn(
-                            "p-6 rounded-2xl border-4 font-black uppercase tracking-widest text-sm transition-all text-center",
-                            roofPitch === pitch 
-                              ? "border-[#fdb612] bg-[#fdb612]/5 text-[#231d0f] dark:text-[#fdb612]" 
-                              : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
-                          )}
-                        >
-                          {pitch}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <button 
-                    onClick={() => setCurrentStep(1)}
-                    className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center justify-center gap-3"
+              {/* Kits Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {(prioritizeTargetPower ? [...filteredKits].sort((a,b) => Math.abs((a.power || 0) - parseFloat(systemSize)) - Math.abs((b.power || 0) - parseFloat(systemSize))) : filteredKits).map((kit) => (
+                  <motion.div
+                    key={kit.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ scale: 1.02 }}
+                    className={cn(
+                      "p-6 rounded-[2.5rem] border-4 transition-all relative overflow-hidden group flex flex-col justify-between h-full shadow-2xl",
+                      selectedKitId === kit.id 
+                        ? "bg-[#fdb612]/5 border-[#fdb612] ring-8 ring-[#fdb612]/5" 
+                        : "bg-white dark:bg-[#231d0f]/20 border-slate-100 dark:border-slate-800"
+                    )}
                   >
-                    <ArrowLeft className="w-6 h-6" />
-                    Voltar
-                  </button>
-                  <button 
-                    onClick={() => setCurrentStep(3)}
-                    className="flex-[2] bg-[#fdb612] text-[#231d0f] py-6 rounded-[2rem] font-black text-xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
-                  >
-                    Ver Minha Economia
-                    <ArrowRight className="w-6 h-6" />
-                  </button>
-                </div>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div className="size-14 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center border border-slate-100 dark:border-slate-800 shadow-sm group-hover:scale-110 group-hover:rotate-6 transition-all">
+                          <Package className={cn("w-7 h-7", selectedKitId === kit.id ? "text-[#fdb612]" : "text-slate-300")} />
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Potência</span>
+                          <span className="text-2xl font-black text-slate-900 dark:text-white leading-none whitespace-nowrap">{kit.power} <span className="text-[10px] text-[#fdb612]">kWp</span></span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="font-black text-slate-900 dark:text-white uppercase text-sm tracking-tight line-clamp-2">{kit.name}</h4>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{kit.description}</p>
+                      </div>
+
+                      <div className="pt-4 space-y-3">
+                        {kit.components?.slice(0, 2).map((comp: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 group-hover:border-[#fdb612]/20 transition-all">
+                            <div className="size-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
+                               <Package className="size-4 text-slate-300" />
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase truncate">{comp.brand}</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">{comp.model}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div className="flex flex-col">
+                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Preço Sugerido</span>
+                         <span className="text-lg font-black text-emerald-500 tracking-tighter">{(kit.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          handleSelectKit(kit.id);
+                          setCurrentStep(3);
+                        }}
+                        className={cn(
+                          "px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2",
+                          selectedKitId === kit.id 
+                            ? "bg-slate-900 text-white" 
+                            : "bg-[#fdb612]/10 text-[#fdb612] hover:bg-[#fdb612] hover:text-[#231d0f]"
+                        )}
+                      >
+                        {selectedKitId === kit.id ? 'Selecionado' : 'Selecionar'}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </div>
           )}
@@ -2102,97 +2116,162 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
 
 
           {currentStep === 3 && (
-            <div className="space-y-10 animate-in fade-in zoom-in-95 duration-500">
-              {/* Grand Result Section */}
-              <div className="bg-white dark:bg-[#231d0f]/40 rounded-[3.5rem] border-4 border-[#fdb612]/20 p-12 shadow-2xl relative overflow-hidden text-center">
-                <div className="absolute top-0 left-0 w-full h-2 bg-[#fdb612]" />
-                <div className="size-24 rounded-3xl bg-emerald-500/10 flex items-center justify-center mx-auto mb-8">
-                  <DollarSign className="w-12 h-12 text-emerald-500" />
-                </div>
-                
-                <h3 className="text-2xl font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Sua Economia Estimada</h3>
-                <div className="flex flex-col items-center gap-2 mb-8">
-                  <span className="text-8xl md:text-9xl font-black text-emerald-500 tracking-tighter leading-none">
-                    <span className="text-3xl align-top mt-6 inline-block mr-2">R$</span>
-                    {monthlySavingsValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                  <span className="text-xl font-bold text-slate-400 uppercase tracking-widest">Economia todo mês no seu bolso</span>
-                </div>
+            <div className="space-y-8 animate-in fade-in duration-500">
+               {/* Financial Adjustments Grid */}
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Margin & Adjustments */}
+                  <section className="lg:col-span-2 space-y-8">
+                     <div className="bg-white dark:bg-[#231d0f]/40 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl">
+                        <div className="flex items-center gap-3 mb-8">
+                          <div className="size-10 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
+                            <TrendingUp className="w-5 h-5" />
+                          </div>
+                          <h3 className="text-xl font-black uppercase tracking-tight">Ajustes de Margem e Custos</h3>
+                        </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
-                    <Zap className="w-8 h-8 text-blue-500 mx-auto mb-4" />
-                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sistema Ideal</span>
-                    <span className="text-3xl font-black text-slate-900 dark:text-white">{parseFloat(systemSize).toFixed(2)} kWp</span>
-                    <span className="block text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">({Math.round(parseFloat(systemSize) / 0.61)} Painéis de 610Wp)</span>
-                  </div>
-                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
-                    <Sun className="w-8 h-8 text-[#fdb612] mx-auto mb-4" />
-                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Geração Mensal</span>
-                    <span className="text-3xl font-black text-slate-900 dark:text-white">{monthlyGeneration.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh</span>
-                  </div>
-                  <div className="p-8 bg-slate-50 dark:bg-slate-900/50 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-4" />
-                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payback</span>
-                    <span className="text-3xl font-black text-slate-900 dark:text-white">~3.5 Anos</span>
-                  </div>
-                </div>
-              </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Margem de Lucro (%)</label>
+                              <div className="relative">
+                                <input 
+                                  type="number" 
+                                  value={marginPercentage} 
+                                  onChange={(e) => setMarginPercentage(e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-lg font-black outline-none focus:ring-4 focus:ring-[#fdb612] transition-all"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 font-black">%</span>
+                              </div>
+                           </div>
+                           <div className="space-y-4">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ajuste de Preço do Kit (R$)</label>
+                              <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-black">R$</span>
+                                <input 
+                                  type="number" 
+                                  value={kitPriceAdjustment} 
+                                  onChange={(e) => setKitPriceAdjustment(e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl p-4 pl-12 text-lg font-black outline-none focus:ring-4 focus:ring-[#fdb612] transition-all"
+                                />
+                              </div>
+                           </div>
+                        </div>
 
-              {/* Financing Callout */}
-              <div className="bg-blue-600 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl">
-                <div className="space-y-2 text-center md:text-left">
-                  <h4 className="text-3xl font-black uppercase tracking-tight">Pague com a própria economia!</h4>
-                  <p className="text-blue-100 font-bold text-lg">Parcelas a partir de <span className="text-white font-black">R$ {(monthlySavingsValue * 0.8).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
-                </div>
-                <button className="px-10 py-6 bg-white text-blue-600 rounded-[2rem] font-black text-xl uppercase tracking-widest hover:scale-105 transition-all shadow-lg">
-                  Ver Parcelamento
-                </button>
-              </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                           <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Mão de Obra</span>
+                              <input 
+                                type="number" 
+                                value={installationPrice} 
+                                onChange={(e) => setInstallationPrice(e.target.value)}
+                                className="w-full bg-transparent border-none p-0 text-base font-black outline-none"
+                              />
+                           </div>
+                           <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Engenharia</span>
+                              <input 
+                                type="number" 
+                                value={engineeringPrice} 
+                                onChange={(e) => setEngineeringPrice(e.target.value)}
+                                className="w-full bg-transparent border-none p-0 text-base font-black outline-none"
+                              />
+                           </div>
+                           <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Custos Logísticos</span>
+                              <input 
+                                type="number" 
+                                value={additionalCosts} 
+                                onChange={(e) => setAdditionalCosts(e.target.value)}
+                                className="w-full bg-transparent border-none p-0 text-base font-black outline-none"
+                              />
+                           </div>
+                        </div>
+                     </div>
 
-              {/* Final CTA Section */}
-              <div className="flex flex-col items-center gap-8 py-10">
-                <div className="text-center space-y-4">
-                  <h2 className="text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Gostou do resultado?</h2>
-                  <p className="text-slate-400 font-bold text-xl">Fale agora com um de nossos especialistas e comece a economizar.</p>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 w-full max-w-2xl">
-                  <button 
-                    onClick={() => window.open(`https://wa.me/5533999032281?text=Olá! Fiz uma simulação e gostaria de saber mais sobre o sistema de ${systemSize}kWp.`, '_blank')}
-                    className="flex-1 bg-[#25D366] text-white py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl shadow-[#25D366]/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4"
-                  >
-                    <Phone className="w-8 h-8" />
-                    WhatsApp
-                  </button>
-                  <button 
-                    onClick={() => setShowProposal(true)}
-                    className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4"
-                  >
-                    <Award className="w-8 h-8" />
-                    Ver Proposta
-                  </button>
-                  <button 
-                    onClick={handleDownloadPDF}
-                    disabled={isGeneratingPDF}
-                    className="flex-1 bg-[#fdb612] text-[#231d0f] py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-widest shadow-xl shadow-[#fdb612]/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
-                  >
-                    {isGeneratingPDF ? (
-                      <Loader2 className="w-8 h-8 animate-spin" />
-                    ) : (
-                      <FileText className="w-8 h-8" />
-                    )}
-                    Baixar PDF
-                  </button>
-                </div>
-                
-                <button 
-                  onClick={() => setCurrentStep(1)}
-                  className="text-slate-400 font-black text-sm uppercase tracking-[0.3em] hover:text-[#fdb612] transition-colors"
-                >
-                  Refazer Simulação
-                </button>
-              </div>
+                     <div className="p-10 bg-[#fdb612] text-[#231d0f] rounded-[3rem] shadow-2xl flex items-center justify-between relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                        <div className="space-y-1 relative z-10">
+                           <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Faturamento ao Cliente</span>
+                           <h2 className="text-5xl font-black tracking-tighter uppercase whitespace-nowrap">
+                             {(
+                                (kits.find(k => k.id === selectedKitId)?.price || 0) + 
+                                parseFloat(kitPriceAdjustment || '0') + 
+                                (
+                                  (
+                                    (kits.find(k => k.id === selectedKitId)?.price || 0) + 
+                                    parseFloat(kitPriceAdjustment || '0') + 
+                                    parseFloat(installationPrice||'0') + 
+                                    parseFloat(engineeringPrice||'0') + 
+                                    parseFloat(additionalCosts||'0')
+                                  ) * (parseFloat(marginPercentage||'20')/100)
+                                ) +
+                                parseFloat(installationPrice||'0') + 
+                                parseFloat(engineeringPrice||'0') + 
+                                parseFloat(additionalCosts||'0')
+                             ).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                           </h2>
+                        </div>
+                        <button 
+                          onClick={() => setCurrentStep(4)}
+                          className="px-12 py-6 bg-[#231d0f] text-white rounded-[2rem] font-black text-base uppercase tracking-widest hover:scale-110 active:scale-95 transition-all shadow-xl relative z-10"
+                        >
+                          Ir para Validação
+                          <ArrowRight className="inline-block ml-3 w-6 h-6" />
+                        </button>
+                     </div>
+                  </section>
+
+                  {/* Summary Sidebar */}
+                  <aside className="space-y-8">
+                     <div className="bg-slate-900 text-white p-8 rounded-[3rem] shadow-2xl border border-white/5 h-full flex flex-col justify-between">
+                        <div className="space-y-8">
+                          <div className="flex items-center gap-3">
+                             <div className="size-10 bg-white/10 rounded-2xl flex items-center justify-center">
+                               <ShieldCheck className="w-5 h-5 text-[#fdb612]" />
+                             </div>
+                             <h4 className="text-base font-black uppercase tracking-widest">Resumo do Negócio</h4>
+                          </div>
+
+                          <div className="space-y-6">
+                             <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Custo do Kit</span>
+                                <span className="font-black text-sm uppercase">{(kits.find(k => k.id === selectedKitId)?.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                             </div>
+                             <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Margem (%)</span>
+                                <span className="font-black text-sm uppercase text-[#fdb612]">{marginPercentage}%</span>
+                             </div>
+                             <div className="flex justify-between items-center pb-4 border-b border-white/5">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Lucro Estimado</span>
+                                <span className="font-black text-sm uppercase text-emerald-500">
+                                   {(
+                                      (
+                                        (kits.find(k => k.id === selectedKitId)?.price || 0) + 
+                                        parseFloat(kitPriceAdjustment || '0') + 
+                                        parseFloat(installationPrice||'0') + 
+                                        parseFloat(engineeringPrice||'0') + 
+                                        parseFloat(additionalCosts||'0')
+                                      ) * (parseFloat(marginPercentage||'20')/100)
+                                   ).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </span>
+                             </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-white/10">
+                           <div className="p-6 bg-white/5 rounded-3xl border border-white/10 flex items-center gap-4">
+                              <div className="size-12 rounded-2xl bg-[#fdb612] flex items-center justify-center">
+                                 <Zap className="size-6 text-[#231d0f]" />
+                              </div>
+                              <div>
+                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Economia ao Cliente</p>
+                                 <p className="text-xl font-black text-white">{(monthlySavingsValue * 12 * 25).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                 <p className="text-[8px] font-bold text-emerald-500 uppercase tracking-widest">Total em 25 anos</p>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </aside>
+               </div>
             </div>
           )}
 
@@ -2207,6 +2286,10 @@ export const ConfigView: React.FC<ConfigViewProps> = ({
                 <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(3)}>PRECIFICAÇÃO</span>
                 <ChevronRight className="w-3 h-3" />
                 <span className="text-[#fdb612]">VALIDAÇÃO</span>
+                <ChevronRight className="w-3 h-3" />
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(5)}>FINANCIAMENTO</span>
+                <ChevronRight className="w-3 h-3" />
+                <span className="cursor-pointer hover:text-[#fdb612]" onClick={() => setCurrentStep(6)}>FINALIZAÇÃO</span>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

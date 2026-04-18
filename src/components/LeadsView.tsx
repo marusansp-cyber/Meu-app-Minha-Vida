@@ -15,6 +15,7 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  Info,
   Mail,
   Phone,
   Sun,
@@ -26,7 +27,10 @@ import {
   Download,
   LogOut,
   Save,
-  Edit2
+  Edit2,
+  History,
+  Paperclip,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -142,18 +146,33 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
 
     const lead = leads.find(l => l.id === draggableId);
     if (lead) {
+      const oldStatus = columns.find(c => c.id === lead.status)?.label;
+      const newStatus = columns.find(c => c.id === destination.droppableId)?.label;
+      
+      const historyItem = {
+        date: new Date().toLocaleString('pt-BR'),
+        action: `Status alterado de "${oldStatus}" para "${newStatus}"`,
+        user: 'Sistema'
+      };
+
       const updatedLead: Lead = {
         ...lead,
-        status: destination.droppableId as Lead['status']
+        status: destination.droppableId as Lead['status'],
+        history: [historyItem, ...(lead.history || [])]
       };
       onUpdateLead(updatedLead);
-      showToast(`Lead ${lead.name} movido para ${columns.find(c => c.id === destination.droppableId)?.label}`);
+      showToast(`Lead ${lead.name} movido para ${newStatus}`);
     }
   };
 
   const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.systemSize.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = lead.name.toLowerCase().includes(searchLower) ||
+                         lead.systemSize.toLowerCase().includes(searchLower) ||
+                         (lead.email && lead.email.toLowerCase().includes(searchLower)) ||
+                         (lead.phone && lead.phone.includes(searchTerm)) ||
+                         (lead.whatsapp && lead.whatsapp.includes(searchTerm)) ||
+                         (lead.createdAt && lead.createdAt.includes(searchTerm));
     const matchesStatus = selectedStatuses.includes(lead.status);
     const matchesUrgency = onlyUrgent ? lead.urgent : true;
     const matchesRepresentative = selectedRepresentative === 'all' || lead.representative === selectedRepresentative;
@@ -415,7 +434,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input 
                           type="text"
-                          placeholder="Nome ou sistema..."
+                          placeholder="Pesquisar por nome, e-mail, telefone ou data..."
                           className="w-full pl-10 pr-4 py-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                           value={searchTerm || ''}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -911,28 +930,31 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                   <button 
                     onClick={() => setLeadModalTab('info')}
                     className={cn(
-                      "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-                      leadModalTab === 'info' ? "text-[#fdb612] border-b-2 border-[#fdb612]" : "text-slate-400 hover:text-slate-600"
+                      "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                      leadModalTab === 'info' ? "text-[#fdb612] border-b-2 border-[#fdb612] bg-[#fdb612]/5" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                     )}
                   >
+                    <Info className="w-3" />
                     Informações
                   </button>
                   <button 
                     onClick={() => setLeadModalTab('history')}
                     className={cn(
-                      "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-                      leadModalTab === 'history' ? "text-[#fdb612] border-b-2 border-[#fdb612]" : "text-slate-400 hover:text-slate-600"
+                      "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                      leadModalTab === 'history' ? "text-[#fdb612] border-b-2 border-[#fdb612] bg-[#fdb612]/5" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                     )}
                   >
+                    <History className="w-3" />
                     Histórico
                   </button>
                   <button 
                     onClick={() => setLeadModalTab('files')}
                     className={cn(
-                      "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-                      leadModalTab === 'files' ? "text-[#fdb612] border-b-2 border-[#fdb612]" : "text-slate-400 hover:text-slate-600"
+                      "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                      leadModalTab === 'files' ? "text-[#fdb612] border-b-2 border-[#fdb612] bg-[#fdb612]/5" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                     )}
                   >
+                    <Paperclip className="w-3" />
                     Arquivos
                   </button>
                 </div>
@@ -954,7 +976,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
-                          {editErrors.email && <span className="text-[9px] font-bold text-red-500">{editErrors.email}</span>}
+                          {editErrors.email && <span className="text-[9px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{editErrors.email}</span>}
                         </div>
                         <input 
                           type="email"
@@ -966,15 +988,15 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                             setEditErrors({ ...editErrors, email: err });
                           }}
                           className={cn(
-                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
-                            editErrors.email ? "border-red-500" : "border-slate-200 dark:border-slate-800"
+                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                            editErrors.email ? "border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                           )}
                         />
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone</label>
-                          {editErrors.phone && <span className="text-[9px] font-bold text-red-500">{editErrors.phone}</span>}
+                          {editErrors.phone && <span className="text-[9px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{editErrors.phone}</span>}
                         </div>
                         <input 
                           type="text"
@@ -986,8 +1008,8 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                             setEditErrors({ ...editErrors, phone: err });
                           }}
                           className={cn(
-                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
-                            editErrors.phone ? "border-red-500" : "border-slate-200 dark:border-slate-800"
+                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                            editErrors.phone ? "border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                           )}
                         />
                       </div>
@@ -1005,18 +1027,20 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Estimado</label>
-                          {editErrors.value && <span className="text-[9px] font-bold text-red-500">{editErrors.value}</span>}
+                          {editErrors.value && <span className="text-[9px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{editErrors.value}</span>}
                         </div>
                         <input 
                           type="text"
                           value={editForm.value || ''}
                           onChange={(e) => {
-                            setEditForm({ ...editForm, value: maskCurrency(e.target.value) });
-                            if (editErrors.value) setEditErrors({ ...editErrors, value: null });
+                            const masked = maskCurrency(e.target.value);
+                            setEditForm({ ...editForm, value: masked });
+                            const err = validateValue(masked);
+                            setEditErrors({ ...editErrors, value: err });
                           }}
                           className={cn(
-                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
-                            editErrors.value ? "border-red-500" : "border-slate-200 dark:border-slate-800"
+                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
+                            editErrors.value ? "border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
                           )}
                         />
                       </div>
@@ -1150,7 +1174,47 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                     ) : leadModalTab === 'history' ? (
                       <div className="space-y-6">
                         <div className="flex flex-col gap-4">
-                          <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Histórico de Interações</h4>
+                          <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Registrar Interação</h4>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => {
+                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'Chamada telefônica realizada', user: 'Marusan Pinto' };
+                                onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                showToast('Chamada registrada!');
+                              }}
+                              className="flex-1 py-3 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Phone className="w-3" />
+                              Chamada
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'E-mail enviado ao cliente', user: 'Marusan Pinto' };
+                                onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                showToast('E-mail registrado!');
+                              }}
+                              className="flex-1 py-3 bg-amber-50 dark:bg-amber-900/10 text-amber-600 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-800/50 hover:bg-amber-100 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Mail className="w-3" />
+                              E-mail
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'Mensagem enviada via WhatsApp', user: 'Marusan Pinto' };
+                                onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                                showToast('WhatsApp registrado!');
+                              }}
+                              className="flex-1 py-3 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50 hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
+                            >
+                              <MessageCircle className="w-3" />
+                              WhatsApp
+                            </button>
+                          </div>
+                          
+                          <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Notas</h4>
                           <div className="space-y-2">
                             <textarea 
                               placeholder="Adicione uma nota sobre este lead..."
@@ -1264,11 +1328,17 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       Fechar
                     </button>
                     <button 
+                      onClick={() => onStartSimulation(selectedLead)}
+                      className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Sun className="w-4 h-4" />
+                      Iniciar Simulação
+                    </button>
+                    <button 
                       onClick={() => handleEditLead(selectedLead)}
-                      className="flex-1 px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-bold text-sm hover:bg-[#fdb612]/90 transition-colors flex items-center justify-center gap-2"
+                      className="px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-bold text-sm hover:bg-[#fdb612]/90 transition-colors flex items-center justify-center gap-2"
                     >
                       <Edit2 className="w-4 h-4" />
-                      Editar
                     </button>
                   </>
                 )}
