@@ -409,7 +409,7 @@ export default function App() {
                   />
                 )}
                 {currentView === 'team' && <TeamView />}
-                {currentView === 'sales' && <SalesView />}
+                {currentView === 'sales' && <SalesView proposals={proposals} />}
                 {currentView === 'proposals' && (
                   <ProposalsView 
                     proposals={proposals} 
@@ -459,7 +459,13 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center overflow-hidden">
                     {companyLogo ? (
-                      <img src={companyLogo} alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                      <img 
+                        src={companyLogo} 
+                        alt="Logo" 
+                        className="w-full h-full object-contain" 
+                        referrerPolicy="no-referrer" 
+                        loading="lazy"
+                      />
                     ) : (
                       <Sun className="w-6 h-6 text-[#fdb612]" />
                     )}

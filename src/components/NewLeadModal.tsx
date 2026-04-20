@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, User, Zap, DollarSign, AlertCircle, Phone, MessageCircle, Mail, CheckCircle2 } from 'lucide-react';
+import { X, User, Zap, DollarSign, AlertCircle, Phone, MessageCircle, Mail, CheckCircle2, Calendar } from 'lucide-react';
 import { Lead } from '../types';
 import { cn } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NewLeadModalProps {
   isOpen: boolean;
@@ -22,12 +23,15 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     urgent: false
   });
 
-  const [errors, setErrors] = useState<Record<string, boolean>>({});
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [phoneError, setPhoneError] = useState<string | null>(null);
-  const [valueError, setValueError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   if (!isOpen) return null;
+
+  const validateName = (name: string) => {
+    if (!name) return "Nome completo é obrigatório";
+    if (name.length < 3) return "Nome muito curto";
+    return null;
+  };
 
   const validateEmail = (email: string) => {
     if (!email) return "E-mail é obrigatório";
@@ -71,25 +75,25 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const emailValidationError = validateEmail(formData.email);
-    const phoneValidationError = validatePhone(formData.phone);
-    const valueValidationError = validateValue(formData.value);
-    setEmailError(emailValidationError);
-    setPhoneError(phoneValidationError);
-    setValueError(valueValidationError);
+    const nameErr = validateName(formData.name);
+    const emailErr = validateEmail(formData.email);
+    const phoneErr = validatePhone(formData.phone);
+    const valueErr = validateValue(formData.value);
+    const systemSizeErr = !formData.systemSize ? "Tamanho do sistema é obrigatório" : null;
+    const whatsappErr = !formData.whatsapp ? "WhatsApp é obrigatório" : null;
 
-    const newErrors: Record<string, boolean> = {
-      name: !formData.name,
-      email: !!emailValidationError,
-      phone: !!phoneValidationError,
-      whatsapp: !formData.whatsapp,
-      systemSize: !formData.systemSize,
-      value: !!valueValidationError
+    const newErrors: Record<string, string | null> = {
+      name: nameErr,
+      email: emailErr,
+      phone: phoneErr,
+      whatsapp: whatsappErr,
+      systemSize: systemSizeErr,
+      value: valueErr
     };
 
     setErrors(newErrors);
 
-    if (Object.values(newErrors).some(Boolean) || emailValidationError || phoneValidationError || valueValidationError) {
+    if (Object.values(newErrors).some(err => err !== null)) {
       return;
     }
 
@@ -102,9 +106,6 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     onAdd(leadData);
     setFormData({ name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', representative: 'Marusan Pinto', status: 'new', urgent: false });
     setErrors({});
-    setEmailError(null);
-    setPhoneError(null);
-    setValueError(null);
     onClose();
   };
 
@@ -120,9 +121,12 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
           <div className="space-y-1.5">
-            <label className={cn("text-xs font-bold uppercase tracking-wider", errors.name ? "text-red-500" : "text-slate-500")}>
-              Nome do Cliente <span className="text-red-500">*</span>
-            </label>
+            <div className="flex justify-between items-center">
+              <label className={cn("text-xs font-bold uppercase tracking-wider", errors.name ? "text-red-500" : "text-slate-500")}>
+                Nome do Cliente <span className="text-red-500">*</span>
+              </label>
+              {errors.name && <span className="text-[10px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{errors.name}</span>}
+            </div>
             <div className="relative">
               <User className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.name ? "text-red-400" : "text-slate-400")} />
               <input
@@ -130,12 +134,15 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 placeholder="Ex: João Silva"
                 className={cn(
                   "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                  errors.name ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                  errors.name ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
                 )}
                 value={formData.name || ''}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
-                  if (e.target.value) setErrors({ ...errors, name: false });
+                  if (errors.name) {
+                    const err = validateName(e.target.value);
+                    setErrors({ ...errors, name: err });
+                  }
                 }}
               />
             </div>
@@ -143,37 +150,33 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className={cn("text-xs font-bold uppercase tracking-wider", (errors.email || emailError) ? "text-red-500" : "text-slate-500")}>
+              <label className={cn("text-xs font-bold uppercase tracking-wider", errors.email ? "text-red-500" : "text-slate-500")}>
                 E-mail <span className="text-red-500">*</span>
               </label>
-              {emailError && <span className="text-[10px] font-bold text-red-500 animate-in fade-in slide-in-from-right-2">{emailError}</span>}
+              {errors.email && <span className="text-[10px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{errors.email}</span>}
             </div>
             <div className="relative">
-              <Mail className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", (errors.email || emailError) ? "text-red-400" : "text-slate-400")} />
+              <Mail className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.email ? "text-red-400" : "text-slate-400")} />
               <input
                 type="email"
                 placeholder="Ex: joao@email.com"
                 className={cn(
                   "w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                  (errors.email || emailError) ? "border-red-500 bg-red-50 dark:bg-red-900/10" : 
-                  (formData.email && !emailError) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
+                  errors.email ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : 
+                  (formData.email && !errors.email) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
                   "border-slate-200 dark:border-slate-800"
                 )}
                 value={formData.email || ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   setFormData({ ...formData, email: val });
-                  const err = validateEmail(val);
-                  setEmailError(err);
-                  setErrors({ ...errors, email: !!err });
-                }}
-                onBlur={() => {
-                  const err = validateEmail(formData.email);
-                  setEmailError(err);
-                  setErrors({ ...errors, email: !!err });
+                  if (errors.email) {
+                    const err = validateEmail(val);
+                    setErrors({ ...errors, email: err });
+                  }
                 }}
               />
-              {formData.email && !emailError && (
+              {formData.email && !errors.email && (
                 <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 animate-in zoom-in duration-300" />
               )}
             </div>
@@ -182,35 +185,39 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className={cn("text-xs font-bold uppercase tracking-wider", (errors.phone || phoneError) ? "text-red-500" : "text-slate-500")}>
+                <label className={cn("text-xs font-bold uppercase tracking-wider", errors.phone ? "text-red-500" : "text-slate-500")}>
                   Telefone <span className="text-red-500">*</span>
                 </label>
-                {phoneError && <span className="text-[9px] font-bold text-red-500">{phoneError}</span>}
+                {errors.phone && <span className="text-[9px] font-bold text-red-500">{errors.phone}</span>}
               </div>
               <div className="relative">
-                <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", (errors.phone || phoneError) ? "text-red-400" : "text-slate-400")} />
+                <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.phone ? "text-red-400" : "text-slate-400")} />
                 <input
                   type="tel"
                   placeholder="(00) 90000-0000"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    (errors.phone || phoneError) ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                    errors.phone ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.phone || ''}
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, phone: masked });
-                    const err = validatePhone(masked);
-                    setPhoneError(err);
-                    setErrors({ ...errors, phone: !!err });
+                    if (errors.phone) {
+                      const err = validatePhone(masked);
+                      setErrors({ ...errors, phone: err });
+                    }
                   }}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className={cn("text-xs font-bold uppercase tracking-wider", errors.whatsapp ? "text-red-500" : "text-slate-500")}>
-                WhatsApp <span className="text-red-500">*</span>
-              </label>
+              <div className="flex justify-between items-center">
+                <label className={cn("text-xs font-bold uppercase tracking-wider", errors.whatsapp ? "text-red-500" : "text-slate-500")}>
+                  WhatsApp <span className="text-red-500">*</span>
+                </label>
+                {errors.whatsapp && <span className="text-[9px] font-bold text-red-500">{errors.whatsapp}</span>}
+              </div>
               <div className="relative">
                 <MessageCircle className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.whatsapp ? "text-red-400" : "text-slate-400")} />
                 <input
@@ -218,13 +225,13 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   placeholder="(00) 00000-0000"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.whatsapp ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                    errors.whatsapp ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.whatsapp || ''}
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, whatsapp: masked });
-                    if (masked) setErrors({ ...errors, whatsapp: false });
+                    if (errors.whatsapp && masked) setErrors({ ...errors, whatsapp: null });
                   }}
                 />
               </div>
@@ -233,9 +240,12 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className={cn("text-xs font-bold uppercase tracking-wider", errors.systemSize ? "text-red-500" : "text-slate-500")}>
-                Tamanho do Sistema <span className="text-red-500">*</span>
-              </label>
+              <div className="flex justify-between items-center">
+                <label className={cn("text-xs font-bold uppercase tracking-wider", errors.systemSize ? "text-red-500" : "text-slate-500")}>
+                  Tamanho do Sistema <span className="text-red-500">*</span>
+                </label>
+                {errors.systemSize && <span className="text-[9px] font-bold text-red-500">{errors.systemSize}</span>}
+              </div>
               <div className="relative">
                 <Zap className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.systemSize ? "text-red-400" : "text-slate-400")} />
                 <input
@@ -243,39 +253,40 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   placeholder="Ex: 5.4 kWp"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.systemSize ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                    errors.systemSize ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.systemSize || ''}
                   onChange={(e) => {
                     setFormData({ ...formData, systemSize: e.target.value });
-                    if (e.target.value) setErrors({ ...errors, systemSize: false });
+                    if (errors.systemSize && e.target.value) setErrors({ ...errors, systemSize: null });
                   }}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className={cn("text-xs font-bold uppercase tracking-wider", (errors.value || valueError) ? "text-red-500" : "text-slate-500")}>
+                <label className={cn("text-xs font-bold uppercase tracking-wider", errors.value ? "text-red-500" : "text-slate-500")}>
                   Valor Estimado <span className="text-red-500">*</span>
                 </label>
-                {valueError && <span className="text-[9px] font-bold text-red-500">{valueError}</span>}
+                {errors.value && <span className="text-[9px] font-bold text-red-500">{errors.value}</span>}
               </div>
               <div className="relative">
-                <DollarSign className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", (errors.value || valueError) ? "text-red-400" : "text-slate-400")} />
+                <DollarSign className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.value ? "text-red-400" : "text-slate-400")} />
                 <input
                   type="text"
                   placeholder="R$ 0,00"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    (errors.value || valueError) ? "border-red-500 bg-red-50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                    errors.value ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.value || ''}
                   onChange={(e) => {
                     const masked = maskCurrency(e.target.value);
                     setFormData({ ...formData, value: masked });
-                    const err = validateValue(masked);
-                    setValueError(err);
-                    setErrors({ ...errors, value: !!err });
+                    if (errors.value) {
+                      const err = validateValue(masked);
+                      setErrors({ ...errors, value: err });
+                    }
                   }}
                 />
               </div>
@@ -310,6 +321,28 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
               </select>
             </div>
           </div>
+
+          <AnimatePresence>
+            {formData.status === 'survey' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-1.5 overflow-hidden"
+              >
+                <label className="text-xs font-bold uppercase tracking-wider text-blue-500 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Agendamento da Vistoria
+                </label>
+                <input
+                  type="datetime-local"
+                  className="w-full px-4 py-2.5 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  value={(formData as any).scheduledDate || ''}
+                  onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value } as any)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-200 dark:border-amber-500/20">
             <input

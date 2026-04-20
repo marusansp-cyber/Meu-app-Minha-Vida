@@ -25,11 +25,19 @@ import {
   Sun,
   Lock,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Landmark,
+  Calculator,
+  FileCheck,
+  QrCode,
+  PenTool,
+  Eye,
+  Share2,
+  Printer
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
-import { syncCollection, updateDocument } from '../firestoreUtils';
+import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
 
 interface NewProposalModalProps {
   isOpen: boolean;
@@ -63,6 +71,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
   const [efficiency, setEfficiency] = useState<number>(109.54);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [registerAsNewClient, setRegisterAsNewClient] = useState(false);
 
   const filteredClients = useMemo(() => {
     if (!clientSearchTerm.trim()) return [];
@@ -74,6 +85,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       name: c.name,
       email: c.email,
       phone: c.phone,
+      address: c.address,
+      cpfCnpj: c.cpfCnpj || '',
       source: 'Cliente' as const
     })).filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
 
@@ -82,7 +95,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       name: l.name,
       email: l.email,
       phone: l.phone,
-      ucNumber: l.id, // Some leads might use ID as UC or something else, but ucNumber isn't in Lead type usually
+      address: l.address,
       source: 'Lead' as const
     })).filter(l => l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term));
 
@@ -94,10 +107,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       ...prev,
       client: suggestion.name,
       email: suggestion.email,
-      ucNumber: suggestion.ucNumber || prev.ucNumber
+      titular: suggestion.name,
+      telefone: suggestion.phone,
+      endereco: suggestion.address || prev.endereco,
+      cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj
     }));
     setClientSearchTerm('');
     setShowClientSuggestions(false);
+    showToast(`Selecionado: ${suggestion.name} (${suggestion.source})`);
   };
 
   const showToast = (msg: string) => {
@@ -107,13 +124,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
 
   const [formData, setFormData] = useState({
+    // Standard fields
     client: initialData?.client || '',
+    email: initialData?.email || '',
     value: initialData?.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.') || '',
     systemSize: initialData?.systemSize.replace(' kWp', '') || '',
     representative: initialData?.representative || 'Marusan Pinto',
     roi: initialData?.roi || '385%',
     payback: initialData?.payback?.replace(' Anos', '') || '4.2',
-    feasibilityStudy: initialData?.feasibilityStudy || '',
     commission: initialData?.commission?.toString() || '5',
     expiryDate: initialData?.expiryDate || '',
     ucNumber: initialData?.ucNumber || '',
@@ -122,7 +140,39 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     discount: initialData?.discount?.toString() || '0',
     financingBank: initialData?.financingBank || 'Nenhum',
     financingInstallments: initialData?.financingInstallments?.toString() || '0',
-    email: initialData?.email || '',
+    
+    // Step 1: UCS
+    titular: initialData?.titular || '',
+    cpfCnpj: initialData?.cpfCnpj || '',
+    endereco: initialData?.endereco || '',
+    cep: initialData?.cep || '',
+    telefone: initialData?.telefone || '',
+    distribuidora: initialData?.distribuidora || 'CEMIG',
+    tensaoFornecimento: initialData?.tensaoFornecimento || 'Trifásico',
+
+    // Step 2: KIT FV
+    panelBrandModel: initialData?.panelBrandModel || '',
+    panelQuantity: initialData?.panelQuantity?.toString() || '',
+    inverterBrandModel: initialData?.inverterBrandModel || '',
+    invertersQuantity: initialData?.invertersQuantity?.toString() || '1',
+    structureQuantity: initialData?.structureQuantity?.toString() || '',
+    structureType: initialData?.structureType || 'Sobre telhado',
+    cablesIncluded: initialData?.cablesIncluded !== undefined ? initialData.cablesIncluded : true,
+    protectionSystem: initialData?.protectionSystem || 'String box',
+
+    // Step 3: PRECIFICAÇÃO
+    equipmentCost: initialData?.equipmentCost?.toString() || '',
+    installationCost: initialData?.installationCost?.toString() || '',
+    projectCost: initialData?.projectCost?.toString() || '',
+    licensingCost: initialData?.licensingCost?.toString() || '',
+    logisticCost: initialData?.logisticCost?.toString() || '',
+    subtotal: initialData?.subtotal?.toString() || '',
+
+    // Step 4: FINANCIAMENTO
+    paymentMethod: initialData?.paymentMethod || 'cash',
+    financingRate: initialData?.financingRate?.toString() || '',
+    financingCET: initialData?.financingCET?.toString() || '',
+    downPayment: initialData?.downPayment?.toString() || '',
   });
   const [roiError, setRoiError] = useState<string | null>(null);
 
@@ -176,37 +226,23 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     const errors: Record<string, string> = {};
     
     if (step === 'ucs') {
-      if (!formData.client?.trim()) errors.client = 'Nome do cliente é obrigatório';
-      if (!formData.email?.trim()) {
-        errors.email = 'E-mail do cliente é obrigatório';
-      } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email)) {
-        errors.email = 'E-mail inválido';
-      }
+      if (!formData.titular?.trim()) errors.titular = 'Titular é obrigatório';
       if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
-      if (!formData.energyConsumption || parseFloat(formData.energyConsumption) <= 0) {
-        errors.energyConsumption = 'Consumo mensal deve ser maior que zero';
-      }
-      if (!formData.value || parseFloat(formData.value) <= 0) {
-        errors.value = 'Valor da conta deve ser maior que zero';
-      }
+      if (!formData.cpfCnpj?.trim()) errors.cpfCnpj = 'CPF/CNPJ é obrigatório';
     } else if (step === 'kit') {
-      if (!formData.kitId) errors.kit = 'Por favor, selecione um kit para continuar';
       if (!formData.systemSize || parseFloat(formData.systemSize) <= 0) {
         errors.systemSize = 'Tamanho do sistema deve ser maior que zero';
       }
+      if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
     } else if (step === 'pricing') {
-      if (!formData.value || parseFloat(formData.value) <= 0) {
-        errors.value = 'Valor total deve ser maior que zero';
+      if (!formData.equipmentCost || parseFloat(formData.equipmentCost) <= 0) {
+        errors.equipmentCost = 'Custo de equipamentos deve ser maior que zero';
       }
-      if (parseFloat(formData.discount) < 0) errors.discount = 'Desconto não pode ser negativo';
-      if (!formData.roi?.trim()) errors.roi = 'ROI é obrigatório';
-      if (!formData.payback?.trim()) errors.payback = 'Payback é obrigatório';
     }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
-
 
   const validateROI = (value: string) => {
     const roiRegex = /^\d+(\.\d+)?%$/;
@@ -233,12 +269,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     if (initialData) {
       setFormData({
         client: initialData.client || '',
+        email: initialData.email || '',
         value: initialData.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.') || '',
         systemSize: initialData.systemSize.replace(' kWp', '') || '',
         representative: initialData.representative || 'Marusan Pinto',
         roi: initialData.roi || '385%',
         payback: initialData.payback?.replace(' Anos', '') || '4.2',
-        feasibilityStudy: initialData.feasibilityStudy || '',
         commission: initialData.commission?.toString() || '5',
         expiryDate: initialData.expiryDate || '',
         ucNumber: initialData.ucNumber || '',
@@ -247,18 +283,46 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         discount: initialData.discount?.toString() || '0',
         financingBank: initialData.financingBank || 'Nenhum',
         financingInstallments: initialData.financingInstallments?.toString() || '0',
-        email: initialData.email || '',
+        
+        titular: initialData.titular || '',
+        cpfCnpj: initialData.cpfCnpj || '',
+        endereco: initialData.endereco || '',
+        cep: initialData.cep || '',
+        telefone: initialData.telefone || '',
+        distribuidora: initialData.distribuidora || 'CEMIG',
+        tensaoFornecimento: initialData.tensaoFornecimento || 'Trifásico',
+        
+        panelBrandModel: initialData.panelBrandModel || '',
+        panelQuantity: initialData.panelQuantity?.toString() || '',
+        inverterBrandModel: initialData.inverterBrandModel || '',
+        invertersQuantity: initialData.invertersQuantity?.toString() || '1',
+        structureQuantity: initialData.structureQuantity?.toString() || '',
+        structureType: initialData.structureType || 'Sobre telhado',
+        cablesIncluded: initialData.cablesIncluded !== undefined ? initialData.cablesIncluded : true,
+        protectionSystem: initialData.protectionSystem || 'String box',
+
+        equipmentCost: initialData.equipmentCost?.toString() || '',
+        installationCost: initialData.installationCost?.toString() || '',
+        projectCost: initialData.projectCost?.toString() || '',
+        licensingCost: initialData.licensingCost?.toString() || '',
+        logisticCost: initialData.logisticCost?.toString() || '',
+        subtotal: initialData.subtotal?.toString() || '',
+
+        paymentMethod: initialData.paymentMethod || 'cash',
+        financingRate: initialData.financingRate?.toString() || '',
+        financingCET: initialData.financingCET?.toString() || '',
+        downPayment: initialData.downPayment?.toString() || '',
       });
       setCurrentStep('ucs');
     } else {
       setFormData({
         client: '',
+        email: '',
         value: '',
         systemSize: '',
         representative: 'Marusan Pinto',
         roi: '385%',
         payback: '4.2',
-        feasibilityStudy: '',
         commission: '5',
         expiryDate: '',
         ucNumber: '',
@@ -267,6 +331,35 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         discount: '0',
         financingBank: 'Nenhum',
         financingInstallments: '0',
+        
+        titular: '',
+        cpfCnpj: '',
+        endereco: '',
+        cep: '',
+        telefone: '',
+        distribuidora: 'CEMIG',
+        tensaoFornecimento: 'Trifásico',
+        
+        panelBrandModel: '',
+        panelQuantity: '',
+        inverterBrandModel: '',
+        invertersQuantity: '1',
+        structureQuantity: '',
+        structureType: 'Sobre telhado',
+        cablesIncluded: true,
+        protectionSystem: 'String box',
+
+        equipmentCost: '',
+        installationCost: '',
+        projectCost: '',
+        licensingCost: '',
+        logisticCost: '',
+        subtotal: '',
+
+        paymentMethod: 'cash',
+        financingRate: '',
+        financingCET: '',
+        downPayment: '',
       });
       setCurrentStep('ucs');
     }
@@ -274,13 +367,29 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
   const handleKitSelect = (kit: Kit) => {
     setSelectedKit(kit);
+    
+    // Find relevant components from the kit
+    const panel = kit.components.find(c => {
+      const name = c.name.toLowerCase();
+      return name.includes('painel') || name.includes('módulo') || name.includes('modulo');
+    });
+    const inverter = kit.components.find(c => c.name.toLowerCase().includes('inversor'));
+    const structure = kit.components.find(c => c.name.toLowerCase().includes('estrutura'));
+
     setFormData(prev => ({
       ...prev,
       kitId: kit.id,
       systemSize: kit.power.toString(),
-      value: kit.price.toString()
+      equipmentCost: kit.price.toString(),
+      panelBrandModel: panel ? `${panel.brand} ${panel.model}` : prev.panelBrandModel,
+      panelQuantity: panel ? panel.quantity.toString() : prev.panelQuantity,
+      inverterBrandModel: inverter ? `${inverter.brand} ${inverter.model}` : prev.inverterBrandModel,
+      invertersQuantity: inverter ? inverter.quantity.toString() : prev.invertersQuantity,
+      structureQuantity: structure ? structure.quantity.toString() : prev.structureQuantity,
     }));
+    
     calculateAutomaticValues(kit.price.toString(), kit.power.toString());
+    showToast(`Kit "${kit.name}" selecionado.`);
   };
 
   const nextStep = () => {
@@ -303,7 +412,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateStep('pricing')) {
@@ -311,33 +420,77 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       return;
     }
 
-    const totalVal = parseFloat(formData.value) - parseFloat(formData.discount);
-    
-    const proposalData: Proposal = {
-      id: initialData?.id || '',
-      client: formData.client,
-      value: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      date: initialData?.date || new Date().toLocaleDateString('pt-BR'),
-      status: initialData?.status || 'pending',
-      systemSize: `${formData.systemSize} kWp`,
-      representative: formData.representative,
-      roi: formData.roi || null,
-      payback: formData.payback ? `${formData.payback} Anos` : null,
-      feasibilityStudy: formData.feasibilityStudy || null,
-      commission: parseFloat(formData.commission) || 0,
-      commissionStatus: initialData?.commissionStatus || 'pending',
-      expiryDate: formData.expiryDate || null,
-      ucNumber: formData.ucNumber || null,
-      energyConsumption: formData.energyConsumption || null,
-      kitId: formData.kitId || null,
-      discount: parseFloat(formData.discount) || 0,
-      financingBank: formData.financingBank || null,
-      financingInstallments: parseInt(formData.financingInstallments) || 0,
-      email: formData.email || null
-    };
+    setIsSubmitting(true);
+    try {
+      // Calculate total value
+      const totalVal = (
+        parseFloat(formData.equipmentCost || '0') + 
+        parseFloat(formData.installationCost || '0') + 
+        parseFloat(formData.projectCost || '0') + 
+        parseFloat(formData.licensingCost || '0') + 
+        parseFloat(formData.logisticCost || '0')
+      ) - parseFloat(formData.discount || '0');
+      
+      // If user requested to register as a new client
+      if (registerAsNewClient) {
+        const clientData = {
+          name: formData.titular || formData.client,
+          email: formData.email,
+          phone: formData.telefone,
+          address: formData.endereco,
+          cpfCnpj: formData.cpfCnpj,
+          status: 'active' as const,
+          createdAt: new Date().toISOString(),
+          projects: []
+        };
+        await createDocument('clients', clientData);
+        showToast(`Cliente ${formData.client} cadastrado com sucesso!`);
+      }
 
-    onAdd(proposalData);
-    onClose();
+      const proposalData: Proposal = {
+        ...formData,
+        id: initialData?.id || '',
+        client: formData.titular || formData.client,
+        value: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        date: initialData?.date || new Date().toLocaleDateString('pt-BR'),
+        status: initialData?.status || 'pending',
+        systemSize: `${formData.systemSize} kWp`,
+        representative: formData.representative || user?.name || 'Vendedor',
+        roi: formData.roi || null,
+        payback: formData.payback ? `${formData.payback} Anos` : null,
+        commission: parseFloat(formData.commission) || 0,
+        commissionStatus: initialData?.commissionStatus || 'pending',
+        expiryDate: formData.expiryDate || null,
+        ucNumber: formData.ucNumber || null,
+        energyConsumption: formData.energyConsumption || null,
+        kitId: formData.kitId || null,
+        discount: parseFloat(formData.discount) || 0,
+        financingBank: formData.financingBank || null,
+        financingInstallments: parseInt(formData.financingInstallments) || 0,
+        email: formData.email || null,
+
+        // Number conversions for custom fields
+        panelQuantity: parseInt(formData.panelQuantity) || 0,
+        invertersQuantity: parseInt(formData.invertersQuantity) || 0,
+        structureQuantity: parseInt(formData.structureQuantity) || 0,
+        equipmentCost: parseFloat(formData.equipmentCost) || 0,
+        installationCost: parseFloat(formData.installationCost) || 0,
+        projectCost: parseFloat(formData.projectCost) || 0,
+        licensingCost: parseFloat(formData.licensingCost) || 0,
+        logisticCost: parseFloat(formData.logisticCost) || 0,
+        financingRate: parseFloat(formData.financingRate) || 0,
+        financingCET: parseFloat(formData.financingCET) || 0,
+        downPayment: parseFloat(formData.downPayment) || 0,
+      };
+      
+      await onAdd(proposalData);
+      onClose();
+    } catch (error) {
+      console.error('Error submitting proposal:', error);
+      showToast('Ocorreu um erro ao salvar a proposta.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -388,9 +541,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     className={cn(
                       "size-10 rounded-full flex items-center justify-center font-bold text-sm transition-all border-2",
                       isActive 
-                        ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f] shadow-lg shadow-[#fdb612]/20" 
+                        ? "bg-[#00A86B] border-[#00A86B] text-white shadow-lg shadow-[#00A86B]/20" 
                         : isCompleted 
-                          ? "bg-emerald-500 border-emerald-500 text-white" 
+                          ? "bg-[#00A86B] border-[#00A86B] text-white" 
                           : "bg-white dark:bg-[#231d0f] border-slate-200 dark:border-slate-800 text-slate-400"
                     )}
                   >
@@ -398,7 +551,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </button>
                   <span className={cn(
                     "text-[10px] font-black uppercase tracking-widest",
-                    isActive ? "text-[#fdb612]" : "text-slate-400"
+                    isActive ? "text-[#00A86B]" : "text-slate-400"
                   )}>
                     {step.label}
                   </span>
@@ -412,222 +565,202 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
             {currentStep === 'ucs' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Cliente</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input 
-                        type="text" 
-                        required
-                        value={formData.client || ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({ ...formData, client: value });
-                          setClientSearchTerm(value);
-                          setShowClientSuggestions(true);
-                          if (validationErrors.client) {
-                            setValidationErrors(prev => {
-                              const next = { ...prev };
-                              delete next.client;
-                              return next;
-                            });
-                          }
-                        }}
-                        onBlur={() => setTimeout(() => setShowClientSuggestions(false), 200)}
-                        placeholder="Nome do cliente ou empresa"
-                        className={cn(
-                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
-                          validationErrors.client ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
-                        )}
-                      />
-                      
-                      {showClientSuggestions && filteredClients.length > 0 && (
-                        <div className="absolute z-[100] top-full left-0 w-full mt-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                          {filteredClients.map((suggestion, idx) => (
-                            <button
-                              key={`${suggestion.id}-${idx}`}
-                              type="button"
-                              onClick={() => selectSuggestedClient(suggestion)}
-                              className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-b last:border-none border-slate-100 dark:border-slate-800"
-                            >
-                              <div className="text-left">
-                                <p className="text-sm font-bold">{suggestion.name}</p>
-                                <p className="text-[10px] text-slate-400">{suggestion.email}</p>
-                              </div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-[#00A86B]">
+                    <Building2 className="w-5 h-5" />
+                    <h4 className="text-sm font-black uppercase tracking-widest">Unidade Consumidora</h4>
+                  </div>
+                  
+                  {/* Client/Lead Search */}
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Buscar Cliente ou Lead..."
+                      value={clientSearchTerm}
+                      onChange={(e) => {
+                        setClientSearchTerm(e.target.value);
+                        setShowClientSuggestions(true);
+                      }}
+                      onFocus={() => setShowClientSuggestions(true)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
+                    />
+                    {showClientSuggestions && filteredClients.length > 0 && (
+                      <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredClients.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => selectSuggestedClient(suggestion)}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-white/5 flex flex-col gap-0.5 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.name}</span>
                               <span className={cn(
-                                "text-[10px] font-black px-2 py-0.5 rounded-full uppercase",
-                                suggestion.source === 'Cliente' 
-                                  ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                  : "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                "text-[8px] px-1.5 py-0.5 rounded font-black uppercase",
+                                suggestion.source === 'Cliente' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
                               )}>
                                 {suggestion.source}
                               </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {validationErrors.client && (
-                        <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.client}</p>
-                      )}
-                    </div>
+                            </div>
+                            <span className="text-xs text-slate-500">{suggestion.email}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail do Cliente</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                      <input 
-                        type="email" 
-                        value={formData.email || ''}
-                        onChange={(e) => {
-                          setFormData({ ...formData, email: e.target.value });
-                          if (validationErrors.email) {
-                            setValidationErrors(prev => {
-                              const next = { ...prev };
-                              delete next.email;
-                              return next;
-                            });
-                          }
-                        }}
-                        placeholder="exemplo@email.com"
-                        className={cn(
-                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
-                          validationErrors.email ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
-                        )}
-                      />
-                      {validationErrors.email && (
-                        <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.email}</p>
-                      )}
-                    </div>
-                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 rounded-2xl mb-6">
+                  <input 
+                    type="checkbox"
+                    id="registerClient"
+                    checked={registerAsNewClient}
+                    onChange={(e) => setRegisterAsNewClient(e.target.checked)}
+                    className="size-5 rounded border-slate-300 text-[#00A86B] focus:ring-[#00A86B]"
+                  />
+                  <label htmlFor="registerClient" className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                    Registrar estes dados como um novo cliente após salvar a proposta
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número da UC</label>
                     <input 
                       type="text" 
                       value={formData.ucNumber || ''}
-                      onChange={(e) => {
-                        setFormData({ ...formData, ucNumber: e.target.value });
-                        if (validationErrors.ucNumber) {
-                          setValidationErrors(prev => {
-                            const next = { ...prev };
-                            delete next.ucNumber;
-                            return next;
-                          });
-                        }
-                      }}
-                      placeholder="0000000000"
-                      className={cn(
-                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
-                        validationErrors.ucNumber ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
-                      )}
+                      onChange={(e) => setFormData({ ...formData, ucNumber: e.target.value })}
+                      placeholder="UC 0000000"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
-                    {validationErrors.ucNumber && (
-                      <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.ucNumber}</p>
-                    )}
                   </div>
+
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Consumo Mensal (kWh)</label>
-                      <button 
-                        type="button"
-                        onClick={handleAutoCalculateSystemSize}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] hover:underline flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Automático
-                      </button>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Titular</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="text" 
+                        value={formData.titular || ''}
+                        onChange={(e) => setFormData({ ...formData, titular: e.target.value })}
+                        placeholder="Nome completo do titular"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      />
                     </div>
-                    <input 
-                      type="number" 
-                      value={formData.energyConsumption || ''}
-                      onChange={(e) => {
-                        setFormData({ ...formData, energyConsumption: e.target.value });
-                        if (validationErrors.energyConsumption) {
-                          setValidationErrors(prev => {
-                            const next = { ...prev };
-                            delete next.energyConsumption;
-                            return next;
-                          });
-                        }
-                      }}
-                      placeholder="Ex: 1300"
-                      className={cn(
-                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
-                        validationErrors.energyConsumption ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
-                      )}
-                    />
-                    {validationErrors.energyConsumption && (
-                      <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.energyConsumption}</p>
-                    )}
                   </div>
+
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor da Conta (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">CPF/CNPJ</label>
                     <input 
-                      type="number" 
-                      value={formData.value || ''}
-                      onChange={(e) => {
-                        setFormData({ ...formData, value: e.target.value });
-                        if (validationErrors.value) {
-                          setValidationErrors(prev => {
-                            const next = { ...prev };
-                            delete next.value;
-                            return next;
-                          });
-                        }
-                      }}
-                      placeholder="Ex: 350"
-                      className={cn(
-                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all",
-                        validationErrors.value ? "border-rose-500 ring-rose-500/20" : "border-slate-200 dark:border-slate-800"
-                      )}
+                      type="text" 
+                      value={formData.cpfCnpj || ''}
+                      onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
+                      placeholder="000.000.000-00"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
-                    {validationErrors.value && (
-                      <p className="text-[10px] font-bold text-rose-500 mt-1 ml-4">{validationErrors.value}</p>
-                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone</label>
+                    <div className="relative">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="text" 
+                        value={formData.telefone || ''}
+                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                        placeholder="(00) 00000-0000"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Endereço</label>
+                    <input 
+                      type="text" 
+                      value={formData.endereco || ''}
+                      onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                      placeholder="Rua, número, bairro, cidade - UF"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">CEP</label>
+                    <input 
+                      type="text" 
+                      value={formData.cep || ''}
+                      onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                      placeholder="00000-000"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="email" 
+                        value={formData.email || ''}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="cliente@email.com"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Distribuidora</label>
+                    <select 
+                      value={formData.distribuidora}
+                      onChange={(e) => setFormData({ ...formData, distribuidora: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    >
+                      <option value="CEMIG">CEMIG</option>
+                      <option value="ENEL">ENEL</option>
+                      <option value="CPFL">CPFL</option>
+                      <option value="Outra">Outra</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tensão de Fornecimento</label>
+                    <select 
+                      value={formData.tensaoFornecimento}
+                      onChange={(e) => setFormData({ ...formData, tensaoFornecimento: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    >
+                      <option value="Monofásico">Monofásico</option>
+                      <option value="Bifásico">Bifásico</option>
+                      <option value="Trifásico">Trifásico</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="p-6 bg-[#0a3d54] rounded-3xl text-white border border-white/10">
-                  <div className="flex items-center gap-2 text-[#fdb612] mb-4">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Prévia de Geração</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Potência Calculada</label>
-                      <p className="text-2xl font-black">{formData.systemSize || '0.00'} <span className="text-sm font-normal text-slate-400">kWp</span></p>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Perdas Estimadas</label>
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="number" 
-                          value={losses || 0}
-                          onChange={(e) => setLosses(Number(e.target.value))}
-                          className="w-16 bg-white/10 border-none rounded p-1 text-sm focus:ring-1 focus:ring-[#fdb612]"
-                        />
-                        <span className="text-sm font-bold">%</span>
-                      </div>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-xl border border-white/10">
-                      <label className="text-[10px] font-black uppercase text-[#fdb612] block mb-1">Geração Mensal</label>
-                      <p className="text-2xl font-black text-emerald-400">
-                        {(!isNaN(estimatedGeneration) ? estimatedGeneration : 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-sm font-normal text-slate-400 ml-1">kWh/mês</span>
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-1">({efficiency} kWh/kWp.mês)</p>
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3" />
+                    Buscar UC automaticamente
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <Search className="w-3 h-3" />
+                    Validar endereço
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Salvar dados da UCS
+                  </button>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-end pt-6">
                   <button 
                     type="button"
                     onClick={nextStep}
-                    className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+                    className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo Passo
+                    Próximo: KIT FV
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -636,119 +769,192 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
             {currentStep === 'kit' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tamanho do Sistema (kWp)</label>
-                      <input 
-                        type="number" 
-                        step="0.1"
-                        value={formData.systemSize || ''}
-                        onChange={(e) => setFormData({ ...formData, systemSize: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button 
-                        type="button"
-                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl hover:border-[#fdb612] hover:bg-[#fdb612]/5 transition-all group"
-                      >
-                        <Plus className="w-6 h-6 text-slate-400 group-hover:text-[#fdb612] mb-2" />
-                        <span className="text-[10px] font-black uppercase text-slate-400 group-hover:text-[#fdb612]">Editar Kit</span>
-                      </button>
-                      <button 
-                        type="button"
-                        className="flex flex-col items-center justify-center p-6 bg-[#0a3d54] text-white rounded-2xl hover:opacity-90 transition-all cursor-default"
-                      >
-                        <LayoutGrid className="w-6 h-6 mb-2" />
-                        <span className="text-[10px] font-black uppercase">Kits Registrados</span>
-                      </button>
-                    </div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-[#00A86B]">
+                    <Zap className="w-5 h-5" />
+                    <h4 className="text-sm font-black uppercase tracking-widest">Configuração do Kit Fotovoltaico</h4>
                   </div>
-
-                  <div className="bg-slate-900 rounded-3xl p-6 text-white leading-relaxed">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-[#fdb612] mb-4 flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      Kits Disponíveis
-                    </h4>
-                    
-                    <div className="relative mb-4">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                      <input 
-                        type="text"
-                        placeholder="Buscar por nome ou potência..."
-                        value={searchTerm || ''}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm focus:ring-1 focus:ring-[#fdb612] outline-none"
-                      />
-                    </div>
-
-                    {filteredKits.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        {filteredKits.map(kit => (
-                          <div 
-                            key={kit.id}
-                            onClick={() => {
-                              setSelectedKitId(kit.id);
-                              handleKitSelect(kit);
-                            }}
-                            className={cn(
-                              "p-4 rounded-2xl border transition-all cursor-pointer group",
-                              selectedKitId === kit.id 
-                                ? "bg-[#fdb612]/10 border-[#fdb612]" 
-                                : "border-white/10 hover:border-white/20 bg-white/5"
-                            )}
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h5 className="font-bold text-slate-100">{kit.name}</h5>
-                                <p className="text-xs text-slate-500">{kit.power} kWp</p>
-                              </div>
-                              <span className="text-sm font-black text-[#fdb612]">
-                                R$ {kit.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 line-clamp-2 mb-4">{kit.description}</p>
-                            <div className="flex justify-end">
-                              <div className={cn(
-                                "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
-                                selectedKitId === kit.id 
-                                  ? "bg-[#fdb612] text-slate-900" 
-                                  : "bg-white/10 text-white group-hover:bg-white/20"
-                              )}>
-                                {selectedKitId === kit.id ? (
-                                  <>Selecionado <Check className="w-3 h-3" /></>
-                                ) : (
-                                  <>Selecionar <ChevronRight className="w-3 h-3" /></>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-20 text-center text-slate-500">
-                        <Zap className="w-10 h-10 mb-4 opacity-20" />
-                        <p className="text-sm font-medium">Nenhum kit encontrado.</p>
-                      </div>
-                    )}
+                  
+                  {/* Kit Search */}
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Pesquisar Kit (Nome, Potência...)"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
+                    />
                   </div>
                 </div>
-                <div className="flex justify-between">
+
+                {/* Kit Grid / Selection */}
+                {searchTerm && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 max-h-60 overflow-y-auto p-1">
+                    {filteredKits.map((kit) => (
+                      <button
+                        key={kit.id}
+                        type="button"
+                        onClick={() => handleKitSelect(kit)}
+                        className={cn(
+                          "p-4 rounded-[2rem] border text-left transition-all group",
+                          formData.kitId === kit.id 
+                            ? "bg-[#00A86B]/5 border-[#00A86B] shadow-lg shadow-[#00A86B]/10" 
+                            : "bg-white dark:bg-[#1a160d] border-slate-200 dark:border-slate-800 hover:border-[#0055A4]/30"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{kit.name}</span>
+                          <div className="size-8 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-[#00A86B]">
+                            <Sun className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="flex items-end justify-between">
+                          <div className="space-y-1">
+                            <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Potência</span>
+                            <span className="text-sm font-black text-[#0055A4]">{kit.power} kWp</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Valor Sugerido</span>
+                            <span className="text-sm font-black text-[#00A86B]">R$ {parseFloat(kit.price).toLocaleString('pt-BR')}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência do Sistema (kWp)</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={formData.systemSize || ''}
+                      onChange={(e) => setFormData({ ...formData, systemSize: e.target.value })}
+                      placeholder="8,2"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Quantidade de Módulos</label>
+                    <input 
+                      type="number" 
+                      value={formData.panelQuantity || ''}
+                      onChange={(e) => setFormData({ ...formData, panelQuantity: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Marca/Modelo do Módulo</label>
+                    <input 
+                      type="text" 
+                      value={formData.panelBrandModel || ''}
+                      onChange={(e) => setFormData({ ...formData, panelBrandModel: e.target.value })}
+                      placeholder="EX: 550W - Marca X"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Quantidade de Inversores</label>
+                    <input 
+                      type="number" 
+                      value={formData.invertersQuantity || ''}
+                      onChange={(e) => setFormData({ ...formData, invertersQuantity: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Marca/Modelo do Inversor</label>
+                    <input 
+                      type="text" 
+                      value={formData.inverterBrandModel || ''}
+                      onChange={(e) => setFormData({ ...formData, inverterBrandModel: e.target.value })}
+                      placeholder="Inversor Deye"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Quantidade de Estruturas (Conjuntos)</label>
+                    <input 
+                      type="number" 
+                      value={formData.structureQuantity || ''}
+                      onChange={(e) => setFormData({ ...formData, structureQuantity: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tipo de Estrutura</label>
+                    <select 
+                      value={formData.structureType}
+                      onChange={(e) => setFormData({ ...formData, structureType: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    >
+                      <option value="Sobre telhado">Sobre telhado</option>
+                      <option value="Solo">Solo</option>
+                      <option value="Fachada">Fachada</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Sistema de Proteção</label>
+                    <input 
+                      type="text" 
+                      value={formData.protectionSystem || ''}
+                      onChange={(e) => setFormData({ ...formData, protectionSystem: e.target.value })}
+                      placeholder="DPS / Disjuntores / String box"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="checkbox"
+                      id="cablesIncluded"
+                      checked={formData.cablesIncluded}
+                      onChange={(e) => setFormData({ ...formData, cablesIncluded: e.target.checked })}
+                      className="size-5 rounded border-slate-300 text-[#00A86B] focus:ring-[#00A86B]"
+                    />
+                    <label htmlFor="cablesIncluded" className="text-sm font-bold text-slate-600 dark:text-slate-400">Cabos e conectores inclusos</label>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <Sun className="w-3 h-3" />
+                    Simular produção mensal
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Validar compatibilidade
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <Plus className="w-3 h-3" />
+                    Adicionar equipamentos extras
+                  </button>
+                </div>
+
+                <div className="flex justify-between pt-6">
                   <button 
                     type="button"
                     onClick={prevStep}
                     className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                   >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
+                    <ArrowLeft className="w-4 h-4" />
                     Voltar
                   </button>
                   <button 
                     type="button"
                     onClick={nextStep}
-                    className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+                    className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo Passo
+                    Próximo: PRECIFICAÇÃO
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -757,25 +963,72 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
             {currentStep === 'pricing' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-2 text-[#00A86B] mb-4">
+                  <DollarSign className="w-5 h-5" />
+                  <h4 className="text-sm font-black uppercase tracking-widest">Valor do Sistema</h4>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor do Kit (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo dos equipamentos (R$)</label>
                     <input 
                       type="number" 
-                      value={formData.value || ''}
-                      onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                      value={formData.equipmentCost || ''}
+                      onChange={(e) => setFormData({ ...formData, equipmentCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo da instalação (R$)</label>
+                    <input 
+                      type="number" 
+                      value={formData.installationCost || ''}
+                      onChange={(e) => setFormData({ ...formData, installationCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de projetos e ART (R$)</label>
+                    <input 
+                      type="number" 
+                      value={formData.projectCost || ''}
+                      onChange={(e) => setFormData({ ...formData, projectCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de licenciamento (R$)</label>
+                    <input 
+                      type="number" 
+                      value={formData.licensingCost || ''}
+                      onChange={(e) => setFormData({ ...formData, licensingCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Frete e logística (R$)</label>
+                    <input 
+                      type="number" 
+                      value={formData.logisticCost || ''}
+                      onChange={(e) => setFormData({ ...formData, logisticCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Desconto (R$)</label>
                     <input 
                       type="number" 
                       value={formData.discount || ''}
                       onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
+
                   {(user?.role === 'admin' || user?.role === 'finance') && (
                     <div className="space-y-2">
                       <label className="text-xs font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
@@ -783,63 +1036,109 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         type="number" 
                         value={formData.commission || ''}
                         onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                       />
                     </div>
                   )}
-                  
-                  {/* Calculated Values */}
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Total da Proposta</label>
-                      <p className="text-2xl font-black text-[#fdb612]">
-                        R$ {(parseFloat(formData.value || '0') - parseFloat(formData.discount || '0')).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
+                    <div className="space-y-1 text-center md:text-left">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subtotal (R$)</label>
+                      <p className="text-xl font-black text-slate-600 dark:text-slate-300">
+                        {(() => {
+                          const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                       parseFloat(formData.installationCost || '0') + 
+                                       parseFloat(formData.projectCost || '0') + 
+                                       parseFloat(formData.licensingCost || '0') + 
+                                       parseFloat(formData.logisticCost || '0'));
+                          return sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        })()}
                       </p>
-                      <p className="text-[10px] text-slate-500 italic">Valor final para o cliente (Kit - Desconto)</p>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comissão do Consultor</label>
-                      <p className="text-2xl font-black text-emerald-500">
-                        R$ {((parseFloat(formData.value || '0') - parseFloat(formData.discount || '0')) * (parseFloat(formData.commission || '0') / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <div className="space-y-1 text-center">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor Total</label>
+                      <p className="text-2xl font-black text-[#00A86B]">
+                        {(() => {
+                          const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                       parseFloat(formData.installationCost || '0') + 
+                                       parseFloat(formData.projectCost || '0') + 
+                                       parseFloat(formData.licensingCost || '0') + 
+                                       parseFloat(formData.logisticCost || '0'));
+                          const total = sub - parseFloat(formData.discount || '0');
+                          return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        })()}
                       </p>
-                      <p className="text-[10px] text-slate-500 italic">Baseado em {formData.commission}% do valor total</p>
+                    </div>
+                    <div className="space-y-1 text-center md:text-right">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Comissão</label>
+                      <p className="text-xl font-black text-emerald-600">
+                        {(() => {
+                          const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                       parseFloat(formData.installationCost || '0') + 
+                                       parseFloat(formData.projectCost || '0') + 
+                                       parseFloat(formData.licensingCost || '0') + 
+                                       parseFloat(formData.logisticCost || '0'));
+                          const total = sub - parseFloat(formData.discount || '0');
+                          const comm = total * (parseFloat(formData.commission || '0') / 100);
+                          return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        })()}
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">ROI Estimado</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">ROI Estimado (%)</label>
                     <input 
                       type="text" 
                       value={formData.roi || ''}
                       onChange={(e) => setFormData({ ...formData, roi: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                      placeholder="962%"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
+
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Payback (Anos)</label>
                     <input 
                       type="text" 
                       value={formData.payback || ''}
                       onChange={(e) => setFormData({ ...formData, payback: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                      placeholder="2,4"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
                 </div>
-                <div className="flex justify-between">
+
+                <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <DollarSign className="w-3 h-3" />
+                    Aplicar desconto
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3" />
+                    Calcular ROI e Payback
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <FileText className="w-3 h-3" />
+                    Gerar relatório de viabilidade
+                  </button>
+                </div>
+
+                <div className="flex justify-between pt-6">
                   <button 
                     type="button"
                     onClick={prevStep}
                     className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                   >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
+                    <ArrowLeft className="w-4 h-4" />
                     Voltar
                   </button>
                   <button 
                     type="button"
                     onClick={nextStep}
-                    className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+                    className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo Passo
+                    Próximo: FINANCIAMENTO
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -848,109 +1147,124 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
             {currentStep === 'financing' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-2 text-[#00A86B] mb-4">
+                  <CreditCard className="w-5 h-5" />
+                  <h4 className="text-sm font-black uppercase tracking-widest">Modalidade de Pagamento</h4>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   {[
-                    { bank: 'Banco Marusan', rate: 0.99, term: 96, highlight: true },
-                    { bank: 'Santander', rate: 1.29, term: 72 },
-                    { bank: 'BV Financeira', rate: 1.35, term: 84 },
-                  ].map((option) => (
-                    <div 
-                      key={option.bank}
-                      onClick={() => {
-                        setFormData({ 
-                          ...formData, 
-                          financingBank: option.bank,
-                          financingInstallments: option.term.toString()
-                        });
-                      }}
+                    { id: 'cash', label: 'À vista', icon: DollarSign },
+                    { id: 'financing', label: 'Financiamento', icon: Landmark },
+                    { id: 'credit_card', label: 'Cartão', icon: CreditCard },
+                    { id: 'pix', label: 'PIX', icon: Zap },
+                    { id: 'boleto', label: 'Boleto', icon: FileText },
+                  ].map((method) => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, paymentMethod: method.id as any })}
                       className={cn(
-                        "p-6 rounded-3xl border transition-all cursor-pointer text-center relative overflow-hidden",
-                        formData.financingBank === option.bank 
-                          ? "border-[#fdb612] bg-[#fdb612]/5 shadow-lg shadow-[#fdb612]/10" 
-                          : "border-slate-100 dark:border-slate-800 hover:border-slate-200 bg-white dark:bg-[#231d0f]/20"
+                        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                        formData.paymentMethod === method.id
+                          ? "border-[#00A86B] bg-[#00A86B]/5 text-[#00A86B]"
+                          : "border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200"
                       )}
                     >
-                      {option.highlight && (
-                        <div className="absolute top-0 right-0 bg-[#fdb612] text-[#231d0f] text-[8px] font-black px-2 py-1 rounded-bl-lg uppercase">Exclusivo</div>
-                      )}
-                      <p className={cn("text-xs font-bold mb-4", option.highlight ? "text-[#fdb612]" : "text-slate-400")}>{option.bank}</p>
-                      <p className="text-2xl font-black">{option.rate}%</p>
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Taxa a.m.</p>
-                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <p className="font-bold text-blue-500">{option.term}x</p>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Prazo Máximo</p>
-                      </div>
-                    </div>
+                      <method.icon className="w-6 h-6" />
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{method.label}</span>
+                    </button>
                   ))}
                 </div>
 
-                {formData.financingBank !== 'Nenhum' && (
-                  <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-[32px] border border-slate-100 dark:border-slate-800 space-y-6">
-                    <div className="flex items-center gap-2 text-[#fdb612]">
-                      <CreditCard className="w-5 h-5" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Simulador de Parcelas</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-black uppercase tracking-widest text-slate-400">Número de Parcelas</label>
-                          <select 
-                            value={formData.financingInstallments || ''}
-                            onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
-                            className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
-                          >
-                            {[12, 24, 36, 48, 60, 72, 84, 96].map(n => (
-                              <option key={n} value={n}>{n}x</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-                          <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Valor Financiado</p>
-                          <p className="text-xl font-black">R$ {(parseFloat(formData.value || '0') - parseFloat(formData.discount || '0')).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                        </div>
+                {formData.paymentMethod === 'financing' && (
+                  <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Banco / Financeira</label>
+                        <select 
+                          value={formData.financingBank}
+                          onChange={(e) => setFormData({ ...formData, financingBank: e.target.value })}
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                        >
+                          <option value="Credsol">Credsol</option>
+                          <option value="Sicoob">Sicoob</option>
+                          <option value="Sicredi">Sicredi</option>
+                          <option value="BV Financeira">BV Financeira</option>
+                          <option value="Santander">Santander</option>
+                        </select>
                       </div>
 
-                      <div className="bg-[#fdb612] p-6 rounded-2xl text-[#231d0f] flex flex-col justify-center">
-                        <p className="text-[10px] font-black uppercase opacity-60 mb-1">Parcela Estimada</p>
-                        <p className="text-4xl font-black">
-                          {(() => {
-                            const principal = parseFloat(formData.value || '0') - parseFloat(formData.discount || '0');
-                            const installments = parseInt(formData.financingInstallments || '1');
-                            const bank = [
-                              { bank: 'Banco Marusan', rate: 0.99 },
-                              { bank: 'Santander', rate: 1.29 },
-                              { bank: 'BV Financeira', rate: 1.35 },
-                            ].find(b => b.bank === formData.financingBank);
-                            
-                            const rate = (bank?.rate || 1.29) / 100;
-                            // PMT = P * [r(1+r)^n] / [(1+r)^n - 1]
-                            const pmt = principal * (rate * Math.pow(1 + rate, installments)) / (Math.pow(1 + rate, installments) - 1);
-                            
-                            return `R$ ${pmt.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                          })()}
-                        </p>
-                        <p className="text-[10px] font-bold mt-2 opacity-60">* Sujeito a análise de crédito e variação de taxas.</p>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Parcelas</label>
+                        <select 
+                          value={formData.financingInstallments}
+                          onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                        >
+                          {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => (
+                            <option key={n} value={n}>{n}x</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Taxa de Juros (% a.m.)</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={formData.financingRate || ''}
+                          onChange={(e) => setFormData({ ...formData, financingRate: e.target.value })}
+                          placeholder="1,29"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">CET Anual (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          value={formData.financingCET || ''}
+                          onChange={(e) => setFormData({ ...formData, financingCET: e.target.value })}
+                          placeholder="18,5"
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                        />
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex justify-between">
+                <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3" />
+                    Simular parcelas
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Enviar para pré-análise
+                  </button>
+                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <Calculator className="w-3 h-3" />
+                    Comparar bancos
+                  </button>
+                </div>
+
+                <div className="flex justify-between pt-6">
                   <button 
                     type="button"
                     onClick={prevStep}
                     className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                   >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
+                    <ArrowLeft className="w-4 h-4" />
                     Voltar
                   </button>
                   <button 
                     type="button"
                     onClick={nextStep}
-                    className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all"
+                    className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo Passo
+                    Próximo: FINALIZAÇÃO
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -959,29 +1273,101 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
             {currentStep === 'finalization' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-emerald-50 dark:bg-emerald-900/10 p-12 rounded-[40px] border border-emerald-100 dark:border-emerald-800 text-center">
-                  <div className="size-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-500/20">
-                    <CheckCircle2 className="w-10 h-10" />
+                <div className="bg-[#00A86B]/5 p-8 rounded-[40px] border border-[#00A86B]/10">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="size-16 bg-[#00A86B] text-white rounded-2xl flex items-center justify-center shadow-xl shadow-[#00A86B]/20">
+                      <FileCheck className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h4 className="text-2xl font-black">Resumo da Proposta</h4>
+                      <p className="text-slate-500 text-sm">Confira os detalhes finais antes de gerar o documento</p>
+                    </div>
                   </div>
-                  <h4 className="text-3xl font-black mb-4">Proposta Pronta!</h4>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-12">
-                    Todos os dados foram configurados e validados. Clique abaixo para salvar a proposta e gerar o documento final.
-                  </p>
-                  <button 
-                    type="submit"
-                    className="w-full py-5 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-lg hover:shadow-2xl hover:shadow-[#fdb612]/30 transition-all active:scale-95"
-                  >
-                    CRIAR PROPOSTA FINAL
-                  </button>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div className="space-y-4">
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Titular</label>
+                        <p className="font-bold">{formData.titular || formData.client || 'Não informado'}</p>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Sistema</label>
+                        <p className="font-bold">{formData.systemSize} kWp / {formData.panelQuantity} Módulos</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="p-4 bg-[#00A86B] text-white rounded-2xl shadow-lg shadow-[#00A86B]/10">
+                        <label className="text-[10px] font-black uppercase opacity-60 block mb-1 tracking-widest">Investimento Total</label>
+                        <p className="text-2xl font-black">
+                          {(() => {
+                            const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                         parseFloat(formData.installationCost || '0') + 
+                                         parseFloat(formData.projectCost || '0') + 
+                                         parseFloat(formData.licensingCost || '0') + 
+                                         parseFloat(formData.logisticCost || '0'));
+                            const total = sub - parseFloat(formData.discount || '0');
+                            return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          })()}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Pagamento</label>
+                        <p className="font-bold capitalize">{formData.paymentMethod === 'cash' ? 'À vista' : 
+                                                            formData.paymentMethod === 'financing' ? `Financiamento (${formData.financingBank})` : 
+                                                            formData.paymentMethod === 'credit_card' ? 'Cartão de Crédito' : 
+                                                            formData.paymentMethod === 'pix' ? 'PIX' : 'Boleto'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 dark:border-slate-800 pt-8 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assinatura Digital (Opcional)</h5>
+                      <button type="button" className="text-xs font-bold text-[#0055A4] flex items-center gap-1">
+                        <QrCode className="w-3 h-3" />
+                        Assinar via QR Code
+                      </button>
+                    </div>
+                    <div className="h-32 bg-white dark:bg-black/20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center group cursor-pointer hover:border-[#00A86B] transition-all">
+                      <div className="text-center group-hover:scale-110 transition-transform">
+                        <PenTool className="w-8 h-8 text-slate-300 mx-auto mb-2 group-hover:text-[#00A86B]" />
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Toque para assinar</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                      <Eye className="w-3 h-3" />
+                      Pré-visualizar PDF
+                    </button>
+                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                      <Share2 className="w-3 h-3" />
+                      Compartilhar Link
+                    </button>
+                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                      <Printer className="w-3 h-3" />
+                      Imprimir
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-start">
+
+                <div className="flex justify-between pt-6">
                   <button 
                     type="button"
                     onClick={prevStep}
                     className="px-8 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                   >
-                    <ArrowRight className="w-4 h-4 rotate-180" />
+                    <ArrowLeft className="w-4 h-4" />
                     Voltar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-12 py-3 bg-[#00A86B] text-white rounded-xl font-black text-lg flex items-center gap-3 hover:shadow-2xl hover:shadow-[#00A86B]/30 transition-all active:scale-95"
+                  >
+                    GERAR PROPOSTA FINAL
+                    <CheckCircle2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>

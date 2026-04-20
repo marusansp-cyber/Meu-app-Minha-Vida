@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Search, 
   Bell, 
@@ -7,6 +7,7 @@ import {
   LayoutGrid, 
   List, 
   MoreHorizontal, 
+  Users,
   Zap, 
   DollarSign, 
   Calendar, 
@@ -202,8 +203,31 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
   const chartData = columns.map(col => ({
     name: col.label,
     count: leads.filter(l => l.status === col.id).length,
-    color: col.id === 'closed' ? '#10b981' : '#fdb612'
+    color: col.id === 'closed' ? '#10b981' : '#fdb612',
+    fullLabel: `${col.label}: ${leads.filter(l => l.status === col.id).length}`
   }));
+
+  const funnelData = useMemo(() => {
+    let currentTotal = leads.length;
+    return columns.map(col => {
+      const count = leads.filter(l => l.status === col.id).length;
+      const data = {
+        name: col.label,
+        count: count,
+        percentage: currentTotal > 0 ? ((count / currentTotal) * 100).toFixed(1) : '0'
+      };
+      return data;
+    });
+  }, [leads, columns]);
+
+  const stats = useMemo(() => {
+    return [
+      { label: 'Total de Leads', value: leads.length, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
+      { label: 'Novos', value: leads.filter(l => l.status === 'new').length, icon: Zap, color: 'text-[#fdb612]', bg: 'bg-amber-50' },
+      { label: 'Em Negociação', value: leads.filter(l => l.status === 'negotiation').length, icon: MessageCircle, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+      { label: 'Ganhos', value: leads.filter(l => l.status === 'closed').length, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+    ];
+  }, [leads]);
 
   const toggleStatus = (status: Lead['status']) => {
     setSelectedStatuses(prev => 
@@ -602,41 +626,101 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
         </div>
       </header>
 
-      <div className="mb-8 bg-white dark:bg-[#231d0f]/40 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6">Distribuição de Leads por Status</h3>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
-              />
-              <Tooltip 
-                cursor={{ fill: 'transparent' }}
-                contentStyle={{ 
-                  backgroundColor: '#231d0f', 
-                  border: 'none', 
-                  borderRadius: '12px',
-                  color: '#fff',
-                  fontWeight: 'bold'
-                }}
-              />
-              <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        {stats.map((stat, i) => {
+          const Icon = stat.icon;
+          return (
+            <motion.div 
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-white dark:bg-[#231d0f]/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-[#fdb612] transition-colors"
+            >
+              <div className={cn("size-10 rounded-xl flex items-center justify-center shrink-0", stat.bg)}>
+                <Icon className={cn("w-5 h-5", stat.color)} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
+                <p className="text-xl font-black text-slate-900 dark:text-slate-100">{stat.value}</p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="lg:col-span-2 bg-white dark:bg-[#231d0f]/40 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm h-80">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Distribuição por Status</h3>
+            <div className="flex items-center gap-2">
+              <div className="size-2 bg-[#fdb612] rounded-full" />
+              <span className="text-[10px] font-bold text-slate-500 opacity-70">ATIVOS</span>
+            </div>
+          </div>
+          <div className="h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 800 }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'transparent' }}
+                  contentStyle={{ 
+                    backgroundColor: '#231d0f', 
+                    border: 'none', 
+                    borderRadius: '12px',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '12px'
+                  }}
+                  itemStyle={{ color: '#fdb612' }}
+                />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+          <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6">Funil de Vendas</h3>
+          <div className="flex-1 space-y-4">
+            {funnelData.map((item, i) => (
+              <div key={i} className="relative">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{item.name}</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-slate-100">{item.count}</span>
+                </div>
+                <div className="h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(item.count / Math.max(...funnelData.map(d => d.count), 1)) * 100}%` }}
+                    className="h-full bg-gradient-to-r from-[#fdb612]/40 to-[#fdb612] transition-all"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <span className="text-xs font-medium text-slate-500">Conversão Total</span>
+            <span className="text-xl font-black text-[#fdb612]">
+              {leads.length > 0 ? ((leads.filter(l => l.status === 'closed').length / leads.length) * 100).toFixed(1) : 0}%
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1071,6 +1155,20 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                         ))}
                       </select>
                     </div>
+                    {editForm.status === 'survey' && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
+                          <Calendar className="w-3 h-3" />
+                          Agendamento da Vistoria
+                        </label>
+                        <input 
+                          type="datetime-local"
+                          value={editForm.scheduledDate || ''}
+                          onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
+                          className="w-full px-4 py-2 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/50 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 pt-2">
                       <input 
                         type="checkbox"
@@ -1432,10 +1530,11 @@ const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void
           {[1, 2].map((i) => (
             <div key={i} className="size-6 rounded-full border-2 border-white dark:border-slate-800 bg-slate-300 overflow-hidden">
               <img 
-                src={`https://i.pravatar.cc/150?u=${lead.id}${i}`} 
+                src={`https://i.pravatar.cc/64?u=${lead.id}${i}`} 
                 alt="Team member" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
+                loading="lazy"
               />
             </div>
           ))}

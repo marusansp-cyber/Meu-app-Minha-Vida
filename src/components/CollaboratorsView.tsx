@@ -30,6 +30,7 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
     email: '',
     phone: ''
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -42,19 +43,46 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
     e.preventDefault();
     setIsLoading(true);
     try {
-      await createDocument('collaborators', {
-        ...formData,
-        status: 'active',
-        createdAt: new Date().toISOString()
-      });
+      if (editingId) {
+        await updateDocument('collaborators', editingId, {
+          ...formData,
+          updatedAt: new Date().toISOString()
+        });
+        showToast('Colaborador atualizado com sucesso!');
+      } else {
+        await createDocument('collaborators', {
+          ...formData,
+          status: 'active',
+          createdAt: new Date().toISOString()
+        });
+        showToast('Colaborador cadastrado com sucesso!');
+      }
       setFormData({ name: '', role: 'Vendedor', email: '', phone: '' });
-      showToast('Colaborador cadastrado com sucesso!');
+      setEditingId(null);
+      setActiveMode('search');
     } catch (error) {
       console.error(error);
-      showToast('Erro ao cadastrar colaborador.');
+      showToast(editingId ? 'Erro ao atualizar colaborador.' : 'Erro ao cadastrar colaborador.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEdit = (collab: Collaborator) => {
+    setFormData({
+      name: collab.name,
+      role: collab.role,
+      email: collab.email || '',
+      phone: collab.phone || ''
+    });
+    setEditingId(collab.id);
+    setActiveMode('register');
+  };
+
+  const cancelEdit = () => {
+    setFormData({ name: '', role: 'Vendedor', email: '', phone: '' });
+    setEditingId(null);
+    setActiveMode('search');
   };
 
   const filteredCollaborators = collaborators.filter(c => 
@@ -93,10 +121,14 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
       {/* Action Buttons - Styled like the image */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <button 
-          onClick={() => setActiveMode('register')}
+          onClick={() => {
+            setActiveMode('register');
+            setEditingId(null);
+            setFormData({ name: '', role: 'Vendedor', email: '', phone: '' });
+          }}
           className={cn(
             "flex flex-col items-center justify-center gap-4 p-8 rounded-lg transition-all shadow-md group",
-            activeMode === 'register' 
+            (activeMode === 'register' && !editingId)
               ? "bg-[#1a9fb4] text-white scale-[1.02] shadow-xl" 
               : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800"
           )}
@@ -108,11 +140,14 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
         </button>
 
         <button 
-          onClick={() => setActiveMode('search')}
+          onClick={() => {
+            setActiveMode('search');
+            setEditingId(null);
+          }}
           className={cn(
             "flex flex-col items-center justify-center gap-4 p-8 rounded-lg transition-all shadow-md group",
-            activeMode === 'search' 
-              ? "bg-[#1a9fb4] text-white scale-[1.02] shadow-xl" 
+            activeMode === 'search' || editingId
+              ? (activeMode === 'search' ? "bg-[#1a9fb4] text-white scale-[1.02] shadow-xl" : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800")
               : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800"
           )}
         >
@@ -120,6 +155,23 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
           <Search className="w-16 h-16" strokeWidth={1.5} />
         </button>
       </div>
+
+      {editingId && (
+        <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 p-4 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Edit2 className="w-5 h-5 text-amber-600" />
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+              Você está editando o colaborador: <span className="uppercase">{formData.name}</span>
+            </p>
+          </div>
+          <button 
+            onClick={cancelEdit}
+            className="text-xs font-black uppercase tracking-widest text-amber-600 hover:underline"
+          >
+            Cancelar Edição
+          </button>
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-sm">
@@ -179,8 +231,17 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
               disabled={isLoading}
               className="w-full bg-[#1a9fb4] text-white py-4 rounded-md font-bold text-lg hover:bg-[#158a9d] transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-[#1a9fb4]/20"
             >
-              {isLoading ? 'Registering...' : 'Save Collaborator'}
+              {isLoading ? (editingId ? 'Atualizando...' : 'Cadastrando...') : (editingId ? 'Alterar Colaborador' : 'Save Collaborator')}
             </button>
+            {editingId && (
+              <button 
+                type="button"
+                onClick={cancelEdit}
+                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-500 py-3 rounded-md font-bold text-sm hover:bg-slate-200 transition-all active:scale-[0.98]"
+              >
+                Cancelar Alteração
+              </button>
+            )}
           </form>
         ) : (
           <div className="space-y-6">
@@ -212,6 +273,13 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
                   </div>
                   
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => handleEdit(collab)}
+                      className="p-2 text-slate-400 hover:text-[#1a9fb4] hover:bg-[#1a9fb4]/10 rounded-lg transition-colors"
+                      title="Editar"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
                     <button 
                       onClick={() => toggleStatus(collab)}
                       className={cn(

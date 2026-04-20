@@ -45,7 +45,13 @@ export const TeamView: React.FC = () => {
             >
               <div className="size-16 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0 overflow-hidden">
                 {member.avatar ? (
-                  <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img 
+                    src={member.avatar} 
+                    alt={member.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer" 
+                    loading="lazy"
+                  />
                 ) : (
                   Icon && <Icon className="w-8 h-8" />
                 )}

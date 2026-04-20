@@ -26,7 +26,8 @@ import {
   Image as ImageIcon,
   Trash2,
   Download,
-  User as UserIcon
+  User as UserIcon,
+  ArrowUpDown
 } from 'lucide-react';
 import { INSTALLATIONS } from '../constants';
 import { cn } from '../lib/utils';
@@ -120,7 +121,13 @@ const StageReportModal: React.FC<StageReportModalProps> = ({ isOpen, onClose, st
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {photos.map((photo, idx) => (
                   <div key={idx} className="group relative aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
-                    <img src={photo} alt={`Evidência ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={photo} 
+                      alt={`Evidência ${idx + 1}`} 
+                      className="w-full h-full object-cover" 
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
                     <button
                       onClick={() => removePhoto(idx)}
                       className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
@@ -177,7 +184,10 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [projectDeadline, setProjectDeadline] = React.useState<string | null>(null);
+  const [projectDeadlineFilter, setProjectDeadlineFilter] = React.useState<string | null>(null);
+  const [technicianFilter, setTechnicianFilter] = React.useState<string>('all');
+  const [stageFilter, setStageFilter] = React.useState<string>('all');
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
   const [reportModal, setReportModal] = useState<{ isOpen: boolean; stageIndex: number | null; installationId: string | null }>({
     isOpen: false,
     stageIndex: null,
@@ -202,18 +212,26 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     const currentIdx = stages.findIndex(s => s.status === 'in-progress');
     
     if (direction === 'next') {
-      if (currentIdx === -1) {
-        const firstPending = stages.findIndex(s => s.status === 'pending');
-        if (firstPending !== -1) {
-          stages[firstPending].status = 'in-progress';
-          stages[firstPending].progress = 50;
+      if (currentIdx !== -1) {
+        // Validation: Ensure notes and photos are present before completing
+        const currentStage = stages[currentIdx];
+        if (!currentStage.notes || !currentStage.photos || currentStage.photos.length === 0) {
+          showToast(`⚠️ Por favor, adicione notas e fotos ao relatório da etapa "${currentStage.name}" antes de prosseguir.`);
+          setReportModal({ isOpen: true, stageIndex: currentIdx, installationId: id });
+          return;
         }
-      } else {
+
         stages[currentIdx].status = 'completed';
         stages[currentIdx].progress = 100;
         if (currentIdx < stages.length - 1) {
           stages[currentIdx + 1].status = 'in-progress';
-          stages[currentIdx + 1].progress = 50;
+          stages[currentIdx + 1].progress = 10; // Start with 10% when starting a new stage
+        }
+      } else {
+        const firstPending = stages.findIndex(s => s.status === 'pending');
+        if (firstPending !== -1) {
+          stages[firstPending].status = 'in-progress';
+          stages[firstPending].progress = 10;
         }
       }
     } else {
@@ -317,14 +335,55 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   ];
 
   const filteredInstallations = React.useMemo(() => {
-    return installations.filter(item => {
-      if (activeTab === 'all') return true;
-      if (activeTab === 'engineering') return item.stage.includes('Engineering') || item.stage.includes('Engenharia');
-      if (activeTab === 'construction') return item.stage.includes('Installation') || item.stage.includes('Instalação') || item.stage.includes('Materials') || item.stage.includes('Materiais');
-      if (activeTab === 'inspection') return item.stage.includes('Inspection') || item.stage.includes('Inspeção');
-      return true;
+    let result = installations.filter(item => {
+      // Stage Filter (Dropdown + Tab)
+      const matchesStage = stageFilter === 'all' || item.stage === stageFilter;
+      const matchesTab = activeTab === 'all' || 
+        (activeTab === 'engineering' && (item.stage.includes('Engineering') || item.stage.includes('Engenharia'))) ||
+        (activeTab === 'construction' && (item.stage.includes('Installation') || item.stage.includes('Instalação') || item.stage.includes('Materials') || item.stage.includes('Materiais'))) ||
+        (activeTab === 'inspection' && (item.stage.includes('Inspection') || item.stage.includes('Inspeção')));
+
+      // Deadline Filter
+      const matchesDeadline = !projectDeadlineFilter || item.projectDeadline === projectDeadlineFilter;
+
+      // Technician Filter
+      const matchesTechnician = technicianFilter === 'all' || item.technician.name === technicianFilter;
+
+      return matchesStage && matchesTab && matchesDeadline && matchesTechnician;
     });
-  }, [activeTab, installations]);
+
+    // Sorting by lastUpdated
+    result.sort((a, b) => {
+      const parseDate = (dateStr: string) => {
+        const months: Record<string, number> = {
+          'jan': 0, 'fev': 1, 'mar': 2, 'abr': 3, 'mai': 4, 'jun': 5,
+          'jul': 6, 'ago': 7, 'set': 8, 'out': 9, 'nov': 10, 'dez': 11
+        };
+        const parts = dateStr.replace('.', '').split(' de ');
+        if (parts.length === 3) {
+          return new Date(parseInt(parts[2]), months[parts[1].toLowerCase()] || 0, parseInt(parts[0]));
+        }
+        return new Date(0);
+      };
+
+      const dateA = parseDate(a.lastUpdated).getTime();
+      const dateB = parseDate(b.lastUpdated).getTime();
+
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+
+    return result;
+  }, [activeTab, installations, projectDeadlineFilter, technicianFilter, sortOrder]);
+
+  const technicians = React.useMemo(() => {
+    const names = new Set(installations.map(i => i.technician.name));
+    return Array.from(names);
+  }, [installations]);
+
+  const allStages = React.useMemo(() => {
+    const stages = new Set(installations.map(i => i.stage));
+    return Array.from(stages);
+  }, [installations]);
 
   const totalPages = Math.ceil(filteredInstallations.length / itemsPerPage);
   const paginatedInstallations = filteredInstallations.slice(
@@ -362,12 +421,12 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
             </div>
             <input 
               type="date" 
-              value={projectDeadline || ''}
-              onChange={(e) => setProjectDeadline(e.target.value || null)}
+              value={projectDeadlineFilter || ''}
+              onChange={(e) => setProjectDeadlineFilter(e.target.value || null)}
               className="w-full sm:w-48 pl-12 pr-4 py-3 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold outline-none focus:border-[#fdb612] focus:ring-2 focus:ring-[#fdb612]/10 transition-all shadow-sm"
             />
             <div className="absolute -top-2 left-4 px-2 bg-white dark:bg-[#1a160d] text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Prazo do Projeto
+              Filtrar Prazo
             </div>
           </div>
           <button 
@@ -426,29 +485,40 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
             </button>
           ))}
         </div>
-        <div className="flex gap-3 w-full lg:w-auto">
+        <div className="flex flex-wrap gap-3 w-full lg:w-auto">
           <div className="flex items-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl">
-            <Calendar className="w-4 h-4 text-[#fdb612]" />
-            <input 
-              type="date" 
-              value={projectDeadline || ''} 
-              onChange={(e) => setProjectDeadline(e.target.value || null)}
-              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none"
-            />
+            <Filter className="w-4 h-4 text-[#fdb612]" />
+            <select 
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none cursor-pointer"
+            >
+              <option value="all">Todas as Etapas</option>
+              {allStages.map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl">
+            <UserIcon className="w-4 h-4 text-[#fdb612]" />
+            <select 
+              value={technicianFilter}
+              onChange={(e) => setTechnicianFilter(e.target.value)}
+              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none cursor-pointer"
+            >
+              <option value="all">Todos Técnicos</option>
+              {technicians.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
           <button 
-            onClick={() => showToast('Abrindo painel de filtros avançados...')}
-            className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="flex items-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
+            title="Ordenar por data de atualização"
           >
-            <Filter className="w-4 h-4" />
-            Filtrar
-          </button>
-          <button 
-            onClick={() => showToast('Exportando lista de projetos (CSV/PDF)...')}
-            className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors"
-          >
-            <FileDown className="w-4 h-4" />
-            Exportar
+            <ArrowUpDown className="w-4 h-4 text-[#fdb612]" />
+            {sortOrder === 'asc' ? 'Antigos' : 'Recentes'}
           </button>
         </div>
       </div>
@@ -477,20 +547,15 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                     )}
                   >
                     <td className="px-6 py-5">
-                      <div className="flex items-center gap-4">
-                        <div className="size-10 bg-[#fdb612]/10 rounded-lg flex items-center justify-center text-[#fdb612]">
-                          {item.type === 'residence' && <Home className="w-5 h-5" />}
-                          {item.type === 'industrial' && <Factory className="w-5 h-5" />}
-                          {item.type === 'home' && <MapPin className="w-5 h-5" />}
-                          {item.type === 'apartment' && <Building2 className="w-5 h-5" />}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-900 dark:text-slate-100">{item.name}</p>
+                          {expandedId === item.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-slate-900 dark:text-slate-100">{item.name}</p>
-                            {expandedId === item.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-                          </div>
-                          <p className="text-xs text-slate-500">Project #{item.projectId}</p>
-                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">
+                          Prazo: {item.projectDeadline ? new Date(item.projectDeadline).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                        </p>
+                        <p className="text-xs text-slate-500">Project #{item.projectId}</p>
                       </div>
                     </td>
                     <td className="px-6 py-5">
@@ -512,6 +577,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                             alt={item.technician.name} 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
+                            loading="lazy"
                           />
                         </div>
                         <p className="text-sm font-medium">{item.technician.name}</p>
@@ -638,6 +704,8 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                                             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(stage.assignedTechnician)}&background=fdb612&color=231d0f`} 
                                             alt={stage.assignedTechnician}
                                             className="w-full h-full object-cover"
+                                            referrerPolicy="no-referrer"
+                                            loading="lazy"
                                           />
                                         ) : (
                                           <UserIcon className="w-3 h-3 text-slate-400" />

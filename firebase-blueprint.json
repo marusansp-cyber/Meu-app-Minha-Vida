@@ -180,6 +180,18 @@
         "logo": { "type": "string" },
         "name": { "type": "string" }
       }
+    },
+    "SalesGoal": {
+      "title": "Sales Goal",
+      "description": "Monthly sales goals and targets",
+      "type": "object",
+      "properties": {
+        "month": { "type": "string" },
+        "targetValue": { "type": "number" },
+        "targetCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["month", "targetValue", "targetCount"]
     }
   },
   "firestore": {
@@ -218,6 +230,10 @@
     "/settings": {
       "schema": "CompanySettings",
       "description": "Global settings"
+    },
+    "/salesGoals": {
+      "schema": "SalesGoal",
+      "description": "Collection of monthly sales goals"
     }
   }
 }

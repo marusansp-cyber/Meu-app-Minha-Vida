@@ -124,6 +124,12 @@ service cloud.firestore {
       return (!('logo' in data) || (data.logo is string && data.logo.size() < 1000000)) &&
              (!('name' in data) || (data.name is string && data.name.size() < 100));
     }
+    
+    function isValidSalesGoal(data) {
+      return hasRequiredFields(['month', 'targetValue', 'targetCount']) &&
+             data.month is string && data.month.size() > 0 &&
+             data.targetValue is number && data.targetCount is number;
+    }
 
     // ===============================================================
     // Rules
@@ -188,6 +194,13 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin() && isValidSettings(request.resource.data);
+    }
+
+    match /salesGoals/{goalId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidSalesGoal(request.resource.data);
+      allow update: if isAuthenticated() && isValidSalesGoal(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /history/{historyId} {

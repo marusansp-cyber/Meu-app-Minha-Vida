@@ -210,7 +210,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
               <div className="flex items-center gap-6">
                 <div className="size-24 rounded-3xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] text-4xl font-black border-2 border-dashed border-[#fdb612]/30 overflow-hidden">
                   {profile.photo ? (
-                    <img src={profile.photo} alt="Profile" className="w-full h-full object-cover" />
+                    <img 
+                      src={profile.photo} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover" 
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
                     profile.name.charAt(0)
                   )}
@@ -238,8 +244,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Completo</label>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Completo</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Seu nome completo para exibição em documentos" />
+                  </div>
                   <input 
                     type="text" 
                     value={profile.name || ''}
@@ -247,8 +256,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="E-mail principal para login e notificações" />
+                  </div>
                   <input 
                     type="email" 
                     value={profile.email || ''}
@@ -275,8 +287,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</label>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Sua função na empresa (ex: Vendedor, Adm)" />
+                  </div>
                   <input 
                     type="text" 
                     value={profile.role || ''}
@@ -388,8 +403,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CNPJ</label>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CNPJ</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="CNPJ da empresa para emissão de notas" />
+                  </div>
                   <input 
                     type="text" 
                     value={company.cnpj || ''}

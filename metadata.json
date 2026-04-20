@@ -1,5 +1,6 @@
 {
   "name": "Vieira's Solar & Engenharia",
-  "description": "\"STARTUP\"      Vieira's Solar & Engenharia\nPlataforma de gestão solar e engenharia da MV ENGENHARIA",
-  "requestFramePermissions": []
+  "description": "A Vieira's Solar & Engenharia é uma startup que desenvolve uma plataforma de gestão e engenharia voltada para o integrador solar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

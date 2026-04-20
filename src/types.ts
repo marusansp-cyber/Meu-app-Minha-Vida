@@ -146,6 +146,44 @@ export interface Proposal {
   financingBank?: string | null;
   financingInstallments?: number | null;
   email?: string | null;
+  internalNotes?: string | null;
+  
+  // Advanced Wizard Fields
+  // Step 1: UCS
+  titular?: string;
+  cpfCnpj?: string;
+  endereco?: string;
+  cep?: string;
+  telefone?: string;
+  distribuidora?: string;
+  tensaoFornecimento?: string;
+  
+  // Step 2: KIT FV
+  panelBrandModel?: string;
+  panelQuantity?: number;
+  inverterBrandModel?: string;
+  invertersQuantity?: number;
+  structureQuantity?: number;
+  structureType?: string;
+  cablesIncluded?: boolean;
+  protectionSystem?: string;
+  
+  // Step 3: PRECIFICAÇÃO
+  equipmentCost?: number;
+  installationCost?: number;
+  projectCost?: number;
+  licensingCost?: number;
+  logisticCost?: number;
+  subtotal?: number;
+  
+  // Step 4: FINANCIAMENTO
+  paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto';
+  financingRate?: number;
+  financingCET?: number;
+  downPayment?: number;
+  
+  // Step 5: FINALIZAÇÃO
+  signatureUrl?: string;
 }
 
 export interface Partner {
@@ -197,4 +235,12 @@ export interface Kit {
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface SalesGoal {
+  id: string;
+  month: string;
+  targetValue: number;
+  targetCount: number;
+  createdAt: string;
 }

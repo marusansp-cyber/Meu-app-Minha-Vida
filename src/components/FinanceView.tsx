@@ -14,11 +14,16 @@ import {
   MoreVertical,
   Download,
   FileText,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { 
-  BarChart, 
+  ComposedChart,
+  BarChart,
   Bar, 
+  Line,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -33,6 +38,9 @@ import { Proposal, User as UserType } from '../types';
 import { updateDocument } from '../firestoreUtils';
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
+import { ProposalDetailsModal } from './ProposalDetailsModal';
+import { SMTPHelpModal } from './SMTPHelpModal';
+import { HelpCircle } from 'lucide-react';
 
 interface FinanceViewProps {
   proposals: Proposal[];
@@ -40,21 +48,29 @@ interface FinanceViewProps {
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => {
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
+  const [commissionStatusFilter, setCommissionStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<Proposal['status'] | 'all'>('all');
   const [representativeFilter, setRepresentativeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const itemsPerPage = 5;
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const filteredProposals = useMemo(() => {
-    return proposals.filter(p => {
-      if (p.status !== 'accepted') return false;
+  const acceptedProposals = useMemo(() => {
+    return proposals.filter(p => p.status === 'accepted');
+  }, [proposals]);
 
+  const filteredAcceptedProposals = useMemo(() => {
+    return acceptedProposals.filter(p => {
       const matchesSearch = p.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
                            p.representative.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || p.commissionStatus === statusFilter;
+      const matchesStatus = commissionStatusFilter === 'all' || p.commissionStatus === commissionStatusFilter;
       const matchesRep = representativeFilter === 'all' || p.representative === representativeFilter;
       
       let matchesDate = true;
@@ -73,21 +89,46 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       
       return matchesSearch && matchesStatus && matchesRep && matchesDate;
     });
-  }, [proposals, searchTerm, statusFilter, representativeFilter, startDate, endDate]);
+  }, [acceptedProposals, searchTerm, commissionStatusFilter, representativeFilter, startDate, endDate]);
+
+  const allFilteredProposals = useMemo(() => {
+    return proposals.filter(p => {
+      const matchesSearch = p.client.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           p.representative.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = proposalStatusFilter === 'all' || p.status === proposalStatusFilter;
+      const matchesRep = representativeFilter === 'all' || p.representative === representativeFilter;
+      
+      let matchesDate = true;
+      if (startDate || endDate) {
+        const proposalDate = new Date(p.date.split('/').reverse().join('-'));
+        if (startDate) {
+          const start = new Date(startDate);
+          if (proposalDate < start) matchesDate = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (proposalDate > end) matchesDate = false;
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesRep && matchesDate;
+    });
+  }, [proposals, searchTerm, proposalStatusFilter, representativeFilter, startDate, endDate]);
 
   const stats = useMemo(() => {
-    const totalRevenue = filteredProposals.reduce((acc, p) => {
+    const totalRevenue = filteredAcceptedProposals.reduce((acc, p) => {
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       return acc + val;
     }, 0);
 
-    const totalCommission = filteredProposals.reduce((acc, p) => {
+    const totalCommission = filteredAcceptedProposals.reduce((acc, p) => {
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       return acc + (val * (rate / 100));
     }, 0);
 
-    const paidCommission = filteredProposals.reduce((acc, p) => {
+    const paidCommission = filteredAcceptedProposals.reduce((acc, p) => {
       if (p.commissionStatus !== 'paid') return acc;
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
@@ -108,18 +149,29 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       pendingCommission,
       commissionPieData
     };
-  }, [filteredProposals]);
+  }, [filteredAcceptedProposals]);
 
   const chartData = useMemo(() => {
     // Group by month
-    const months: Record<string, { month: string, revenue: number, commission: number }> = {};
+    const monthsData: { month: string; revenue: number; commission: number; date: Date }[] = [];
     
-    filteredProposals.forEach(p => {
+    // Sort all proposals by date to ensure proper sequence
+    const sortedProposals = [...filteredAcceptedProposals].sort((a, b) => {
+      const dateA = new Date(a.date.split('/').reverse().join('-'));
+      const dateB = new Date(b.date.split('/').reverse().join('-'));
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    const months: Record<string, { month: string, revenue: number, commission: number, date: Date }> = {};
+    
+    sortedProposals.forEach(p => {
       const date = new Date(p.date.split('/').reverse().join('-'));
-      const monthKey = date.toLocaleString('pt-BR', { month: 'short' });
+      const monthKey = date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
       
       if (!months[monthKey]) {
-        months[monthKey] = { month: monthKey, revenue: 0, commission: 0 };
+        // Set date to first day of month for sorting recorded months
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        months[monthKey] = { month: monthKey, revenue: 0, commission: 0, date: firstDay };
       }
       
       const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
@@ -128,13 +180,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       months[monthKey].commission += (val * (rate / 100));
     });
 
-    return Object.values(months);
-  }, [filteredProposals]);
+    const result = Object.values(months).sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Add prevRevenue for each month
+    return result.map((item, index) => ({
+      ...item,
+      prevRevenue: index > 0 ? result[index - 1].revenue : 0
+    }));
+  }, [filteredAcceptedProposals]);
 
   const representativeData = useMemo(() => {
     const reps: Record<string, { name: string, paid: number, pending: number, total: number }> = {};
     
-    filteredProposals.forEach(p => {
+    filteredAcceptedProposals.forEach(p => {
       if (!reps[p.representative]) {
         reps[p.representative] = { name: p.representative, paid: 0, pending: 0, total: 0 };
       }
@@ -151,7 +209,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
     });
 
     return Object.values(reps).sort((a, b) => b.total - a.total);
-  }, [filteredProposals]);
+  }, [filteredAcceptedProposals]);
+
+  const tableProposals = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return allFilteredProposals.slice(start, start + itemsPerPage);
+  }, [allFilteredProposals, currentPage]);
+
+  const totalPages = Math.ceil(allFilteredProposals.length / itemsPerPage);
 
   const handleTogglePaid = async (proposal: Proposal) => {
     const newStatus = proposal.commissionStatus === 'paid' ? 'pending' : 'paid';
@@ -230,7 +295,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       y += 10;
 
       doc.setFont("helvetica", "normal");
-      filteredProposals.forEach((p, index) => {
+      allFilteredProposals.forEach((p, index) => {
         if (y > 270) {
           doc.addPage();
           y = 20;
@@ -302,8 +367,36 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tabs */}
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
+        <button
+          onClick={() => setActiveMainTab('overview')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
+            activeMainTab === 'overview'
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Visão Geral
+        </button>
+        <button
+          onClick={() => setActiveMainTab('proposals')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
+            activeMainTab === 'proposals'
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Propostas
+        </button>
+      </div>
+
+      {activeMainTab === 'overview' ? (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="size-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
@@ -375,7 +468,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
           <div className="h-[300px] w-full" ref={chartRef}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="month" 
@@ -401,7 +494,16 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 />
                 <Bar dataKey="revenue" fill="#fdb612" radius={[6, 6, 0, 0]} barSize={40} />
                 <Bar dataKey="commission" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
+                <Line 
+                  type="monotone" 
+                  dataKey="prevRevenue" 
+                  stroke="#6366f1" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  name="Mês Anterior"
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -539,137 +641,259 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
         </div>
       </div>
+    </div>
+  ) : (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+          {/* Table Section */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h4 className="text-lg font-black font-display text-[#fdb612]">Listagem de Propostas</h4>
+                <button 
+                  onClick={() => setIsHelpModalOpen(true)}
+                  className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all"
+                  title="Ajuda com envio de e-mail"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text"
+                    placeholder="Buscar cliente ou consultor..."
+                    value={searchTerm || ''}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#fdb612] outline-none w-64"
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <Calendar className="w-4 h-4 text-slate-400" />
+                  <input 
+                    type="date"
+                    value={startDate || ''}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
+                  />
+                  <span className="text-slate-300">|</span>
+                  <input 
+                    type="date"
+                    value={endDate || ''}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
+                  />
+                </div>
+                <select 
+                  value={proposalStatusFilter || 'all'}
+                  onChange={(e) => {
+                    setProposalStatusFilter(e.target.value as any);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#fdb612] outline-none"
+                >
+                  <option value="all">Ver Todos Status</option>
+                  <option value="pending">Pendente</option>
+                  <option value="sent">Enviada</option>
+                  <option value="accepted">Aceita</option>
+                  <option value="expired">Expirada</option>
+                  <option value="cancelled">Cancelada</option>
+                </select>
+                <select 
+                  value={commissionStatusFilter || 'all'}
+                  onChange={(e) => {
+                    setCommissionStatusFilter(e.target.value as any);
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#fdb612] outline-none"
+                >
+                  <option value="all">Todas Comissões</option>
+                  <option value="pending">Pendentes</option>
+                  <option value="paid">Pagos</option>
+                </select>
+              </div>
+            </div>
 
-      {/* Table Section */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h4 className="text-lg font-black font-display">Detalhamento de Comissões</h4>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Buscar cliente ou consultor..."
-                value={searchTerm || ''}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-[#fdb612] outline-none w-64"
-              />
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Consultor</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Projeto</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Comissão (%)</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Comissão</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {tableProposals.map((prop) => {
+                    const projectValue = parseFloat(prop.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+                    const commissionRate = prop.commission || 5;
+                    const commissionValue = projectValue * (commissionRate / 100);
+                    const isPaid = prop.commissionStatus === 'paid';
+
+                    return (
+                      <tr 
+                        key={prop.id} 
+                        onClick={() => setSelectedProposal(prop)}
+                        className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group cursor-pointer"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+                              <User className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold">{prop.client}</p>
+                              <p className="text-[10px] text-slate-500">{prop.date}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium">{prop.representative}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold">R$ {projectValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-black px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                            {commissionRate}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-black text-[#fdb612]">
+                            R$ {commissionValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1.5">
+                            <span className={cn(
+                              "text-[10px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1.5 w-fit",
+                              prop.status === 'accepted' && "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30",
+                              prop.status === 'pending' && "bg-amber-100 text-amber-600 dark:bg-amber-900/30",
+                              prop.status === 'sent' && "bg-blue-100 text-blue-600 dark:bg-blue-900/30",
+                              prop.status === 'expired' && "bg-rose-100 text-rose-600 dark:bg-rose-900/30",
+                              prop.status === 'cancelled' && "bg-slate-100 text-slate-600 dark:bg-slate-900/40"
+                            )}>
+                              {prop.status}
+                            </span>
+                            <span className={cn(
+                              "text-[10px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1.5 w-fit",
+                              isPaid 
+                                ? "bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20" 
+                                : "bg-amber-50 text-amber-500 dark:bg-amber-900/20"
+                            )}>
+                              {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                              Comissão: {isPaid ? 'Pago' : 'Pendente'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedProposal(prop);
+                              }}
+                              className="p-2 text-slate-400 hover:text-[#fdb612] bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {(user?.role === 'admin' || user?.role === 'finance') && prop.status === 'accepted' && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleTogglePaid(prop);
+                                }}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
+                                  isPaid
+                                    ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                    : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                                )}
+                              >
+                                {isPaid ? 'Estornar' : 'Marcar como Pago'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <input 
-                type="date"
-                value={startDate || ''}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
-              />
-              <span className="text-slate-300">|</span>
-              <input 
-                type="date"
-                value={endDate || ''}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-transparent border-none text-xs font-bold focus:ring-0 outline-none w-28"
-              />
+
+            {/* Pagination */}
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                Mostrando {Math.min(allFilteredProposals.length, itemsPerPage)} de {allFilteredProposals.length} propostas
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 disabled:opacity-50 transition-all hover:bg-slate-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(totalPages)].map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={cn(
+                        "size-8 rounded-xl text-xs font-black transition-all",
+                        currentPage === i + 1
+                          ? "bg-[#fdb612] text-[#231d0f]"
+                          : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50"
+                      )}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 disabled:opacity-50 transition-all hover:bg-slate-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <select 
-              value={statusFilter || 'all'}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-[#fdb612] outline-none"
-            >
-              <option value="all">Todos Status</option>
-              <option value="pending">Pendentes</option>
-              <option value="paid">Pagos</option>
-            </select>
           </div>
         </div>
+      )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/50">
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Consultor</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Projeto</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Comissão (%)</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Valor Comissão</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredProposals.map((prop) => {
-                const projectValue = parseFloat(prop.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-                const commissionRate = prop.commission || 5;
-                const commissionValue = projectValue * (commissionRate / 100);
-                const isPaid = prop.commissionStatus === 'paid';
+      {/* Details Modal */}
+      {selectedProposal && (
+        <ProposalDetailsModal
+          isOpen={!!selectedProposal}
+          onClose={() => setSelectedProposal(null)}
+          proposal={selectedProposal}
+          onSend={() => {}}
+          onDownload={() => {}}
+          onPrint={() => {}}
+          user={user}
+        />
+      )}
 
-                return (
-                  <tr key={prop.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="size-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
-                          <User className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold">{prop.client}</p>
-                          <p className="text-[10px] text-slate-500">{prop.date}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-medium">{prop.representative}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-bold">R$ {projectValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-black px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                        {commissionRate}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-black text-[#fdb612]">
-                        R$ {commissionValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "text-[10px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1.5 w-fit",
-                        isPaid 
-                          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" 
-                          : "bg-amber-100 text-amber-600 dark:bg-amber-900/30"
-                      )}>
-                        {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                        {isPaid ? 'Pago' : 'Pendente'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {(user?.role === 'admin' || user?.role === 'finance') && (
-                          <button 
-                            onClick={() => handleTogglePaid(prop)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all",
-                              isPaid
-                                ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                                : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
-                            )}
-                          >
-                            {isPaid ? 'Estornar' : 'Marcar como Pago'}
-                          </button>
-                        )}
-                        <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <SMTPHelpModal 
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
     </div>
   );
 };

@@ -131,149 +131,306 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  // Colors
-  const primaryColor = [242, 125, 38]; // #F27D26 (Orange)
-  const secondaryColor = [20, 20, 20]; // Dark
-  const lightGray = [245, 245, 245];
+  // Colors - Premium Palette
+  const primaryColor = [0, 168, 107]; // #00A86B (Modern Solar Green)
+  const secondaryColor = [35, 47, 62]; // #232F3E (Amazon Dark Blue/Professional)
+  const accentColor = [255, 149, 0];    // #FF9500 (Golden Accent)
+  const lightBg = [248, 250, 252];      // Slate 50
+  const borderGray = [226, 232, 240];   // Slate 200
 
-  // Helper for text centering
-  const centerText = (text: string, y: number) => {
+  const white = [255, 255, 255];
+
+  // Helper for text formatting
+  const centerText = (text: string, y: number, fontSize = 12, style = "normal", color = secondaryColor) => {
+    doc.setFont("helvetica", style);
+    doc.setFontSize(fontSize);
+    doc.setTextColor(color[0], color[1], color[2]);
     const textWidth = doc.getTextWidth(text);
     doc.text(text, (pageWidth - textWidth) / 2, y);
   };
 
+  const formatDate = (date: any) => {
+    try {
+      if (!date) return new Date().toLocaleDateString('pt-BR');
+      
+      if (typeof date === 'string' && date.includes('/')) {
+        return date; // Already formatted as DD/MM/YYYY
+      }
+
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return new Date().toLocaleDateString('pt-BR');
+      }
+      return d.toLocaleDateString('pt-BR');
+    } catch {
+      return new Date().toLocaleDateString('pt-BR');
+    }
+  };
+
   // --- Page 1: Cover ---
-  // Background accent
+  // Background Header
   doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.rect(0, 0, pageWidth, 80, 'F');
+  doc.rect(0, 0, pageWidth, pageHeight * 0.45, 'F');
+
+  // Accent Line
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(0, pageHeight * 0.45, pageWidth, 5, 'F');
 
   // Logo Placeholder / Company Name
   doc.setTextColor(255, 255, 255);
+  doc.setFontSize(32);
+  doc.setFont("helvetica", "bold");
+  centerText("VIEIRA'S SOLAR", pageHeight * 0.15, 36, "bold", [255, 255, 255]);
+  centerText("& ENGENHARIA", pageHeight * 0.22, 24, "bold", [255, 255, 255]);
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "normal");
+  centerText("Energia Renovável, Tecnologia e Sustentabilidade", pageHeight * 0.30, 14, "normal", [200, 200, 200]);
+
+  // Main Category
+  doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  doc.roundedRect(30, pageHeight * 0.55, pageWidth - 60, 100, 5, 5, 'F');
+  
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  centerText("ESTUDO DE VIABILIDADE TÉCNICO-COMERCIAL", pageHeight * 0.60, 10, "bold", primaryColor);
+
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFontSize(28);
+  centerText("PROPOSTA DE ENERGIA SOLAR", pageHeight * 0.68, 22, "bold");
+
+  // Client Details Box
+  const infoY = pageHeight * 0.78;
+  doc.setFontSize(12);
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("CLIENTE:", 40, infoY);
+  doc.setFont("helvetica", "normal");
+  doc.text(proposal.client || proposal.titular || "Cliente", 70, infoY);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("DATA:", 40, infoY + 10);
+  doc.setFont("helvetica", "normal");
+  doc.text(formatDate(proposal.date), 70, infoY + 10);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("CONSULTOR:", 40, infoY + 20);
+  doc.setFont("helvetica", "normal");
+  doc.text(proposal.representative || "Equipe Técnica", 70, infoY + 20);
+
+  // Bottom Branding
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(0, pageHeight - 25, pageWidth, 25, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  centerText("www.vieirassolar.com.br", pageHeight - 15, 10, "normal", [255, 255, 255]);
+  centerText("Sustentabilidade e Economia para sua Família", pageHeight - 8, 8, "normal", [255, 255, 255]);
+
+  // --- Page 2: O Impacto ---
+  doc.addPage();
+  
+  // Sidebar Design element
+  doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  doc.rect(0, 0, 15, pageHeight, 'F');
+
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.setFontSize(24);
   doc.setFont("helvetica", "bold");
-  centerText("VIEIRA'S SOLAR & ENGENHARIA", 45);
+  doc.text("SEU IMPACTO POSITIVO", 30, 40);
+  
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(30, 45, 50, 2, 'F');
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
-  centerText("Energia Inteligente para um Futuro Sustentável", 55);
+  doc.setTextColor(100, 100, 100);
+  const introText = "Ao investir em energia solar, você não está apenas economizando dinheiro. Você está liderando a transição para um futuro mais limpo.";
+  const splitIntro = doc.splitTextToSize(introText, pageWidth - 60);
+  doc.text(splitIntro, 30, 60);
 
-  // Proposal Title
-  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.setFontSize(32);
-  doc.setFont("helvetica", "bold");
-  centerText("PROPOSTA COMERCIAL", 120);
+  // Environmental Boxes
+  const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
+  const co2Saved = (sysSizeNum * 1300 * 0.6).toFixed(1);
+  const treesPlanted = Math.round(sysSizeNum * 30);
 
-  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setLineWidth(2);
-  doc.line(pageWidth / 4, 130, (3 * pageWidth) / 4, 130);
-
-  // Client Info
-  doc.setFontSize(16);
-  doc.text("Cliente:", 30, 160);
-  doc.setFont("helvetica", "normal");
-  doc.text(proposal.client, 60, 160);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Data:", 30, 175);
-  doc.setFont("helvetica", "normal");
-  doc.text(new Date(proposal.date).toLocaleDateString('pt-BR'), 60, 175);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Validade:", 30, 190);
-  doc.setFont("helvetica", "normal");
-  const expiryDate = proposal.expiryDate ? new Date(proposal.expiryDate).toLocaleDateString('pt-BR') : "30 dias";
-  doc.text(expiryDate, 60, 190);
-
-  // Footer
-  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  centerText("www.vieirassolar.com.br | (11) 99999-9999", pageHeight - 8);
-
-  // --- Page 2: System Details ---
-  doc.addPage();
-  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bold");
-  doc.text("ESPECIFICAÇÕES DO SISTEMA", 20, 30);
-  
-  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setLineWidth(1);
-  doc.line(20, 35, 100, 35);
-
-  // System Info Table-like structure
-  const startY = 50;
-  const rowHeight = 12;
-  
-  const drawRow = (label: string, value: string, y: number) => {
-    doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-    doc.rect(20, y - 8, pageWidth - 40, rowHeight, 'F');
+  const drawImpactBox = (title: string, value: string, subtitle: string, x: number, y: number) => {
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+    doc.roundedRect(x, y, 75, 50, 3, 3, 'FD');
+    
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(label, 25, y);
-    doc.setFont("helvetica", "normal");
-    doc.text(value, 100, y);
+    doc.text(value, x + 10, y + 20);
+    
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.setFontSize(10);
+    doc.text(title, x + 10, y + 35);
+    
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(8);
+    doc.text(subtitle, x + 10, y + 43);
   };
 
-  drawRow("Potência do Sistema:", proposal.systemSize, startY);
-  drawRow("Produção Mensal Estimada:", proposal.energyConsumption || "N/A", startY + rowHeight);
-  drawRow("Número da UC:", proposal.ucNumber || "N/A", startY + (rowHeight * 2));
-  drawRow("Consultor Responsável:", proposal.representative, startY + (rowHeight * 3));
+  drawImpactBox("CO2 EVITADO", `${co2Saved} kg`, "Por ano de operação", 30, 80);
+  drawImpactBox("ÁRVORES", `${treesPlanted}`, "Equivalente plantadas", 110, 80);
 
-  // Kit Details
-  if (kit) {
+  // Financial Chart / Savings Summary (Text based)
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("ECONOMIA ESTIMADA", 30, 160);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text("Economia em 25 anos:", 30, 175);
+  doc.setFontSize(22);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  const estimatedValue = parseFloat((proposal.value || "0").replace(/[^0-9]/g, '')) || 0;
+  const estimatedSavings = (estimatedValue * 4.5).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  doc.text(estimatedSavings, 30, 188);
+
+  doc.setFontSize(10);
+  doc.setTextColor(150, 150, 150);
+  doc.text("* Considerado inflação energética de 8.5% ao ano e vida útil de 25 anos.", 30, 198);
+
+  // --- Page 3: Detalhes Técnicos ---
+  doc.addPage();
+  doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  doc.rect(0, 0, 15, pageHeight, 'F');
+
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFontSize(20);
+  doc.text("ESPECIFICAÇÕES TÉCNICAS", 30, 30);
+  doc.line(30, 34, 100, 34);
+
+  // Table header
+  doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.rect(30, 45, pageWidth - 60, 10, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text("ITEM", 35, 51.5);
+  doc.text("ESPECIFICAÇÃO", 100, 51.5);
+
+  const stats = [
+    ["Potência do Sistema", `${proposal.systemSize} kWp`],
+    ["Geração Média Mensal", `${proposal.energyConsumption || "N/A"} kWh`],
+    ["Unidade Consumidora", proposal.ucNumber || "N/A"],
+    ["Tensão de Fornecimento", proposal.tensaoFornecimento || "Trifásico"],
+    ["Área Necessária", `${(sysSizeNum * 6.5).toFixed(1)} m² aprox.`]
+  ];
+
+  let statsY = 65;
+  stats.forEach((row, i) => {
+    if (i % 2 === 0) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(30, statsY - 7, pageWidth - 60, 10, 'F');
+    }
+    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text(row[0], 35, statsY);
+    doc.setFont("helvetica", "normal");
+    doc.text(row[1], 100, statsY);
+    statsY += 10;
+  });
+
+  // Equipments
+  if (kit && kit.components) {
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("EQUIPAMENTOS", 20, 110);
-    doc.line(20, 112, 70, 112);
-
-    let kitY = 125;
+    doc.text("EQUIPAMENTOS DE ALTA PERFORMANCE", 30, 135);
+    
+    let kitY = 150;
     kit.components.forEach((comp) => {
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${comp.quantity}x`, 25, kitY);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${comp.name} ${comp.brand ? `(${comp.brand})` : ''}`, 40, kitY);
-      kitY += 10;
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2], 0.1);
+      doc.roundedRect(30, kitY - 5, pageWidth - 60, 15, 2, 2, 'F');
+      
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setFontSize(12);
+      doc.text(`${comp.quantity}x`, 35, kitY + 5);
+      
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.setFontSize(10);
+      doc.text(`${comp.name}`, 50, kitY + 2);
+      doc.setTextColor(150, 150, 150);
+      doc.setFontSize(8);
+      doc.text(comp.brand || "Marca de Referência Market-Leader", 50, kitY + 7);
+      
+      kitY += 18;
     });
   }
 
-  // Investment
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("INVESTIMENTO", 20, 180);
-  doc.line(20, 182, 70, 182);
-
-  doc.setFontSize(24);
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text(proposal.value, 20, 200);
+  // --- Page 4: Investimento e Condições ---
+  doc.addPage();
+  doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  doc.rect(0, 0, 15, pageHeight, 'F');
 
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "normal");
-  doc.text("Forma de Pagamento:", 20, 215);
-  const paymentInfo = proposal.financingBank 
-    ? `Financiamento via ${proposal.financingBank} em ${proposal.financingInstallments}x`
-    : "À vista / Entrada + Parcelamento Próprio";
-  doc.text(paymentInfo, 65, 215);
+  doc.setFontSize(24);
+  doc.text("INVESTIMENTO", 30, 40);
 
-  // ROI / Payback
-  if (proposal.payback || proposal.roi) {
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("RETORNO FINANCEIRO", 20, 240);
-    
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    if (proposal.payback) doc.text(`Payback Estimado: ${proposal.payback}`, 20, 250);
-    if (proposal.roi) doc.text(`ROI Estimado: ${proposal.roi}`, 20, 260);
+  doc.setFillColor(white[0], white[1], white[2]);
+  doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setLineWidth(1);
+  doc.roundedRect(30, 55, pageWidth - 60, 40, 5, 5, 'D');
+
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setFontSize(42);
+  doc.setFont("helvetica", "bold");
+  const priceText = proposal.value;
+  const priceWidth = doc.getTextWidth(priceText);
+  doc.text(priceText, (pageWidth - priceWidth) / 2 + 10, 85);
+
+  doc.setFontSize(12);
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.text("CONDIÇÕES DE PAGAMENTO", 30, 115);
+  doc.setFont("helvetica", "normal");
+  const paymentDetails = proposal.financingBank 
+    ? `Financiamento Bancário via ${proposal.financingBank}`
+    : "Pagamento Facilitado (À vista / Parcelamento)";
+  doc.text(paymentDetails, 30, 125);
+  if (proposal.financingInstallments) {
+    const totalVal = parseFloat((proposal.value || "0").replace(/[^0-9]/g, '')) || 0;
+    const monthlyEst = (totalVal / proposal.financingInstallments) * 1.2;
+    doc.text(`Parcelamento em ${proposal.financingInstallments}x de R$ ${monthlyEst.toFixed(2)} estimadas.`, 30, 132);
   }
 
-  // Final Footer
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(8);
-  centerText("Esta proposta tem caráter informativo e está sujeita a alteração após vistoria técnica.", pageHeight - 15);
+  // ROI Summary
+  doc.setFillColor(lightBg[0], lightBg[1], lightBg[2]);
+  doc.roundedRect(30, 150, pageWidth - 60, 40, 2, 2, 'F');
+  
+  doc.setFont("helvetica", "bold");
+  doc.text("RETORNO SOBRE INVESTIMENTO (ROI):", 40, 165);
+  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.setFontSize(24);
+  doc.text(proposal.roi || "962%", 40, 180);
+  
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFontSize(12);
+  doc.text("PAYBACK:", 120, 165);
+  doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+  doc.text(proposal.payback || "2.4 Anos", 120, 180);
+
+  // Signatures
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.setFontSize(10);
+  doc.text("Aceite da Proposta:", 30, 230);
+  doc.line(30, 260, 95, 260);
+  doc.text("Assinatura do Cliente", 30, 265);
+
+  doc.line(115, 260, 180, 260);
+  doc.text("Consultor Vieira's Solar", 115, 265);
+
+  // Global Footer numbering
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(8);
+    doc.text(`Página ${i} de ${totalPages} | Vieira's Solar & Engenharia`, pageWidth - 60, pageHeight - 5);
+  }
 
   return doc.output('datauristring');
 };

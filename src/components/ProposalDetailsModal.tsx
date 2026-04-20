@@ -197,6 +197,16 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observações Internas</label>
+                  <textarea 
+                    value={editForm.internalNotes || ''}
+                    onChange={(e) => setEditForm({ ...editForm, internalNotes: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] resize-none text-sm"
+                    placeholder="Notas internas visíveis apenas para a equipe..."
+                  />
+                </div>
               </div>
               <div className="space-y-4">
                 <div className="space-y-1">
@@ -428,6 +438,18 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                           <p className="text-[10px] text-slate-400">Dimencionamento Realizado</p>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {proposal.internalNotes && (
+                    <div className="bg-amber-50 dark:bg-amber-900/10 p-8 rounded-[32px] border border-amber-100 dark:border-amber-900/20">
+                      <div className="flex items-center gap-2 text-amber-600 mb-4">
+                        <FileText className="w-5 h-5" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Observações Internas</span>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
+                        {proposal.internalNotes}
+                      </p>
                     </div>
                   )}
                 </div>

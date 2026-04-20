@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Clock,
   MessageCircle,
-  Maximize
+  Maximize,
+  X
 } from 'lucide-react';
 import { Client, Proposal, Installation, History as HistoryType } from '../types';
 import { cn } from '../lib/utils';
@@ -261,16 +262,77 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="h-[700px]"
+            className="h-[700px] relative"
           >
             <ClientsMap 
               clients={filteredClients} 
               className="h-full w-full"
               onSelectClient={(client) => {
                 setSelectedClient(client);
-                setViewMode('list');
               }}
             />
+            {selectedClient && viewMode === 'map' && (
+              <motion.div
+                initial={{ x: '100%', opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="absolute top-4 right-4 bottom-4 w-96 bg-white dark:bg-[#231d0f] shadow-2xl rounded-3xl border border-slate-200 dark:border-slate-800 z-[1001] overflow-hidden flex flex-col"
+              >
+                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                  <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Detalhes do Cliente</h3>
+                  <button 
+                    onClick={() => setSelectedClient(null)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl text-slate-400 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                  <div className="flex items-center gap-4">
+                    <div className="size-16 rounded-2xl bg-[#fdb612] flex items-center justify-center text-[#231d0f] text-2xl font-black">
+                      {selectedClient.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-xl text-slate-900 dark:text-slate-100">{selectedClient.name}</h4>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedClient.status}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                      <Mail className="w-4 h-4 text-[#fdb612]" />
+                      {selectedClient.email}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                      <Phone className="w-4 h-4 text-[#fdb612]" />
+                      {selectedClient.phone}
+                    </div>
+                    {selectedClient.address && (
+                      <div className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-400">
+                        <MapPin className="w-4 h-4 text-[#fdb612] shrink-0 mt-0.5" />
+                        {selectedClient.address}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+                    {onCreateProposal && (
+                      <button 
+                        onClick={() => onCreateProposal(selectedClient)}
+                        className="flex-1 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all"
+                      >
+                        Criar Proposta
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setViewMode('list')}
+                      className="flex-1 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                    >
+                      Ir para Lista
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         ) : (
           <motion.div
@@ -358,23 +420,16 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </motion.div>
                 )}
                 
-                <div className="flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-4">
-                  <div className="flex items-center gap-1 overflow-x-auto pb-2 custom-scrollbar">
-                    {(['all', 'active', 'inactive'] as const).map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => setFilterStatus(status)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap",
-                          filterStatus === status
-                            ? "bg-[#fdb612] text-[#231d0f]"
-                            : "bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10"
-                        )}
-                      >
-                        {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#fdb612]/30 transition-all cursor-pointer"
+                  >
+                    <option value="all">Todos os Status</option>
+                    <option value="active">Ativos</option>
+                    <option value="inactive">Inativos</option>
+                  </select>
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
@@ -592,7 +647,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                               <p className="font-bold text-slate-900 dark:text-slate-100">{installation.stage}</p>
                               <div className="flex items-center justify-between mt-3">
                                 <div className="flex items-center gap-2">
-                                  <img src={installation.technician.avatar} alt="" className="size-5 rounded-full" />
+                                  <img 
+                                    src={installation.technician.avatar} 
+                                    alt="" 
+                                    className="size-5 rounded-full" 
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer"
+                                  />
                                   <span className="text-[10px] text-slate-500 font-medium">{installation.technician.name}</span>
                                 </div>
                                 <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">

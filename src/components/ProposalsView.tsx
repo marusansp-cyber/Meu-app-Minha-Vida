@@ -5,9 +5,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, User as UserType, Lead, Client } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
+import { SMTPHelpModal } from './SMTPHelpModal';
+import { HelpCircle } from 'lucide-react';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { generateProposalPDF } from '../services/pdfService';
 import { sendProposalEmail } from '../services/emailService';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -20,6 +24,30 @@ interface ProposalsViewProps {
   preFill?: Partial<Proposal> | null;
   onPreFillComplete?: () => void;
 }
+
+const SkeletonRow = () => (
+  <tr className="animate-pulse border-b border-slate-100 dark:border-slate-800">
+    <td className="px-6 py-4"><div className="size-4 bg-slate-200 dark:bg-slate-700 rounded" /></td>
+    <td className="px-6 py-4">
+      <div className="w-24 h-4 bg-slate-200 dark:bg-slate-700 rounded mb-2" />
+      <div className="w-16 h-3 bg-slate-100 dark:bg-slate-800 rounded" />
+    </td>
+    <td className="px-6 py-4">
+      <div className="w-32 h-4 bg-slate-200 dark:bg-slate-700 rounded mb-2" />
+      <div className="w-20 h-3 bg-slate-100 dark:bg-slate-800 rounded" />
+    </td>
+    <td className="px-6 py-4"><div className="w-20 h-4 bg-slate-200 dark:bg-slate-700 rounded" /></td>
+    <td className="px-6 py-4"><div className="w-16 h-4 bg-slate-200 dark:bg-slate-700 rounded" /></td>
+    <td className="px-6 py-4"><div className="w-24 h-6 bg-slate-100 dark:bg-slate-800 rounded-full" /></td>
+    <td className="px-6 py-4">
+      <div className="flex items-center gap-2">
+        <div className="size-6 bg-slate-200 dark:bg-slate-700 rounded-full" />
+        <div className="w-20 h-3 bg-slate-100 dark:bg-slate-800 rounded" />
+      </div>
+    </td>
+    <td className="px-6 py-4 text-right"><div className="w-24 h-8 bg-slate-50 dark:bg-white/5 rounded ml-auto" /></td>
+  </tr>
+);
 
 export const ProposalsView: React.FC<ProposalsViewProps> = ({ 
   proposals: initialProposals, 
@@ -47,12 +75,22 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     value: '',
     representative: 'all',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    kitPanel: '',
+    kitInverter: ''
   });
   const [selectedProposalIds, setSelectedProposalIds] = useState<string[]>([]);
   const [isSendingBulk, setIsSendingBulk] = useState(false);
   const [isUpdatingCommission, setIsUpdatingCommission] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Simulate loading or wait for proposals
+    const timer = setTimeout(() => setIsLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (preFill) {
@@ -322,6 +360,77 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     }
   };
 
+  const handleExportListPDF = () => {
+    setIsLoading(true);
+    showToast('Gerando relatório consolidado...', 'info');
+    
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4'); // landscape
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      // Header
+      doc.setFillColor(35, 29, 15); // #231d0f
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      doc.setTextColor(253, 182, 18); // #fdb612
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      doc.text("RELATÓRIO DE PROPOSTAS", pageWidth / 2, 25, { align: "center" });
+      
+      // Info
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 50);
+      doc.text(`Consultor: ${representativeFilter === 'all' ? 'Todos' : representativeFilter}`, 20, 57);
+      doc.text(`Status: ${statusFilter === 'all' ? 'Todos' : statusFilter}`, 20, 64);
+      
+      // Table
+      const headers = [['ID', 'CLIENTE', 'VALOR', 'DATA', 'STATUS', 'SISTEMA (kWp)', 'COMISSÃO']];
+      const data = filteredProposals.map(p => {
+        const value = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const commissionRate = p.commission || 5;
+        const commissionValue = value * (commissionRate / 100);
+        
+        return [
+          p.proposalNumber || p.id,
+          p.client,
+          `R$ ${value.toLocaleString('pt-BR')}`,
+          p.date,
+          p.status.toUpperCase(),
+          p.systemSize,
+          `R$ ${commissionValue.toLocaleString('pt-BR')}`
+        ];
+      });
+
+      (doc as any).autoTable({
+        head: headers,
+        body: data,
+        startY: 75,
+        theme: 'striped',
+        headStyles: { fillColor: [35, 29, 15], textColor: [253, 182, 18] },
+        styles: { fontSize: 8 },
+        margin: { top: 75 }
+      });
+
+      // Footer
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Vieira's Solar & Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+      }
+
+      doc.save(`relatorio_propostas_${new Date().toISOString().split('T')[0]}.pdf`);
+      showToast('Relatório PDF gerado com sucesso!');
+    } catch (error) {
+      console.error('Error generating PDF list:', error);
+      showToast('Erro ao gerar relatório PDF.', 'info');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleViewDetails = (proposal: Proposal) => {
     setSelectedProposal(proposal);
     setIsDetailsModalOpen(true);
@@ -437,6 +546,25 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       const matchesValue = filters.value === '' || p.value.toLowerCase().includes(filters.value.toLowerCase());
       const matchesRepresentative = filters.representative === 'all' || p.representative === filters.representative;
       
+      // Kit component filtering
+      let matchesKit = true;
+      if (filters.kitPanel || filters.kitInverter) {
+        if (!kit) {
+          matchesKit = false;
+        } else {
+          if (filters.kitPanel) {
+            const hasPanel = kit.panelBrand?.toLowerCase().includes(filters.kitPanel.toLowerCase()) || 
+                             kit.components?.some((c: any) => c.name.toLowerCase().includes('painel') && c.brand?.toLowerCase().includes(filters.kitPanel.toLowerCase()));
+            if (!hasPanel) matchesKit = false;
+          }
+          if (filters.kitInverter) {
+            const hasInverter = kit.inverterBrand?.toLowerCase().includes(filters.kitInverter.toLowerCase()) || 
+                                kit.components?.some((c: any) => c.name.toLowerCase().includes('inversor') && c.brand?.toLowerCase().includes(filters.kitInverter.toLowerCase()));
+            if (!hasInverter) matchesKit = false;
+          }
+        }
+      }
+      
       let matchesDate = true;
       if (filters.startDate || filters.endDate) {
         const [day, month, year] = p.date.split('/').map(Number);
@@ -452,7 +580,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         }
       }
 
-      return matchesSearch && matchesStatus && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate;
+      return matchesSearch && matchesStatus && matchesKit && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate;
     });
 
     if (sortConfig) {
@@ -583,9 +711,19 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   return (
     <div className="space-y-8">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight">Propostas Comerciais</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie orçamentos e propostas enviadas aos clientes.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-3xl font-black tracking-tight">Propostas Comerciais</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie orçamentos e propostas enviadas aos clientes.</p>
+          </div>
+          <button 
+            onClick={() => setIsHelpModalOpen(true)}
+            className="group flex flex-col items-center gap-1 p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 transition-all hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
+            title="Dificuldade com e-mail? Clique aqui"
+          >
+            <HelpCircle className="w-5 h-5 text-blue-500 animate-pulse" />
+            <span className="text-[8px] font-black uppercase text-blue-400 group-hover:text-blue-600 transition-colors">Ajuda E-mail</span>
+          </button>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -626,6 +764,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           showToast('Proposta atualizada com sucesso!');
         }}
         user={user}
+      />
+
+      <SMTPHelpModal 
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
 
       {isDeleteModalOpen && (
@@ -782,7 +925,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
             <button 
-              onClick={() => showToast('Gerando relatório PDF...', 'info')}
+              onClick={handleExportListPDF}
               className="flex-1 md:flex-none px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <Download className="w-4 h-4" />
@@ -896,6 +1039,26 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   />
                 </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marca Painel</label>
+                <input 
+                  type="text" 
+                  value={filters.kitPanel || ''}
+                  onChange={(e) => setFilters({ ...filters, kitPanel: e.target.value })}
+                  placeholder="Ex: Jinko, Canadian"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Modelo Inversor</label>
+                <input 
+                  type="text" 
+                  value={filters.kitInverter || ''}
+                  onChange={(e) => setFilters({ ...filters, kitInverter: e.target.value })}
+                  placeholder="Ex: Growatt, Deye"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                />
+              </div>
               <div className="flex items-end">
                 <button 
                   onClick={() => {
@@ -906,7 +1069,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                       value: '',
                       representative: 'all',
                       startDate: '',
-                      endDate: ''
+                      endDate: '',
+                      kitPanel: '',
+                      kitInverter: ''
                     });
                     setSearchTerm('');
                     setStatusFilter('all');
@@ -984,7 +1149,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredProposals.length > 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+              ) : filteredProposals.length > 0 ? (
                 <AnimatePresence>
                   {filteredProposals.map((prop, index) => (
                     <motion.tr 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Loader2, AlertCircle, Users, Maximize } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { Client } from '../types';
 
 // Fix for default marker icons in Leaflet
@@ -152,7 +153,15 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, className, onSe
                   <div className="size-8 rounded-lg bg-[#fdb612]/20 flex items-center justify-center text-[#fdb612]">
                     <Users className="w-4 h-4" />
                   </div>
-                  <div className="font-bold text-slate-900">{marker.client.name}</div>
+                  <div>
+                    <div className="font-bold text-slate-900 leading-tight">{marker.client.name}</div>
+                    <div className={cn(
+                      "text-[9px] font-black uppercase tracking-widest",
+                      marker.client.status === 'active' ? "text-emerald-600" : "text-rose-600"
+                    )}>
+                      {marker.client.status === 'active' ? 'Ativo' : 'Inativo'}
+                    </div>
+                  </div>
                 </div>
                 <div className="text-[10px] text-slate-500 mb-2">{marker.client.address}</div>
                 <button 
