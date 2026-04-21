@@ -8,9 +8,10 @@ export interface User {
   avatar?: string;
   phone?: string;
   address?: string;
+  status?: 'active' | 'inactive' | 'pending';
 }
 
-export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports';
+export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports';
 
 export interface Client {
   id: string;
@@ -132,6 +133,8 @@ export interface Proposal {
   status: 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
   systemSize: string;
   representative: string;
+  representativeId?: string;
+  representativeEmail?: string;
   proposalNumber?: string;
   expiryDate?: string | null;
   roi?: string | null;

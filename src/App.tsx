@@ -15,6 +15,7 @@ import { KitsView } from './components/KitsView';
 import { FinanceView } from './components/FinanceView';
 import { ClientsView } from './components/ClientsView';
 import { ReportsView } from './components/ReportsView';
+import { UsersView } from './components/UsersView';
 import { LoginView } from './components/LoginView';
 import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
 import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
@@ -79,6 +80,7 @@ export default function App() {
       if (firebaseUser) {
         // Check if user profile exists in Firestore
         let userProfile = await getDocument<User>('users', firebaseUser.uid);
+        const isOwner = firebaseUser.email === 'marusansp@gmail.com';
         
         if (!userProfile) {
           // Create initial profile
@@ -86,11 +88,17 @@ export default function App() {
             id: firebaseUser.uid,
             name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
             email: firebaseUser.email || '',
-            role: (firebaseUser.email?.includes('admin') || firebaseUser.email === 'marusansp@gmail.com') ? 'admin' : 'sales',
-            avatar: firebaseUser.photoURL || undefined
+            role: (firebaseUser.email?.includes('admin') || isOwner) ? 'admin' : 'sales',
+            avatar: firebaseUser.photoURL || undefined,
+            status: isOwner ? 'active' : 'pending'
           };
           await setDocument('users', firebaseUser.uid, newUser);
           userProfile = newUser;
+        } else if (isOwner && userProfile.status !== 'active') {
+          // Ensure owner is always active
+          const updatedProfile = { ...userProfile, status: 'active' as const, role: 'admin' as const };
+          await updateDocument('users', firebaseUser.uid, { status: 'active', role: 'admin' });
+          userProfile = updatedProfile;
         }
         
         setUser(userProfile);
@@ -107,8 +115,15 @@ export default function App() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      const isSales = user.role === 'sales';
+      
       const unsubscribeLeads = syncCollection<Lead>('leads', setLeads, 'createdAt');
-      const unsubscribeProposals = syncCollection<Proposal>('proposals', setProposals, 'date');
+      const unsubscribeProposals = syncCollection<Proposal>(
+        'proposals', 
+        setProposals, 
+        'date',
+        isSales ? [{ field: 'representativeEmail', operator: '==', value: user.email }] : undefined
+      );
       const unsubscribeInstallations = syncCollection<any>('installations', setInstallations, 'lastUpdated');
       const unsubscribePartners = syncCollection<Partner>('partners', setPartners, 'createdAt');
       const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
@@ -200,7 +215,7 @@ export default function App() {
       engineer: ['dashboard', 'installations', 'clients'],
       installer: ['dashboard', 'installations'],
       finance: ['dashboard', 'finance', 'proposals', 'clients', 'reports'],
-      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
+      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'users', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -224,6 +239,67 @@ export default function App() {
 
   if (!isAuthenticated) {
     return <LoginView onLogin={handleLogin} />;
+  }
+
+  if (user?.status !== 'active') {
+    return (
+      <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex flex-col items-center justify-center p-8">
+        <div className="max-w-md w-full bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 shadow-2xl text-center space-y-6 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-[#fdb612] animate-pulse" />
+          
+          <div className="size-20 bg-[#fdb612]/10 rounded-full flex items-center justify-center mx-auto text-[#fdb612]">
+            <ShieldAlert className="w-10 h-10" />
+          </div>
+          
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+              Acesso em Análise
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+              Sua conta foi criada, mas para garantir a segurança dos dados da <strong>Vieira's Solar</strong>, 
+              um administrador precisa autorizar seu perfil.
+            </p>
+          </div>
+
+          <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800 text-left space-y-3">
+            <div>
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Identificação</p>
+              <p className="font-bold text-sm text-slate-700 dark:text-slate-200">{user?.email}</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Status Atual</p>
+                <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">
+                  {user?.status === 'pending' ? 'Aguardando Aprovação' : 'Inativo'}
+                </p>
+              </div>
+              <div className="size-2 bg-amber-500 rounded-full animate-ping" />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all flex items-center justify-center gap-2"
+            >
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Verificar Novamente
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="w-full py-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair e entrar com outra conta
+            </button>
+          </div>
+
+          <p className="text-[10px] text-slate-400 font-medium">
+            Se você é o administrador, verifique a aba de Gestão de Acessos para liberar este e-mail.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -409,6 +485,7 @@ export default function App() {
                   />
                 )}
                 {currentView === 'team' && <TeamView />}
+                {currentView === 'users' && <UsersView />}
                 {currentView === 'sales' && <SalesView proposals={proposals} />}
                 {currentView === 'proposals' && (
                   <ProposalsView 

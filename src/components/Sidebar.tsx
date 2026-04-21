@@ -40,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, roles: ['admin', 'finance', 'sales'] },
     { id: 'kits', label: 'Kits', icon: LayoutGrid, roles: ['admin', 'sales', 'engineer'] },
     { id: 'collaborators', label: 'Colaboradores', icon: UserPlus, roles: ['admin'] },
+    { id: 'users', label: 'Gestão de Acessos', icon: ShieldCheck, roles: ['admin'] },
     { id: 'partners', label: 'Parceiros', icon: Building2, roles: ['admin'] },
     { id: 'settings', label: 'Configurações', icon: Settings, roles: ['admin'] },
   ];

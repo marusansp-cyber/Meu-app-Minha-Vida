@@ -9,7 +9,9 @@ import {
   getDoc,
   setDoc,
   serverTimestamp,
-  orderBy
+  orderBy,
+  where,
+  QueryConstraint
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
@@ -88,10 +90,23 @@ function convertTimestamps(data: any): any {
 export function syncCollection<T>(
   collectionPath: string, 
   onUpdate: (data: T[]) => void,
-  sortField?: string
+  sortField?: string,
+  whereQueries?: { field: string; operator: any; value: any }[]
 ) {
   const colRef = collection(db, collectionPath);
-  const q = sortField ? query(colRef, orderBy(sortField, 'desc')) : colRef;
+  const constraints: QueryConstraint[] = [];
+
+  if (whereQueries) {
+    whereQueries.forEach(q => {
+      constraints.push(where(q.field, q.operator, q.value));
+    });
+  }
+
+  if (sortField) {
+    constraints.push(orderBy(sortField, 'desc'));
+  }
+
+  const q = constraints.length > 0 ? query(colRef, ...constraints) : colRef;
 
   return onSnapshot(q, (snapshot) => {
     const data = snapshot.docs.map(doc => ({

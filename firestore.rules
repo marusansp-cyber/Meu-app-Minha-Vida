@@ -87,7 +87,8 @@ service cloud.firestore {
       return hasRequiredFields(['name', 'email', 'role']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              isValidEmail(data.email) &&
-             data.role in ['admin', 'sales', 'engineer', 'installer', 'finance', 'admin_staff', 'Vendedor', 'Projetista', 'Instalador', 'Financeiro', 'Administrativo'];
+             data.role in ['admin', 'sales', 'engineer', 'installer', 'finance', 'admin_staff'] &&
+             (!('status' in data) || data.status in ['active', 'inactive', 'pending']);
     }
 
     function isValidPartner(data) {
@@ -138,7 +139,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (
+        isAdmin() || 
+        (isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'avatar', 'phone', 'address']))
+      );
       allow delete: if isAdmin();
     }
 
@@ -150,9 +154,9 @@ service cloud.firestore {
     }
 
     match /proposals/{proposalId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.representativeEmail == request.auth.token.email);
       allow create: if isAuthenticated() && isValidProposal(request.resource.data);
-      allow update: if isAuthenticated() && isValidProposal(request.resource.data);
+      allow update: if isAuthenticated() && isValidProposal(request.resource.data) && (isAdmin() || resource.data.representativeEmail == request.auth.token.email);
       allow delete: if isAdmin();
     }
 

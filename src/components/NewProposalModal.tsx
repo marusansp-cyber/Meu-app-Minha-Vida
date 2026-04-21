@@ -480,6 +480,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         status: initialData?.status || 'pending',
         systemSize: `${formData.systemSize} kWp`,
         representative: formData.representative || user?.name || 'Vendedor',
+        representativeId: initialData?.representativeId || user?.id || null,
+        representativeEmail: initialData?.representativeEmail || user?.email || null,
         roi: formData.roi || null,
         payback: formData.payback ? `${formData.payback} Anos` : null,
         commission: parseFloat(formData.commission) || 0,

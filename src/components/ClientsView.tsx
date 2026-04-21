@@ -18,7 +18,8 @@ import {
   Clock,
   MessageCircle,
   Maximize,
-  X
+  X,
+  CreditCard
 } from 'lucide-react';
 import { Client, Proposal, Installation, History as HistoryType } from '../types';
 import { cn } from '../lib/utils';
@@ -123,11 +124,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.phone.includes(searchTerm) ||
-        (client.cnpj_cpf && client.cnpj_cpf.includes(searchTerm));
+        (client.cnpj && client.cnpj.includes(searchTerm)) ||
+        (client.cpf && client.cpf.includes(searchTerm));
       
       const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
       
-      const matchesCnpj = !clientFilters.cnpj_cpf || (client.cnpj_cpf && client.cnpj_cpf.includes(clientFilters.cnpj_cpf));
+      const matchesCnpj = !clientFilters.cnpj_cpf || 
+        (client.cnpj && client.cnpj.includes(clientFilters.cnpj_cpf)) ||
+        (client.cpf && client.cpf.includes(clientFilters.cnpj_cpf));
       
       let matchesDate = true;
       if (clientFilters.startDate || clientFilters.endDate) {
@@ -167,6 +171,271 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     const inactive = clients.filter(c => c.status === 'inactive').length;
     return { active, inactive, total: clients.length };
   }, [clients]);
+
+  const renderClientDetails = (client: Client) => (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612]/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-center gap-6">
+            <div className="size-20 rounded-2xl bg-[#fdb612] flex items-center justify-center text-[#231d0f] text-3xl font-black shadow-lg shadow-[#fdb612]/20">
+              {client.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100">{client.name}</h3>
+              <div className="flex flex-wrap items-center gap-4 mt-2">
+                <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <Mail className="w-4 h-4 text-[#fdb612]" />
+                  {client.email}
+                </span>
+                <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <Phone className="w-4 h-4 text-[#fdb612]" />
+                  {client.phone}
+                </span>
+                {client.address && (
+                  <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                    <MapPin className="w-4 h-4 text-[#fdb612]" />
+                    {client.address}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {onCreateProposal && (
+              <button 
+                onClick={() => onCreateProposal(client)}
+                className="flex items-center gap-2 px-4 py-3 bg-[#fdb612]/10 text-[#fdb612] rounded-xl font-bold text-sm hover:bg-[#fdb612] hover:text-[#231d0f] transition-all group"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Criar Proposta</span>
+              </button>
+            )}
+            <button 
+              onClick={() => {
+                setEditingClient(client);
+                setIsModalOpen(true);
+              }}
+              className="p-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-[#fdb612] hover:text-[#231d0f] transition-all"
+            >
+              <Edit className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={() => handleDeleteClient(client.id)}
+              className="p-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Project History */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Proposals */}
+        <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#fdb612]" />
+              Propostas
+            </h4>
+            <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 rounded text-[10px] font-black text-slate-500">
+              {getClientProjects(client).proposals.length} TOTAL
+            </span>
+          </div>
+          <div className="space-y-3">
+            {getClientProjects(client).proposals.map((proposal) => (
+              <div key={proposal.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800 group hover:border-[#fdb612]/30 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{proposal.date}</span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-black uppercase",
+                    proposal.status === 'accepted' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                  )}>
+                    {proposal.status}
+                  </span>
+                </div>
+                <p className="font-bold text-slate-900 dark:text-slate-100">{proposal.systemSize} - {proposal.value}</p>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[10px] text-slate-500 font-medium">Rep: {proposal.representative}</span>
+                  <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
+                    VER DETALHES <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {getClientProjects(client).proposals.length === 0 && (
+              <div className="py-8 text-center text-slate-400">
+                <p className="text-xs">Nenhuma proposta registrada</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Installations */}
+        <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Construction className="w-5 h-5 text-[#fdb612]" />
+              Instalações
+            </h4>
+            <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 rounded text-[10px] font-black text-slate-500">
+              {getClientProjects(client).installations.length} TOTAL
+            </span>
+          </div>
+          <div className="space-y-3">
+            {getClientProjects(client).installations.map((installation) => (
+              <div key={installation.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800 group hover:border-[#fdb612]/30 transition-all">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{installation.lastUpdated}</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-[#fdb612]" 
+                        style={{ width: `${installation.progress}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-black text-[#fdb612]">{installation.progress}%</span>
+                  </div>
+                </div>
+                <p className="font-bold text-slate-900 dark:text-slate-100">{installation.stage}</p>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src={installation.technician.avatar} 
+                      alt="" 
+                      className="size-5 rounded-full" 
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="text-[10px] text-slate-500 font-medium">{installation.technician.name}</span>
+                  </div>
+                  <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
+                    ACOMPANHAR <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {getClientProjects(client).installations.length === 0 && (
+              <div className="py-8 text-center text-slate-400">
+                <p className="text-xs">Nenhuma instalação em andamento</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Interaction History (Recent Business Activity) */}
+      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+        <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-6">
+          <Users className="w-5 h-5 text-[#fdb612]" />
+          Últimas Interações
+        </h4>
+        <div className="space-y-4">
+          {(() => {
+            const clientProposals = proposals
+              .filter(p => p.client === client.name)
+              .map(p => ({
+                type: 'proposal',
+                title: `Proposta Criada: ${p.systemSize}`,
+                date: p.date,
+                timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
+                status: p.status
+              }));
+            
+            const clientInstallations = installations
+              .filter(i => i.name === client.name)
+              .map(i => ({
+                type: 'installation',
+                title: `Instalação Iniciada: ${i.stage}`,
+                date: i.startDate || i.lastUpdated,
+                timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
+                status: i.progress + '%'
+              }));
+
+            const allInteractions = [...clientProposals, ...clientInstallations]
+              .sort((a, b) => b.timestamp - a.timestamp)
+              .slice(0, 5);
+
+            if (allInteractions.length === 0) {
+              return (
+                <div className="py-4 text-center text-slate-400">
+                  <p className="text-xs italic">Nenhuma interação registrada para este cliente.</p>
+                </div>
+              );
+            }
+
+            return allInteractions.map((interaction, idx) => (
+              <div key={idx} className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className={cn(
+                  "size-10 rounded-xl flex items-center justify-center shrink-0",
+                  interaction.type === 'proposal' ? "bg-[#fdb612]/10 text-[#fdb612]" : "bg-blue-500/10 text-blue-500"
+                )}>
+                  {interaction.type === 'proposal' ? <FileText className="w-5 h-5" /> : <Construction className="w-5 h-5" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{interaction.title}</p>
+                    <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
+                  </div>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                    interaction.type === 'proposal' 
+                      ? (interaction.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')
+                      : 'bg-blue-500/10 text-blue-500'
+                  )}>
+                    {interaction.status}
+                  </span>
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      </div>
+
+      {/* Timeline History */}
+      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+        <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-8">
+          <History className="w-5 h-5 text-[#fdb612]" />
+          Histórico de Alterações
+        </h4>
+        <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-white/5">
+          {history.filter(h => h.collection === 'clients' && h.docId === client.id).map((item, idx) => (
+            <div key={item.id || idx} className="relative pl-10">
+              <div className={cn(
+                "absolute left-0 top-1 size-6 rounded-full border-4 border-white dark:border-[#231d0f] flex items-center justify-center",
+                item.type === 'create' ? "bg-emerald-500/20" : "bg-blue-500/20"
+              )}>
+                {item.type === 'create' ? (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                ) : (
+                  <Edit className="w-3 h-3 text-blue-500" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {item.type === 'create' ? 'Cliente Cadastrado' : 'Informações Atualizadas'}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Realizado por: <span className="font-bold">{item.user?.displayName || item.user?.email || 'Sistema'}</span>
+                </p>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 block">
+                  {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleString('pt-BR') : 'Agora'}
+                </span>
+              </div>
+            </div>
+          ))}
+          {history.filter(h => h.collection === 'clients' && h.docId === client.id).length === 0 && (
+            <div className="py-4 text-center text-slate-400">
+              <p className="text-xs italic">Nenhum histórico registrado para este cliente.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6 relative">
@@ -342,27 +611,27 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 gap-6"
           >
             {/* Clients List */}
-            <div className="lg:col-span-1 space-y-4">
-              <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4">
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Buscar por nome, e-mail, tel ou CNPJ..."
+                      placeholder="Buscar por nome, email, tel, CPF/CNPJ..."
                       value={searchTerm || ''}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all"
+                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all font-medium"
                     />
                   </div>
                   <button 
                     onClick={() => setShowFilters(!showFilters)}
                     className={cn(
                       "p-2 rounded-xl border transition-all",
-                      showFilters ? "bg-[#fdb612] text-[#231d0f] border-[#fdb612]" : "bg-white dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600"
+                      showFilters ? "bg-[#fdb612] text-[#231d0f] border-[#fdb612]" : "bg-white dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 shadow-sm"
                     )}
                   >
                     <Filter className="w-4 h-4" />
@@ -435,70 +704,94 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   <select 
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none cursor-pointer"
+                    className="bg-transparent text-[10px] font-black uppercase tracking-widest text-[#fdb612] outline-none cursor-pointer"
                   >
-                    <option value="recent">Recent</option>
+                    <option value="recent">Recentes</option>
                     <option value="name">Nome</option>
                     <option value="projects">Projetos</option>
                   </select>
                 </div>
 
-                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {filteredClients.map((client) => (
-                    <button
-                      key={client.id}
-                      onClick={() => setSelectedClient(client)}
-                      className={cn(
-                        "w-full text-left p-4 rounded-xl border transition-all group",
-                        selectedClient?.id === client.id
-                          ? "bg-[#fdb612]/10 border-[#fdb612] shadow-sm"
-                          : "bg-white dark:bg-transparent border-slate-100 dark:border-slate-800 hover:border-[#fdb612]/30"
-                      )}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#fdb612] transition-colors truncate">
-                            {client.name}
-                          </h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1 truncate">
-                            <Mail className="w-3 h-3" />
-                            {client.email}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {client.phone}
-                          </p>
-                          
-                          <div className="flex items-center gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a 
-                              href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"
-                              title="WhatsApp"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </a>
-                            <a 
-                              href={`mailto:${client.email}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 bg-[#fdb612]/10 text-[#fdb612] rounded-lg hover:bg-[#fdb612] hover:text-[#231d0f] transition-all"
-                              title="E-mail"
-                            >
-                              <Mail className="w-3.5 h-3.5" />
-                            </a>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredClients.map((client) => {
+                    const clientProjects = getClientProjects(client);
+                    const totalProjects = clientProjects.proposals.length + clientProjects.installations.length;
+                    
+                    return (
+                      <button
+                        key={client.id}
+                        onClick={() => setSelectedClient(client)}
+                        className={cn(
+                          "w-full text-left p-4 rounded-xl border transition-all group relative overflow-hidden",
+                          selectedClient?.id === client.id
+                            ? "bg-[#fdb612]/10 border-[#fdb612] shadow-md ring-1 ring-[#fdb612]/20"
+                            : "bg-white dark:bg-transparent border-slate-100 dark:border-slate-800 hover:border-[#fdb612]/30 hover:shadow-sm"
+                        )}
+                      >
+                        <div className="flex items-start justify-between relative z-10">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-black text-slate-900 dark:text-slate-100 group-hover:text-[#fdb612] transition-colors truncate">
+                                {client.name}
+                              </h4>
+                              {totalProjects > 0 && (
+                                <span className="px-1.5 py-0.5 bg-[#fdb612] text-[#231d0f] text-[8px] font-black rounded uppercase">
+                                  {totalProjects} {totalProjects === 1 ? 'PROJETO' : 'PROJETOS'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium">
+                                <Mail className="w-3.5 h-3.5 text-[#fdb612]/60" />
+                                <span className="truncate">{client.email}</span>
+                              </p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 font-medium">
+                                <Phone className="w-3.5 h-3.5 text-[#fdb612]/60" />
+                                {client.phone}
+                              </p>
+                              {(client.cnpj || client.cpf) && (
+                                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mt-1 flex items-center gap-2">
+                                  <CreditCard className="w-3 h-3" />
+                                  {client.cnpj || client.cpf}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0 transition-colors shadow-sm",
+                            client.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-500/10 text-slate-500"
+                          )}>
+                            {client.status}
                           </div>
                         </div>
-                        <div className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-black uppercase shrink-0",
-                          client.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-500/10 text-slate-500"
-                        )}>
-                          {client.status}
+                        
+                        <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transform translate-y-1 group-hover:translate-y-0 transition-all duration-300">
+                          <a 
+                            href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-500 hover:text-white transition-all transform hover:scale-110"
+                            title="WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                          <a 
+                            href={`mailto:${client.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 bg-[#fdb612]/10 text-[#fdb612] rounded-lg hover:bg-[#fdb612] hover:text-[#231d0f] transition-all transform hover:scale-110"
+                            title="E-mail"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </a>
+                          <div className="flex-1" />
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 group-hover:text-[#fdb612]">
+                            Ver Detalhes <Maximize className="w-3 h-3" />
+                          </span>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                   {filteredClients.length === 0 && (
                     <div className="py-8 text-center text-slate-400">
                       <Users className="w-12 h-12 mx-auto mb-2 opacity-20" />
@@ -509,287 +802,47 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </div>
             </div>
 
-            {/* Client Details & History */}
-            <div className="lg:col-span-2 space-y-6">
-              <AnimatePresence mode="wait">
-                {selectedClient ? (
+            {/* Side Panel Drawer */}
+            <AnimatePresence>
+              {selectedClient && (
+                <>
+                  {/* Backdrop */}
                   <motion.div
-                    key={selectedClient.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="space-y-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setSelectedClient(null)}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110]"
+                  />
+                  {/* Drawer Content */}
+                  <motion.div
+                    initial={{ x: '100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '100%' }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                    className="fixed top-0 right-0 bottom-0 w-full max-w-2xl bg-[#f8f7f5] dark:bg-[#1a160d] shadow-2xl z-[120] overflow-hidden flex flex-col border-l border-slate-200 dark:border-slate-800"
                   >
-                    {/* Header Info */}
-                    <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612]/5 rounded-full -mr-16 -mt-16 blur-3xl" />
-                      
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                        <div className="flex items-center gap-6">
-                          <div className="size-20 rounded-2xl bg-[#fdb612] flex items-center justify-center text-[#231d0f] text-3xl font-black shadow-lg shadow-[#fdb612]/20">
-                            {selectedClient.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100">{selectedClient.name}</h3>
-                            <div className="flex flex-wrap items-center gap-4 mt-2">
-                              <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
-                                <Mail className="w-4 h-4 text-[#fdb612]" />
-                                {selectedClient.email}
-                              </span>
-                              <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
-                                <Phone className="w-4 h-4 text-[#fdb612]" />
-                                {selectedClient.phone}
-                              </span>
-                              {selectedClient.address && (
-                                <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
-                                  <MapPin className="w-4 h-4 text-[#fdb612]" />
-                                  {selectedClient.address}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-[#231d0f]">
+                      <div className="flex items-center gap-4">
+                        <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612]">
+                          <Users className="w-5 h-5" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          {onCreateProposal && (
-                            <button 
-                              onClick={() => onCreateProposal(selectedClient)}
-                              className="flex items-center gap-2 px-4 py-3 bg-[#fdb612]/10 text-[#fdb612] rounded-xl font-bold text-sm hover:bg-[#fdb612] hover:text-[#231d0f] transition-all group"
-                            >
-                              <FileText className="w-4 h-4" />
-                              <span className="hidden sm:inline">Criar Proposta</span>
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => {
-                              setEditingClient(selectedClient);
-                              setIsModalOpen(true);
-                            }}
-                            className="p-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-[#fdb612] hover:text-[#231d0f] transition-all"
-                          >
-                            <Edit className="w-5 h-5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteClient(selectedClient.id)}
-                            className="p-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
+                        <h3 className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Ficha do Cliente</h3>
                       </div>
+                      <button 
+                        onClick={() => setSelectedClient(null)}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl text-slate-400 transition-colors"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
                     </div>
-
-                    {/* Project History */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Proposals */}
-                      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                          <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-[#fdb612]" />
-                            Propostas
-                          </h4>
-                          <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 rounded text-[10px] font-black text-slate-500">
-                            {getClientProjects(selectedClient).proposals.length} TOTAL
-                          </span>
-                        </div>
-                        <div className="space-y-3">
-                          {getClientProjects(selectedClient).proposals.map((proposal) => (
-                            <div key={proposal.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800 group hover:border-[#fdb612]/30 transition-all">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{proposal.date}</span>
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded text-[10px] font-black uppercase",
-                                  proposal.status === 'accepted' ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
-                                )}>
-                                  {proposal.status}
-                                </span>
-                              </div>
-                              <p className="font-bold text-slate-900 dark:text-slate-100">{proposal.systemSize} - {proposal.value}</p>
-                              <div className="flex items-center justify-between mt-3">
-                                <span className="text-[10px] text-slate-500 font-medium">Rep: {proposal.representative}</span>
-                                <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
-                                  VER DETALHES <ExternalLink className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          {getClientProjects(selectedClient).proposals.length === 0 && (
-                            <div className="py-8 text-center text-slate-400">
-                              <p className="text-xs">Nenhuma proposta registrada</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Installations */}
-                      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                          <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            <Construction className="w-5 h-5 text-[#fdb612]" />
-                            Instalações
-                          </h4>
-                          <span className="px-2 py-1 bg-slate-100 dark:bg-white/5 rounded text-[10px] font-black text-slate-500">
-                            {getClientProjects(selectedClient).installations.length} TOTAL
-                          </span>
-                        </div>
-                        <div className="space-y-3">
-                          {getClientProjects(selectedClient).installations.map((installation) => (
-                            <div key={installation.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800 group hover:border-[#fdb612]/30 transition-all">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{installation.lastUpdated}</span>
-                                <div className="flex items-center gap-1">
-                                  <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full bg-[#fdb612]" 
-                                      style={{ width: `${installation.progress}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] font-black text-[#fdb612]">{installation.progress}%</span>
-                                </div>
-                              </div>
-                              <p className="font-bold text-slate-900 dark:text-slate-100">{installation.stage}</p>
-                              <div className="flex items-center justify-between mt-3">
-                                <div className="flex items-center gap-2">
-                                  <img 
-                                    src={installation.technician.avatar} 
-                                    alt="" 
-                                    className="size-5 rounded-full" 
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                  <span className="text-[10px] text-slate-500 font-medium">{installation.technician.name}</span>
-                                </div>
-                                <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
-                                  ACOMPANHAR <ExternalLink className="w-3 h-3" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          {getClientProjects(selectedClient).installations.length === 0 && (
-                            <div className="py-8 text-center text-slate-400">
-                              <p className="text-xs">Nenhuma instalação em andamento</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Interaction History (Recent Business Activity) */}
-                    <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-                      <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-6">
-                        <Users className="w-5 h-5 text-[#fdb612]" />
-                        Últimas Interações
-                      </h4>
-                      <div className="space-y-4">
-                        {(() => {
-                          const clientProposals = proposals
-                            .filter(p => p.client === selectedClient.name)
-                            .map(p => ({
-                              type: 'proposal',
-                              title: `Proposta Criada: ${p.systemSize}`,
-                              date: p.date,
-                              timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
-                              status: p.status
-                            }));
-                          
-                          const clientInstallations = installations
-                            .filter(i => i.name === selectedClient.name)
-                            .map(i => ({
-                              type: 'installation',
-                              title: `Instalação Iniciada: ${i.stage}`,
-                              date: i.startDate || i.lastUpdated,
-                              timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
-                              status: i.progress + '%'
-                            }));
-
-                          const allInteractions = [...clientProposals, ...clientInstallations]
-                            .sort((a, b) => b.timestamp - a.timestamp)
-                            .slice(0, 5);
-
-                          if (allInteractions.length === 0) {
-                            return (
-                              <div className="py-4 text-center text-slate-400">
-                                <p className="text-xs italic">Nenhuma interação registrada para este cliente.</p>
-                              </div>
-                            );
-                          }
-
-                          return allInteractions.map((interaction, idx) => (
-                            <div key={idx} className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                              <div className={cn(
-                                "size-10 rounded-xl flex items-center justify-center shrink-0",
-                                interaction.type === 'proposal' ? "bg-[#fdb612]/10 text-[#fdb612]" : "bg-blue-500/10 text-blue-500"
-                              )}>
-                                {interaction.type === 'proposal' ? <FileText className="w-5 h-5" /> : <Construction className="w-5 h-5" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{interaction.title}</p>
-                                  <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
-                                </div>
-                                <span className={cn(
-                                  "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
-                                  interaction.type === 'proposal' 
-                                    ? (interaction.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')
-                                    : 'bg-blue-500/10 text-blue-500'
-                                )}>
-                                  {interaction.status}
-                                </span>
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-
-                    {/* Timeline History */}
-                    <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-                      <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-8">
-                        <History className="w-5 h-5 text-[#fdb612]" />
-                        Histórico de Alterações
-                      </h4>
-                      <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-white/5">
-                        {clientHistory.map((item, idx) => (
-                          <div key={item.id || idx} className="relative pl-10">
-                            <div className={cn(
-                              "absolute left-0 top-1 size-6 rounded-full border-4 border-white dark:border-[#231d0f] flex items-center justify-center",
-                              item.type === 'create' ? "bg-emerald-500/20" : "bg-blue-500/20"
-                            )}>
-                              {item.type === 'create' ? (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                              ) : (
-                                <Edit className="w-3 h-3 text-blue-500" />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                {item.type === 'create' ? 'Cliente Cadastrado' : 'Informações Atualizadas'}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-1">
-                                Realizado por: <span className="font-bold">{item.user?.displayName || item.user?.email || 'Sistema'}</span>
-                              </p>
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 block">
-                                {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleString('pt-BR') : 'Agora'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                        {clientHistory.length === 0 && (
-                          <div className="py-4 text-center text-slate-400">
-                            <p className="text-xs italic">Nenhum histórico registrado para este cliente.</p>
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
+                      {renderClientDetails(selectedClient)}
                     </div>
                   </motion.div>
-                ) : (
-                  <div className="h-full min-h-[600px] flex flex-col items-center justify-center text-slate-400 bg-white/50 dark:bg-white/5 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
-                    <Users className="w-20 h-20 mb-4 opacity-10" />
-                    <p className="text-xl font-bold">Selecione um cliente</p>
-                    <p className="text-sm">Escolha um cliente na lista ao lado para ver detalhes e histórico.</p>
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
+                </>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

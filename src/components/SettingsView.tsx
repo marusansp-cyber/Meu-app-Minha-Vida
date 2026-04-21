@@ -53,8 +53,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     email: user?.email || "",
     phone: user?.phone || "(11) 99999-9999",
     address: user?.address || "",
-    role: user?.role || "Vendedor",
+    role: user?.role || "sales",
+    occupation: user?.role || "", // Representing cargo/function
     photo: user?.avatar || null as string | null
+  });
+
+  const [securityData, setSecurityData] = useState({
+    newPassword: '',
+    confirmPassword: '',
   });
 
   const [company, setCompany] = useState({
@@ -62,6 +68,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     cnpj: "61.950.902/0018-33",
     address: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
     email: "contato@mvengenharia.com.br",
+    contactEmail: "suporte@mvengenharia.com.br", // New field
     phone: "(11) 3456-7890"
   });
 
@@ -90,6 +97,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const handleSave = async () => {
     if (!user) return;
 
+    // Password validation if attempting to change
+    if (securityData.newPassword) {
+      const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+      if (!passwordRegex.test(securityData.newPassword)) {
+        showToast('A senha deve ter pelo menos 8 caracteres, incluindo números e caracteres especiais (!@#$%^&*)');
+        return;
+      }
+      if (securityData.newPassword !== securityData.confirmPassword) {
+        showToast('As senhas não coincidem');
+        return;
+      }
+    }
+
     try {
       const updatedUser: UserType = {
         ...user,
@@ -104,10 +124,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       await updateDocument('users', user.id, updatedUser);
       onUpdateUser(updatedUser);
       showToast('Configurações salvas com sucesso!');
+      setSecurityData({ newPassword: '', confirmPassword: '' });
     } catch (error) {
       console.error('Error updating profile:', error);
       showToast('Erro ao salvar configurações.');
     }
+  };
+
+  const handleExportData = () => {
+    if (!user) return;
+    
+    const headers = ['ID', 'Nome', 'Email', 'Role', 'Telefone', 'Endereço'];
+    const data = [
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.phone || '',
+      user.address || ''
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      data.map(val => `"${val}"`).join(',')
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `meus_dados_${user.name.replace(/\s+/g, '_').toLowerCase()}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Dados exportados com sucesso!');
+  };
+
+  const handleSendTestEmail = () => {
+    showToast(`E-mail de teste enviado para ${company.contactEmail}!`);
+    console.log(`Simulating test email to ${company.contactEmail}`);
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    const roleLabels: Record<string, string> = {
+      admin: 'Administrador',
+      sales: 'Vendedor',
+      engineer: 'Engenheiro',
+      installer: 'Instalador',
+      finance: 'Financeiro',
+      admin_staff: 'Staff Administrativo'
+    };
+    
+    setProfile(prev => ({ 
+      ...prev, 
+      role: newRole,
+      occupation: roleLabels[newRole] || prev.occupation 
+    }));
   };
 
   const handleCancel = () => {
@@ -294,10 +367,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   </div>
                   <input 
                     type="text" 
-                    value={profile.role || ''}
-                    onChange={(e) => setProfile(prev => ({ ...prev, role: e.target.value }))}
+                    value={profile.occupation || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, occupation: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nova Senha</label>
+                    <Shield className="w-3 h-3 text-[#fdb612]" />
+                  </div>
+                  <input 
+                    type="password" 
+                    placeholder="Min. 8 chars + num + especial"
+                    value={securityData.newPassword}
+                    onChange={(e) => setSecurityData(prev => ({ ...prev, newPassword: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirmar Senha</label>
+                  </div>
+                  <input 
+                    type="password" 
+                    placeholder="Repita a nova senha"
+                    value={securityData.confirmPassword}
+                    onChange={(e) => setSecurityData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="md:col-span-2 pt-4">
+                  <button 
+                    onClick={handleExportData}
+                    className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-[#fdb612] transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar meus dados em CSV
+                  </button>
                 </div>
               </div>
             </div>
@@ -432,6 +539,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     onChange={(e) => setCompany(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail de Contato (Suporte)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="email" 
+                      value={company.contactEmail || ''}
+                      onChange={(e) => setCompany(prev => ({ ...prev, contactEmail: e.target.value }))}
+                      className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                      placeholder="email@exemplo.com"
+                    />
+                    <button 
+                      onClick={handleSendTestEmail}
+                      className="px-4 py-3 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#fdb612]/10 transition-all flex items-center gap-2 shrink-0"
+                    >
+                      <Mail className="w-4 h-4 text-[#fdb612]" />
+                      E-mail de Teste
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço</label>
@@ -581,9 +707,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     <p className="text-xs text-slate-400">Consulte nossos tutoriais e documentação completa.</p>
                   </div>
                 </div>
-                <button className="px-6 py-2 border border-white/20 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all">
+                <a 
+                  href="https://vieiras-solar.help" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-6 py-2 border border-white/20 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-white/5 transition-all inline-block"
+                >
                   Acessar
-                </button>
+                </a>
               </div>
             </div>
           )}
