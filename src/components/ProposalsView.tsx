@@ -230,7 +230,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         p.proposalNumber || p.id,
         p.client,
         p.email || 'N/A',
-        p.value.replace('R$ ', '').replace(/\./g, ''), // Clean currency for CSV
+        p.value?.toString() || '0', 
         p.date,
         p.status,
         p.systemSize,
@@ -387,7 +387,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       // Table
       const headers = [['ID', 'CLIENTE', 'VALOR', 'DATA', 'STATUS', 'SISTEMA (kWp)', 'COMISSÃO']];
       const data = filteredProposals.map(p => {
-        const value = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const value = p.value || 0;
         const commissionRate = p.commission || 5;
         const commissionValue = value * (commissionRate / 100);
         
@@ -543,7 +543,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       const matchesId = filters.id === '' || p.id.toLowerCase().includes(filters.id.toLowerCase());
       const matchesClient = filters.client === '' || p.client.toLowerCase().includes(filters.client.toLowerCase());
       const matchesSystem = filters.system === '' || p.systemSize.toLowerCase().includes(filters.system.toLowerCase());
-      const matchesValue = filters.value === '' || p.value.toLowerCase().includes(filters.value.toLowerCase());
+      const matchesValue = filters.value === '' || (p.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).toLowerCase().includes(filters.value.toLowerCase()));
       const matchesRepresentative = filters.representative === 'all' || p.representative === filters.representative;
       
       // Kit component filtering
@@ -589,8 +589,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         let bValue: any;
 
         if (sortConfig.key === 'value_num') {
-          aValue = parseFloat(a.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-          bValue = parseFloat(b.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+          aValue = a.value || 0;
+          bValue = b.value || 0;
         } else if (sortConfig.key === 'date' || sortConfig.key === 'expiryDate') {
           const aKey = a[sortConfig.key];
           const bKey = b[sortConfig.key];
@@ -1194,7 +1194,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     <p className="text-xs text-slate-500">{prop.systemSize}</p>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-black text-sm text-[#fdb612]">{prop.value}</p>
+                    <p className="font-black text-sm text-[#fdb612]">
+                      {prop.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
                     {prop.discount > 0 && (
                       <p className="text-[10px] text-rose-500 font-bold">Desc: R$ {prop.discount.toLocaleString('pt-BR')}</p>
                     )}
@@ -1202,7 +1204,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <p className="font-bold text-sm text-emerald-500">
-                        R$ {((parseFloat(prop.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0) * ((prop.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {((prop.value || 0) * ((prop.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{prop.commission || 5}%</p>
                     </div>

@@ -127,7 +127,7 @@ export interface Installation {
 export interface Proposal {
   id: string;
   client: string;
-  value: string;
+  value: number;
   date: string;
   status: 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
   systemSize: string;
@@ -145,6 +145,7 @@ export interface Proposal {
   discount?: number | null;
   financingBank?: string | null;
   financingInstallments?: number | null;
+  financingInstallmentValue?: number | null;
   email?: string | null;
   internalNotes?: string | null;
   

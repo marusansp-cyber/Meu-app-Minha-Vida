@@ -15,17 +15,17 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  const currentMonthStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   
   const currentGoal = useMemo(() => {
-    return goals.find(g => g.month === currentMonthStr) || {
+    return goals.find(g => g.month === monthFilter) || {
       id: '',
-      month: currentMonthStr,
+      month: monthFilter,
       targetValue: 200000,
       targetCount: 10,
       createdAt: new Date().toISOString()
     };
-  }, [goals, currentMonthStr]);
+  }, [goals, monthFilter]);
 
   const [editGoal, setEditGoal] = useState({
     targetValue: currentGoal.targetValue,
@@ -56,7 +56,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
       } else {
         await createDocument('salesGoals', {
           ...editGoal,
-          month: currentMonthStr,
+          month: monthFilter,
           createdAt: new Date().toISOString()
         });
       }
@@ -174,7 +174,16 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Mês de Referência</label>
+                <input 
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] font-black"
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Valor Alvo (R$)</label>
                 <input 
@@ -193,13 +202,15 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
                   className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] font-black"
                 />
               </div>
-              <button 
-                onClick={handleSaveGoal}
-                className="bg-[#fdb612] text-[#231d0f] px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#fdb612]/20 active:scale-95 transition-all"
-              >
-                <Save className="w-4 h-4" />
-                Salvar Metas
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSaveGoal}
+                  className="flex-1 bg-[#fdb612] text-[#231d0f] px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#fdb612]/20 active:scale-95 transition-all"
+                >
+                  <Save className="w-4 h-4" />
+                  Salvar
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

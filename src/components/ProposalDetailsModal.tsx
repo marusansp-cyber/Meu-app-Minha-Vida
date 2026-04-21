@@ -189,11 +189,12 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   </>
                 )}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor (R$)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor do Investimento (R$)</label>
                   <input 
-                    type="text" 
-                    value={editForm.value || ''}
-                    onChange={(e) => setEditForm({ ...editForm, value: e.target.value })}
+                    type="number" 
+                    step="0.01"
+                    value={editForm.value || 0}
+                    onChange={(e) => setEditForm({ ...editForm, value: parseFloat(e.target.value) || 0 })}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
@@ -311,7 +312,9 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Valor do Investimento</label>
-                      <p className="font-black text-3xl text-[#fdb612]">{proposal.value}</p>
+                      <p className="font-black text-3xl text-[#fdb612]">
+                        {proposal.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
                       {proposal.discount > 0 && (
                         <p className="text-[10px] text-rose-500 font-bold">Desconto aplicado: R$ {proposal.discount.toLocaleString('pt-BR')}</p>
                       )}
@@ -325,7 +328,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Comissão Estimada</label>
                       <p className="font-bold text-xl text-emerald-600">
-                        R$ {((parseFloat(proposal.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0) * ((proposal.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {((proposal.value || 0) * ((proposal.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                   </div>
@@ -372,6 +375,11 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Financiamento</label>
                         <p className="font-bold text-xl">{proposal.financingBank} - {proposal.financingInstallments}x</p>
+                        {proposal.financingInstallmentValue > 0 && (
+                          <p className="text-xs font-bold text-rose-500">
+                            {proposal.financingInstallmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} /mês
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}

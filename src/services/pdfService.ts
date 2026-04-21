@@ -288,7 +288,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text("Economia em 25 anos:", 30, 175);
   doc.setFontSize(22);
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  const estimatedValue = parseFloat((proposal.value || "0").replace(/[^0-9]/g, '')) || 0;
+  const estimatedValue = proposal.value || 0;
   const estimatedSavings = (estimatedValue * 4.5).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   doc.text(estimatedSavings, 30, 188);
 
@@ -379,7 +379,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.setFontSize(42);
   doc.setFont("helvetica", "bold");
-  const priceText = proposal.value;
+  const priceText = proposal.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || 'R$ 0,00';
   const priceWidth = doc.getTextWidth(priceText);
   doc.text(priceText, (pageWidth - priceWidth) / 2 + 10, 85);
 
@@ -392,9 +392,22 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     : "Pagamento Facilitado (À vista / Parcelamento)";
   doc.text(paymentDetails, 30, 125);
   if (proposal.financingInstallments) {
-    const totalVal = parseFloat((proposal.value || "0").replace(/[^0-9]/g, '')) || 0;
-    const monthlyEst = (totalVal / proposal.financingInstallments) * 1.2;
-    doc.text(`Parcelamento em ${proposal.financingInstallments}x de R$ ${monthlyEst.toFixed(2)} estimadas.`, 30, 132);
+    const totalVal = proposal.value || 0;
+    const installments = proposal.financingInstallments;
+    const monthlyRate = (proposal.financingRate || 1.2) / 100;
+    
+    let monthlyEst = proposal.financingInstallmentValue || 0;
+    if (monthlyEst === 0) {
+      if (monthlyRate > 0) {
+        monthlyEst = totalVal * (monthlyRate * Math.pow(1 + monthlyRate, installments)) / (Math.pow(1 + monthlyRate, installments) - 1);
+      } else {
+        monthlyEst = totalVal / installments;
+      }
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.text(`Parcelamento em ${installments}x de R$ ${monthlyEst.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} estimadas.`, 30, 132);
+    doc.setFont("helvetica", "normal");
   }
 
   // ROI Summary

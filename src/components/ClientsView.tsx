@@ -266,6 +266,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           >
             <ClientsMap 
               clients={filteredClients} 
+              proposals={proposals}
+              installations={installations}
               className="h-full w-full"
               onSelectClient={(client) => {
                 setSelectedClient(client);
@@ -668,6 +670,74 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                             </div>
                           )}
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Interaction History (Recent Business Activity) */}
+                    <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+                      <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-6">
+                        <Users className="w-5 h-5 text-[#fdb612]" />
+                        Últimas Interações
+                      </h4>
+                      <div className="space-y-4">
+                        {(() => {
+                          const clientProposals = proposals
+                            .filter(p => p.client === selectedClient.name)
+                            .map(p => ({
+                              type: 'proposal',
+                              title: `Proposta Criada: ${p.systemSize}`,
+                              date: p.date,
+                              timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
+                              status: p.status
+                            }));
+                          
+                          const clientInstallations = installations
+                            .filter(i => i.name === selectedClient.name)
+                            .map(i => ({
+                              type: 'installation',
+                              title: `Instalação Iniciada: ${i.stage}`,
+                              date: i.startDate || i.lastUpdated,
+                              timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
+                              status: i.progress + '%'
+                            }));
+
+                          const allInteractions = [...clientProposals, ...clientInstallations]
+                            .sort((a, b) => b.timestamp - a.timestamp)
+                            .slice(0, 5);
+
+                          if (allInteractions.length === 0) {
+                            return (
+                              <div className="py-4 text-center text-slate-400">
+                                <p className="text-xs italic">Nenhuma interação registrada para este cliente.</p>
+                              </div>
+                            );
+                          }
+
+                          return allInteractions.map((interaction, idx) => (
+                            <div key={idx} className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                              <div className={cn(
+                                "size-10 rounded-xl flex items-center justify-center shrink-0",
+                                interaction.type === 'proposal' ? "bg-[#fdb612]/10 text-[#fdb612]" : "bg-blue-500/10 text-blue-500"
+                              )}>
+                                {interaction.type === 'proposal' ? <FileText className="w-5 h-5" /> : <Construction className="w-5 h-5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{interaction.title}</p>
+                                  <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
+                                </div>
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
+                                  interaction.type === 'proposal' 
+                                    ? (interaction.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')
+                                    : 'bg-blue-500/10 text-blue-500'
+                                )}>
+                                  {interaction.status}
+                                </span>
+                              </div>
+                            </div>
+                          ));
+                        })()}
                       </div>
                     </div>
 

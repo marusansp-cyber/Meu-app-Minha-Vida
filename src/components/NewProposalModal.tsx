@@ -127,7 +127,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     // Standard fields
     client: initialData?.client || '',
     email: initialData?.email || '',
-    value: initialData?.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.') || '',
+    value: initialData?.value || 0,
     systemSize: initialData?.systemSize.replace(' kWp', '') || '',
     representative: initialData?.representative || 'Marusan Pinto',
     roi: initialData?.roi || '385%',
@@ -138,8 +138,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     energyConsumption: initialData?.energyConsumption || '',
     kitId: initialData?.kitId || '',
     discount: initialData?.discount?.toString() || '0',
-    financingBank: initialData?.financingBank || 'Nenhum',
-    financingInstallments: initialData?.financingInstallments?.toString() || '0',
+    financingBank: initialData?.financingBank || 'Credsol',
+    financingInstallments: initialData?.financingInstallments?.toString() || '60',
+    financingInstallmentValue: initialData?.financingInstallmentValue || 0,
     
     // Step 1: UCS
     titular: initialData?.titular || '',
@@ -235,9 +236,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       }
       if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
     } else if (step === 'pricing') {
-      if (!formData.equipmentCost || parseFloat(formData.equipmentCost) <= 0) {
-        errors.equipmentCost = 'Custo de equipamentos deve ser maior que zero';
-      }
+      const costs = ['equipmentCost', 'installationCost', 'projectCost', 'licensingCost', 'logisticCost'];
+      costs.forEach(field => {
+        const val = parseFloat((formData as any)[field]);
+        if (isNaN(val) || val <= 0) {
+          errors[field] = 'Este campo deve ser um valor positivo maior que zero';
+        }
+      });
     }
 
     setValidationErrors(errors);
@@ -270,7 +275,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       setFormData({
         client: initialData.client || '',
         email: initialData.email || '',
-        value: initialData.value.replace('R$ ', '').replace(/\./g, '').replace(',', '.') || '',
+        value: initialData.value || 0,
         systemSize: initialData.systemSize.replace(' kWp', '') || '',
         representative: initialData.representative || 'Marusan Pinto',
         roi: initialData.roi || '385%',
@@ -281,8 +286,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         energyConsumption: initialData.energyConsumption || '',
         kitId: initialData.kitId || '',
         discount: initialData.discount?.toString() || '0',
-        financingBank: initialData.financingBank || 'Nenhum',
-        financingInstallments: initialData.financingInstallments?.toString() || '0',
+        financingBank: initialData.financingBank || 'Credsol',
+        financingInstallments: initialData.financingInstallments?.toString() || '60',
+        financingInstallmentValue: initialData.financingInstallmentValue || 0,
         
         titular: initialData.titular || '',
         cpfCnpj: initialData.cpfCnpj || '',
@@ -300,17 +306,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         structureType: initialData.structureType || 'Sobre telhado',
         cablesIncluded: initialData.cablesIncluded !== undefined ? initialData.cablesIncluded : true,
         protectionSystem: initialData.protectionSystem || 'String box',
-
+ 
         equipmentCost: initialData.equipmentCost?.toString() || '',
         installationCost: initialData.installationCost?.toString() || '',
         projectCost: initialData.projectCost?.toString() || '',
         licensingCost: initialData.licensingCost?.toString() || '',
         logisticCost: initialData.logisticCost?.toString() || '',
         subtotal: initialData.subtotal?.toString() || '',
-
+ 
         paymentMethod: initialData.paymentMethod || 'cash',
-        financingRate: initialData.financingRate?.toString() || '',
-        financingCET: initialData.financingCET?.toString() || '',
+        financingRate: initialData.financingRate?.toString() || '1.2',
+        financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
       });
       setCurrentStep('ucs');
@@ -318,7 +324,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       setFormData({
         client: '',
         email: '',
-        value: '',
+        value: 0,
         systemSize: '',
         representative: 'Marusan Pinto',
         roi: '385%',
@@ -329,8 +335,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         energyConsumption: '',
         kitId: '',
         discount: '0',
-        financingBank: 'Nenhum',
-        financingInstallments: '0',
+        financingBank: 'Credsol',
+        financingInstallments: '60',
+        financingInstallmentValue: 0,
         
         titular: '',
         cpfCnpj: '',
@@ -348,17 +355,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         structureType: 'Sobre telhado',
         cablesIncluded: true,
         protectionSystem: 'String box',
-
+ 
         equipmentCost: '',
         installationCost: '',
         projectCost: '',
         licensingCost: '',
         logisticCost: '',
         subtotal: '',
-
+ 
         paymentMethod: 'cash',
-        financingRate: '',
-        financingCET: '',
+        financingRate: '1.2',
+        financingCET: '18.5',
         downPayment: '',
       });
       setCurrentStep('ucs');
@@ -380,15 +387,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       ...prev,
       kitId: kit.id,
       systemSize: kit.power.toString(),
-      equipmentCost: kit.price.toString(),
-      panelBrandModel: panel ? `${panel.brand} ${panel.model}` : prev.panelBrandModel,
-      panelQuantity: panel ? panel.quantity.toString() : prev.panelQuantity,
-      inverterBrandModel: inverter ? `${inverter.brand} ${inverter.model}` : prev.inverterBrandModel,
+      equipmentCost: kit.price > 0 ? kit.price.toString() : '',
+      panelBrandModel: panel ? `${panel.brand || ''} ${panel.model || ''}`.trim() : prev.panelBrandModel,
+      panelQuantity: panel ? panel.quantity.toString() : '',
+      inverterBrandModel: inverter ? `${inverter.brand || ''} ${inverter.model || ''}`.trim() : prev.inverterBrandModel,
       invertersQuantity: inverter ? inverter.quantity.toString() : prev.invertersQuantity,
       structureQuantity: structure ? structure.quantity.toString() : prev.structureQuantity,
     }));
     
-    calculateAutomaticValues(kit.price.toString(), kit.power.toString());
+    if (kit.price > 0) {
+      calculateAutomaticValues(kit.price.toString(), kit.power.toString());
+    }
     showToast(`Kit "${kit.name}" selecionado.`);
   };
 
@@ -422,14 +431,29 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
     setIsSubmitting(true);
     try {
-      // Calculate total value
-      const totalVal = (
+      // Calculate total value correctly (Subtotal - Discount)
+      const subtotal = (
         parseFloat(formData.equipmentCost || '0') + 
         parseFloat(formData.installationCost || '0') + 
         parseFloat(formData.projectCost || '0') + 
         parseFloat(formData.licensingCost || '0') + 
         parseFloat(formData.logisticCost || '0')
-      ) - parseFloat(formData.discount || '0');
+      );
+      const discountVal = parseFloat(formData.discount || '0');
+      const totalVal = subtotal - discountVal;
+
+      // Calculate financing installment value if applicable
+      let installmentValue = 0;
+      if (formData.paymentMethod === 'financing') {
+        const n = parseInt(formData.financingInstallments) || 60;
+        const r = parseFloat(formData.financingRate) || 1.2;
+        const i = r / 100;
+        if (i > 0 && n > 0) {
+          installmentValue = totalVal * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+        } else if (n > 0) {
+          installmentValue = totalVal / n;
+        }
+      }
       
       // If user requested to register as a new client
       if (registerAsNewClient) {
@@ -451,7 +475,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         ...formData,
         id: initialData?.id || '',
         client: formData.titular || formData.client,
-        value: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        value: totalVal,
         date: initialData?.date || new Date().toLocaleDateString('pt-BR'),
         status: initialData?.status || 'pending',
         systemSize: `${formData.systemSize} kWp`,
@@ -464,9 +488,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         ucNumber: formData.ucNumber || null,
         energyConsumption: formData.energyConsumption || null,
         kitId: formData.kitId || null,
-        discount: parseFloat(formData.discount) || 0,
+        discount: discountVal,
         financingBank: formData.financingBank || null,
         financingInstallments: parseInt(formData.financingInstallments) || 0,
+        financingInstallmentValue: installmentValue,
         email: formData.email || null,
 
         // Number conversions for custom fields
@@ -1202,9 +1227,30 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
                           className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                         >
-                          {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => (
-                            <option key={n} value={n}>{n}x</option>
-                          ))}
+                          {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => {
+                            const equipmentCost = parseFloat(formData.equipmentCost || '0');
+                            const installationCost = parseFloat(formData.installationCost || '0');
+                            const projectCost = parseFloat(formData.projectCost || '0');
+                            const licensingCost = parseFloat(formData.licensingCost || '0');
+                            const logisticCost = parseFloat(formData.logisticCost || '0');
+                            const discount = parseFloat(formData.discount || '0');
+                            const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                            
+                            const r = parseFloat(formData.financingRate) || 1.2;
+                            const i = r / 100;
+                            let pmt = 0;
+                            if (i > 0 && n > 0) {
+                              pmt = total * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+                            } else if (n > 0) {
+                              pmt = total / n;
+                            }
+                            
+                            return (
+                              <option key={n} value={n}>
+                                {n}x de {pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
 
@@ -1230,6 +1276,46 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           placeholder="18,5"
                           className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                         />
+                      </div>
+                    </div>
+
+                    {/* Installment Simulation Preview */}
+                    <div className="mt-4 p-4 bg-[#00A86B]/10 rounded-2xl border border-[#00A86B]/20 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 bg-[#00A86B] text-white rounded-xl flex items-center justify-center">
+                          <Calculator className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Simulação de Parcela</p>
+                          <p className="text-lg font-black text-slate-900 dark:text-slate-100">
+                            {(() => {
+                              const equipmentCost = parseFloat(formData.equipmentCost || '0');
+                              const installationCost = parseFloat(formData.installationCost || '0');
+                              const projectCost = parseFloat(formData.projectCost || '0');
+                              const licensingCost = parseFloat(formData.licensingCost || '0');
+                              const logisticCost = parseFloat(formData.logisticCost || '0');
+                              const discount = parseFloat(formData.discount || '0');
+                              
+                              const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                              const n = parseInt(formData.financingInstallments) || 60;
+                              const r = parseFloat(formData.financingRate) || 1.2;
+                              const i = r / 100;
+                              
+                              let pmt = 0;
+                              if (i > 0 && n > 0) {
+                                pmt = total * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
+                              } else if (n > 0) {
+                                pmt = total / n;
+                              }
+                              
+                              return `${n}x de ${pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Taxa aplicada</p>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{formData.financingRate || '1.2'}% a.m.</p>
                       </div>
                     </div>
                   </div>
