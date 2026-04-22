@@ -199,7 +199,8 @@ export interface Proposal {
   subtotal?: number;
   
   // Step 4: FINANCIAMENTO
-  paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto';
+  paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto' | 'pix_plus_installments';
+  pixInstallmentType?: 'credit_card' | 'boleto';
   financingRate?: number;
   financingCET?: number;
   downPayment?: number;

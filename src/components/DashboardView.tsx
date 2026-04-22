@@ -50,12 +50,23 @@ interface DashboardViewProps {
   user: UserType | null;
   onOpenNewProject: () => void;
   onManageProjects: () => void;
+  onAddCollaborator?: () => void;
+  onGoToLeads?: () => void;
 }
 
 type SortField = 'name' | 'projectId' | 'stage' | 'progress';
 type SortOrder = 'asc' | 'desc';
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ installations, leads, proposals, user, onOpenNewProject, onManageProjects }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ 
+  installations, 
+  leads, 
+  proposals, 
+  user, 
+  onOpenNewProject, 
+  onManageProjects,
+  onAddCollaborator,
+  onGoToLeads
+}) => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [timeRange, setTimeRange] = useState('30');
@@ -165,6 +176,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ installations, lea
           </button>
         </div>
       </header>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <button 
+          onClick={onManageProjects}
+          className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
+        >
+          <div className="size-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Zap className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Instalações</span>
+        </button>
+        <button 
+          onClick={onAddCollaborator}
+          className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
+        >
+          <div className="size-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Users className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Novo Colaborador</span>
+        </button>
+        <button 
+          onClick={onGoToLeads}
+          className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
+        >
+          <div className="size-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <FileText className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nova Proposta</span>
+        </button>
+        <button 
+          onClick={() => showToast('Histórico de interações atualizado')}
+          className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
+        >
+          <div className="size-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Clock className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Histórico Leads</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (

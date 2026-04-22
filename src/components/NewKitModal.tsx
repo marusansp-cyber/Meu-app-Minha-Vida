@@ -226,6 +226,29 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">URL Imagem do Painel</label>
+              <input 
+                type="text" 
+                value={formData.panelImage || ''}
+                onChange={(e) => setFormData({ ...formData, panelImage: e.target.value })}
+                placeholder="https://..."
+                className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">URL Imagem do Inversor</label>
+              <input 
+                type="text" 
+                value={formData.inverterImage || ''}
+                onChange={(e) => setFormData({ ...formData, inverterImage: e.target.value })}
+                placeholder="https://..."
+                className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Descrição do Kit</label>
             <textarea 

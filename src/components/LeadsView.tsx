@@ -1425,20 +1425,38 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           </div>
                         </div>
 
-                        <div className="relative space-y-6 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
+                        <div className="relative space-y-4 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
                           {selectedLead.history?.map((item, i) => (
-                            <div key={i} className="relative pl-10">
-                              <div className="absolute left-0 top-1.5 size-8 rounded-full bg-white dark:bg-slate-900 border-2 border-[#fdb612] flex items-center justify-center z-10">
-                                <Clock className="w-3 h-3 text-[#fdb612]" />
+                            <motion.div 
+                              key={i} 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className="relative pl-10"
+                            >
+                              <div className={cn(
+                                "absolute left-0 top-1 size-8 rounded-full border-2 flex items-center justify-center z-10 shadow-sm",
+                                item.action.toLowerCase().includes('chamada') ? "bg-blue-50 border-blue-500 text-blue-500" :
+                                item.action.toLowerCase().includes('email') || item.action.toLowerCase().includes('e-mail') ? "bg-amber-50 border-amber-500 text-amber-500" :
+                                item.action.toLowerCase().includes('whatsapp') ? "bg-emerald-50 border-emerald-500 text-emerald-500" :
+                                "bg-slate-50 border-slate-400 text-slate-400"
+                              )}>
+                                {item.action.toLowerCase().includes('chamada') ? <Phone className="w-4 h-4" /> :
+                                 item.action.toLowerCase().includes('email') || item.action.toLowerCase().includes('e-mail') ? <Mail className="w-4 h-4" /> :
+                                 item.action.toLowerCase().includes('whatsapp') ? <MessageCircle className="w-4 h-4" /> :
+                                 <Clock className="w-4 h-4" />}
                               </div>
-                              <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.action}</p>
-                                <div className="mt-1 flex items-center justify-between">
-                                  <p className="text-[10px] text-slate-400 font-medium">{item.date}</p>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">{item.user}</p>
+                              <div className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <History className="w-4 h-4 text-slate-300" />
                                 </div>
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.date}</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded-full">{item.user}</span>
+                                </div>
+                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed">{item.action}</p>
                               </div>
-                            </div>
+                            </motion.div>
                           )) || (
                             <div className="text-center py-8 text-slate-400">
                               <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
@@ -1516,6 +1534,16 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                       Fechar
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (onCreateProposal) onCreateProposal(selectedLead);
+                        setSelectedLead(null);
+                      }}
+                      className="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-bold text-sm hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Proposta
                     </button>
                     <button 
                       onClick={() => handleEditLead(selectedLead)}

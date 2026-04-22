@@ -176,6 +176,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
     // Step 4: FINANCIAMENTO
     paymentMethod: initialData?.paymentMethod || 'cash',
+    pixInstallmentType: initialData?.pixInstallmentType || 'credit_card',
     financingRate: initialData?.financingRate?.toString() || '',
     financingCET: initialData?.financingCET?.toString() || '',
     downPayment: initialData?.downPayment?.toString() || '',
@@ -330,6 +331,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         subtotal: initialData.subtotal?.toString() || '',
  
         paymentMethod: initialData.paymentMethod || 'cash',
+        pixInstallmentType: initialData.pixInstallmentType || 'credit_card',
         financingRate: initialData.financingRate?.toString() || '1.2',
         financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
@@ -379,6 +381,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         subtotal: '',
  
         paymentMethod: 'cash',
+        pixInstallmentType: 'credit_card',
         financingRate: '1.2',
         financingCET: '18.5',
         downPayment: '',
@@ -468,6 +471,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         } else if (n > 0) {
           installmentValue = totalVal / n;
         }
+      } else if (formData.paymentMethod === 'pix_plus_installments') {
+        const down = parseFloat(formData.downPayment || '0');
+        const remaining = Math.max(0, totalVal - down);
+        installmentValue = remaining / 10;
       }
       
       // If user requested to register as a new client
@@ -507,8 +514,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         kitId: formData.kitId || null,
         discount: discountVal,
         financingBank: formData.financingBank || null,
-        financingInstallments: parseInt(formData.financingInstallments) || 0,
+        financingInstallments: formData.paymentMethod === 'pix_plus_installments' ? 10 : (parseInt(formData.financingInstallments) || 0),
         financingInstallmentValue: installmentValue,
+        pixInstallmentType: formData.paymentMethod === 'pix_plus_installments' ? formData.pixInstallmentType : null,
         email: formData.email || null,
 
         // Number conversions for custom fields
@@ -1214,13 +1222,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <h4 className="text-sm font-black uppercase tracking-widest">Modalidade de Pagamento</h4>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                   {[
                     { id: 'cash', label: 'À vista', icon: DollarSign },
                     { id: 'financing', label: 'Financiamento', icon: Landmark },
                     { id: 'credit_card', label: 'Cartão', icon: CreditCard },
                     { id: 'pix', label: 'PIX', icon: Zap },
                     { id: 'boleto', label: 'Boleto', icon: FileText },
+                    { id: 'pix_plus_installments', label: 'Pix + 10x', icon: QrCode },
                   ].map((method) => (
                     <button
                       key={method.id}
@@ -1358,6 +1367,96 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
                 )}
 
+                {formData.paymentMethod === 'pix_plus_installments' && (
+                  <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6 animate-in zoom-in-95 duration-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor da Entrada (Pix)</label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            value={formData.downPayment || ''}
+                            onChange={(e) => setFormData({ ...formData, downPayment: e.target.value })}
+                            placeholder="Ex: 5000.00"
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Tipo das Parcelas (10x)</label>
+                        <div className="flex gap-2">
+                          {[
+                            { id: 'credit_card', label: 'Cartão', icon: CreditCard },
+                            { id: 'boleto', label: 'Boleto', icon: FileText },
+                          ].map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, pixInstallmentType: t.id as any })}
+                              className={cn(
+                                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 transition-all",
+                                formData.pixInstallmentType === t.id
+                                  ? "border-[#00A86B] bg-[#00A86B]/5 text-[#00A86B]"
+                                  : "border-white dark:border-slate-900 bg-white dark:bg-slate-900 text-slate-400"
+                              )}
+                            >
+                              <t.icon className="w-4 h-4" />
+                              <span className="text-[10px] font-black uppercase">{t.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-[#00A86B]/10 rounded-2xl border border-[#00A86B]/20 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 bg-[#00A86B] text-white rounded-xl flex items-center justify-center">
+                          <Calculator className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Calculo das Parcelas</p>
+                          <p className="text-lg font-black text-slate-900 dark:text-slate-100">
+                            {(() => {
+                              const equipmentCost = parseFloat(formData.equipmentCost || '0');
+                              const installationCost = parseFloat(formData.installationCost || '0');
+                              const projectCost = parseFloat(formData.projectCost || '0');
+                              const licensingCost = parseFloat(formData.licensingCost || '0');
+                              const logisticCost = parseFloat(formData.logisticCost || '0');
+                              const discount = parseFloat(formData.discount || '0');
+                              const down = parseFloat(formData.downPayment || '0');
+                              
+                              const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                              const remaining = Math.max(0, total - down);
+                              const installment = remaining / 10;
+                              
+                              return `10x de ${installment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Saldo a parcelar</p>
+                        <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                          {(() => {
+                            const equipmentCost = parseFloat(formData.equipmentCost || '0');
+                            const installationCost = parseFloat(formData.installationCost || '0');
+                            const projectCost = parseFloat(formData.projectCost || '0');
+                            const licensingCost = parseFloat(formData.licensingCost || '0');
+                            const logisticCost = parseFloat(formData.logisticCost || '0');
+                            const discount = parseFloat(formData.discount || '0');
+                            const down = parseFloat(formData.downPayment || '0');
+                            const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                            return (total - down).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          })()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
                   <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
                     <RefreshCw className="w-3 h-3" />
@@ -1438,6 +1537,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Pagamento</label>
                         <p className="font-bold capitalize">{formData.paymentMethod === 'cash' ? 'À vista' : 
                                                             formData.paymentMethod === 'financing' ? `Financiamento (${formData.financingBank})` : 
+                                                            formData.paymentMethod === 'pix_plus_installments' ? `Pix + 10x (${formData.pixInstallmentType === 'credit_card' ? 'Cartão' : 'Boleto'})` :
                                                             formData.paymentMethod === 'credit_card' ? 'Cartão de Crédito' : 
                                                             formData.paymentMethod === 'pix' ? 'PIX' : 'Boleto'}</p>
                       </div>

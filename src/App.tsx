@@ -451,6 +451,8 @@ export default function App() {
                     user={user}
                     onOpenNewProject={() => setIsProjectModalOpen(true)} 
                     onManageProjects={() => setCurrentView('installations')}
+                    onAddCollaborator={() => setCurrentView('collaborators')}
+                    onGoToLeads={() => setCurrentView('leads')}
                   />
                 )}
                 {currentView === 'leads' && (

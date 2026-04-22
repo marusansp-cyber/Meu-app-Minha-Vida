@@ -225,6 +225,43 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   </select>
                 </div>
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Método de Pagamento</label>
+                  <select 
+                    value={editForm.paymentMethod || 'cash'}
+                    onChange={(e) => setEditForm({ ...editForm, paymentMethod: e.target.value as Proposal['paymentMethod'] })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  >
+                    <option value="cash">À vista</option>
+                    <option value="financing">Financiamento</option>
+                    <option value="credit_card">Cartão</option>
+                    <option value="pix">PIX</option>
+                    <option value="boleto">Boleto</option>
+                    <option value="pix_plus_installments">Pix + 10x</option>
+                  </select>
+                </div>
+                {editForm.paymentMethod === 'pix_plus_installments' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo da Parcela (Pix + 10x)</label>
+                    <select 
+                      value={editForm.pixInstallmentType || 'credit_card'}
+                      onChange={(e) => setEditForm({ ...editForm, pixInstallmentType: e.target.value as any })}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    >
+                      <option value="credit_card">Cartão</option>
+                      <option value="boleto">Boleto</option>
+                    </select>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Valor da Entrada / Down Payment (R$)</label>
+                  <input 
+                    type="number" 
+                    value={editForm.downPayment || 0}
+                    onChange={(e) => setEditForm({ ...editForm, downPayment: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  />
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banco de Financiamento</label>
                   <input 
                     type="text" 
@@ -367,7 +404,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                   </div>
 
-                  {proposal.financingBank && (
+                  {proposal.financingBank && proposal.paymentMethod === 'financing' && (
                     <div className="flex items-center gap-4">
                       <div className="size-12 rounded-2xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
                         <CreditCard className="w-6 h-6 text-rose-600" />
@@ -375,11 +412,29 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Financiamento</label>
                         <p className="font-bold text-xl">{proposal.financingBank} - {proposal.financingInstallments}x</p>
-                        {proposal.financingInstallmentValue > 0 && (
+                        {proposal.financingInstallmentValue && proposal.financingInstallmentValue > 0 && (
                           <p className="text-xs font-bold text-rose-500">
                             {proposal.financingInstallmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} /mês
                           </p>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {proposal.paymentMethod === 'pix_plus_installments' && (
+                    <div className="flex items-center gap-4">
+                      <div className="size-12 rounded-2xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6 text-rose-600" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Pagamento (Pix + 10x)</label>
+                        <p className="font-bold text-xl">Entrada: R$ {proposal.downPayment?.toLocaleString('pt-BR') || '0,00'}</p>
+                        <p className="text-xs font-bold text-rose-500">
+                          {proposal.pixInstallmentType === 'credit_card' ? 'Cartão' : 'Boleto'}: 10x de {(() => {
+                            const remaining = (proposal.value || 0) - (proposal.downPayment || 0);
+                            return (remaining / 10).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          })()}
+                        </p>
                       </div>
                     </div>
                   )}
