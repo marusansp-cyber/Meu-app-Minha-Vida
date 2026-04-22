@@ -9,9 +9,17 @@ export interface User {
   phone?: string;
   address?: string;
   status?: 'active' | 'inactive' | 'pending';
+  createdAt?: string;
 }
 
 export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports';
+
+export interface Interaction {
+  id: string;
+  date: string;
+  type: string;
+  description: string;
+}
 
 export interface Client {
   id: string;
@@ -24,6 +32,9 @@ export interface Client {
   createdAt: string;
   projects: string[]; // IDs of installations/proposals
   status: 'active' | 'inactive';
+  interactions?: Interaction[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Stat {
@@ -64,6 +75,13 @@ export interface Lead {
   scheduledDate?: string;
   createdAt?: string;
   representative?: string;
+  
+  // New Fields
+  cpfCnpj?: string;
+  address?: string;
+  cep?: string;
+  ucNumber?: string;
+  
   history?: {
     date: string;
     action: string;

@@ -172,6 +172,54 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     return { active, inactive, total: clients.length };
   }, [clients]);
 
+  const renderClientInteractions = (client: Client) => (
+    <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <MessageCircle className="w-5 h-5 text-[#fdb612]" />
+          Histórico de Interações
+        </h4>
+        <button 
+          onClick={() => {
+            const description = window.prompt('Descreva a interação:');
+            if (description) {
+              const newInteraction = {
+                id: Math.random().toString(36).substr(2, 9),
+                date: new Date().toLocaleDateString('pt-BR'),
+                type: 'Manual',
+                description
+              };
+              const updatedInteractions = [...(client.interactions || []), newInteraction];
+              onUpdateClient(client.id, { interactions: updatedInteractions });
+            }
+          }}
+          className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest hover:underline"
+        >
+          + Adicionar Registro
+        </button>
+      </div>
+      <div className="space-y-4">
+        {client.interactions && client.interactions.length > 0 ? (
+          client.interactions.sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime()).map((interaction) => (
+            <div key={interaction.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800">
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
+                <span className="text-[10px] font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded uppercase">{interaction.type}</span>
+              </div>
+              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+                {interaction.description}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="py-8 text-center text-slate-400">
+            <p className="text-xs italic">Nenhuma interação manual registrada.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   const renderClientDetails = (client: Client) => (
     <div className="space-y-6">
       {/* Header Info */}
@@ -231,6 +279,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Interactions Section */}
+      {renderClientInteractions(client)}
 
       {/* Project History */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -691,25 +742,36 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </motion.div>
                 )}
                 
-                <div className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-4">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as any)}
-                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#fdb612]/30 transition-all cursor-pointer"
-                  >
-                    <option value="all">Todos os Status</option>
-                    <option value="active">Ativos</option>
-                    <option value="inactive">Inativos</option>
-                  </select>
-                  <select 
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="bg-transparent text-[10px] font-black uppercase tracking-widest text-[#fdb612] outline-none cursor-pointer"
-                  >
-                    <option value="recent">Recentes</option>
-                    <option value="name">Nome</option>
-                    <option value="projects">Projetos</option>
-                  </select>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <div className="flex bg-slate-50 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    {(['all', 'active', 'inactive'] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={cn(
+                          "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                          filterStatus === status 
+                            ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm" 
+                            : "text-slate-400 hover:text-slate-600"
+                        )}
+                      >
+                        {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ordenar por:</span>
+                    <select 
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-transparent text-[10px] font-black uppercase tracking-widest text-[#fdb612] outline-none cursor-pointer hover:underline"
+                    >
+                      <option value="recent">Recen. Cadastrados</option>
+                      <option value="name">Alfabética (A-Z)</option>
+                      <option value="projects">Volume de Projetos</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -766,16 +828,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         </div>
                         
                         <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transform translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                          <a 
-                            href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-500 hover:text-white transition-all transform hover:scale-110"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </a>
+                          {client.phone && (
+                            <a 
+                              href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-500 hover:text-white transition-all transform hover:scale-110"
+                              title="WhatsApp"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </a>
+                          )}
                           <a 
                             href={`mailto:${client.email}`}
                             onClick={(e) => e.stopPropagation()}

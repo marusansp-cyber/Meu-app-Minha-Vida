@@ -466,55 +466,57 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
           )}
         </div>
 
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex gap-3 bg-slate-50/50 dark:bg-white/5">
-          {isEditing ? (
-            <>
-              <button 
-                onClick={() => setIsEditing(false)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleSave}
-                className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95"
-              >
-                <Save className="w-4 h-4" />
-                Salvar Alterações
-              </button>
-            </>
-          ) : (
-            <>
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all"
-              >
-                <Edit2 className="w-4 h-4" />
-                Editar
-              </button>
-              <button 
-                onClick={() => onPrint(proposal.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all"
-              >
-                <Printer className="w-4 h-4" />
-                Imprimir
-              </button>
-              <button 
-                onClick={() => onDownload(proposal.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all"
-              >
-                <Download className="w-4 h-4" />
-                PDF
-              </button>
-              <button 
-                onClick={() => onSend(proposal.id)}
-                className="flex-[2] flex items-center justify-center gap-2 px-4 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
-              >
-                <Send className="w-4 h-4" />
-                Enviar para Cliente
-              </button>
-            </>
-          )}
+        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-white/5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {isEditing ? (
+              <>
+                <button 
+                  onClick={() => setIsEditing(false)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all ml-auto md:col-start-3"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSave}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  Salvar
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"
+                >
+                  <Edit2 className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
+                  <span>Editar</span>
+                </button>
+                <button 
+                  onClick={() => onPrint(proposal.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"
+                >
+                  <Printer className="w-4 h-4 text-slate-400 group-hover:text-[#fdb612]" />
+                  <span>Imprimir</span>
+                </button>
+                <button 
+                  onClick={() => onDownload(proposal.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"
+                >
+                  <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                  <span>Baixar PDF</span>
+                </button>
+                <button 
+                  onClick={() => onSend(proposal.id)}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 shadow-md"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Enviar E-mail</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

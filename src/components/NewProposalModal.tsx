@@ -96,6 +96,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       email: l.email,
       phone: l.phone,
       address: l.address,
+      cep: l.cep,
+      cpfCnpj: l.cpfCnpj,
+      ucNumber: l.ucNumber,
       source: 'Lead' as const
     })).filter(l => l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term));
 
@@ -110,7 +113,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       titular: suggestion.name,
       telefone: suggestion.phone,
       endereco: suggestion.address || prev.endereco,
-      cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj
+      cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj,
+      cep: suggestion.cep || prev.cep,
+      ucNumber: suggestion.ucNumber || prev.ucNumber
     }));
     setClientSearchTerm('');
     setShowClientSuggestions(false);
@@ -128,7 +133,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     client: initialData?.client || '',
     email: initialData?.email || '',
     value: initialData?.value || 0,
-    systemSize: initialData?.systemSize.replace(' kWp', '') || '',
+    systemSize: initialData?.systemSize?.replace(' kWp', '') || '',
     representative: initialData?.representative || 'Marusan Pinto',
     roi: initialData?.roi || '385%',
     payback: initialData?.payback?.replace(' Anos', '') || '4.2',
@@ -230,6 +235,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       if (!formData.titular?.trim()) errors.titular = 'Titular é obrigatório';
       if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
       if (!formData.cpfCnpj?.trim()) errors.cpfCnpj = 'CPF/CNPJ é obrigatório';
+      
+      // Email validation
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'Formato de e-mail inválido';
+      }
+      
+      // Phone validation (simple regex for Brazilian formats)
+      if (formData.telefone && !/^(\(?\d{2}\)?\s?)?(\d{4,5}-?\d{4})$/.test(formData.telefone.replace(/\s/g, ''))) {
+        errors.telefone = 'Formato de telefone inválido. Use (00) 00000-0000';
+      }
     } else if (step === 'kit') {
       if (!formData.systemSize || parseFloat(formData.systemSize) <= 0) {
         errors.systemSize = 'Tamanho do sistema deve ser maior que zero';
@@ -276,7 +291,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         client: initialData.client || '',
         email: initialData.email || '',
         value: initialData.value || 0,
-        systemSize: initialData.systemSize.replace(' kWp', '') || '',
+        systemSize: initialData.systemSize?.replace(' kWp', '') || '',
         representative: initialData.representative || 'Marusan Pinto',
         roi: initialData.roi || '385%',
         payback: initialData.payback?.replace(' Anos', '') || '4.2',
@@ -659,8 +674,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       value={formData.ucNumber || ''}
                       onChange={(e) => setFormData({ ...formData, ucNumber: e.target.value })}
                       placeholder="UC 0000000"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.ucNumber ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.ucNumber && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.ucNumber}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -672,9 +691,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         value={formData.titular || ''}
                         onChange={(e) => setFormData({ ...formData, titular: e.target.value })}
                         placeholder="Nome completo do titular"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.titular ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                        )}
                       />
                     </div>
+                    {validationErrors.titular && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.titular}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -684,8 +707,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       value={formData.cpfCnpj || ''}
                       onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
                       placeholder="000.000.000-00"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.cpfCnpj ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.cpfCnpj && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.cpfCnpj}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -697,9 +724,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         value={formData.telefone || ''}
                         onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
                         placeholder="(00) 00000-0000"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.telefone ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                        )}
                       />
                     </div>
+                    {validationErrors.telefone && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.telefone}</p>}
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
@@ -733,9 +764,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         value={formData.email || ''}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="cliente@email.com"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.email ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                        )}
                       />
                     </div>
+                    {validationErrors.email && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.email}</p>}
                   </div>
 
                   <div className="space-y-2">

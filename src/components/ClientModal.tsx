@@ -257,6 +257,37 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </select>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-[#fdb612]" />
+                Latitude
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={formData.latitude || ''}
+                onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+                placeholder="-23.5505"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-[#fdb612]" />
+                Longitude
+              </label>
+              <input
+                type="number"
+                step="any"
+                value={formData.longitude || ''}
+                onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+                placeholder="-46.6333"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              />
+            </div>
+          </div>
+
           <div className="pt-4 flex gap-3">
             <button
               type="button"

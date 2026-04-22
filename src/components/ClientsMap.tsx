@@ -62,10 +62,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, proposals, inst
       const newMarkers: ClientMarker[] = [];
 
       try {
-        // Geocode each client address
-        // Note: In a real app, you'd want to cache these or store lat/lng in Firestore
-        // For this demo, we'll geocode them on the fly (limited by Nominatim rate limits)
+        // Geocode each client address if coordinates are missing
         for (const client of clients) {
+          if (client.latitude && client.longitude) {
+            newMarkers.push({
+              client,
+              coords: [client.latitude, client.longitude]
+            });
+            continue;
+          }
+
           if (!client.address) continue;
 
           try {

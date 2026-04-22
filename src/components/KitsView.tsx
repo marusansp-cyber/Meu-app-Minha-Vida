@@ -19,6 +19,7 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
+  Download,
   Lock,
   User,
   Key,
@@ -45,12 +46,25 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [activeSubView, setActiveSubView] = useState<'list' | 'upload'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterInverterBrand, setFilterInverterBrand] = useState<string[]>([]);
-  const [filterPanelModel, setFilterPanelModel] = useState<string[]>([]);
+  const [filterPanelBrand, setFilterPanelBrand] = useState<string[]>([]);
+  const [minPower, setMinPower] = useState<number | ''>('');
+  const [maxPower, setMaxPower] = useState<number | ''>('');
   const [showInverterFilter, setShowInverterFilter] = useState(false);
   const [showPanelFilter, setShowPanelFilter] = useState(false);
   const [targetPower, setTargetPower] = useState<number | ''>(initialTargetPower || '');
   const [prioritizeTargetPower, setPrioritizeTargetPower] = useState(false);
   const [expandedKitId, setExpandedKitId] = useState<string | null>(null);
+  
+  // CSV Mapping State
+  const [uploadStep, setUploadStep] = useState<'upload' | 'mapping'>('upload');
+  const [csvData, setCsvData] = useState<any[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({
+    name: 'Nome',
+    power: 'Potência (kWp)',
+    price: 'Preço (R$)',
+    description: 'Descrição'
+  });
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +75,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isSavingComponent, setIsSavingComponent] = useState<string | null>(null); // kitId-compIdx
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -72,79 +87,95 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     setIsModalOpen(true);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setIsUploading(true);
-    showToast(`Processando arquivo: ${file.name}...`);
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results) => {
-        const data = results.data as any[];
-        let successCount = 0;
-        let errorCount = 0;
-
-        try {
-          for (const row of data) {
-            const name = row['Nome'] || row['nome'];
-            if (!name) continue;
-
-            const power = parseFloat(row['Potência (kWp)'] || row['potencia'] || '0');
-            const price = parseFloat(row['Preço (R$)'] || row['preco'] || '0');
-            const description = row['Descrição'] || row['descricao'] || '';
-
-            const components: any[] = [];
-            // Extract components from columns like "Componente 1 Nome", "Componente 1 Qtd", etc.
-            for (let i = 1; i <= 10; i++) {
-              const compName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
-              if (compName) {
-                components.push({
-                  name: compName,
-                  quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
-                  brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
-                  model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
-                  notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
-                });
-              }
-            }
-
-            const kitData: Omit<Kit, 'id'> = {
-              name,
-              power,
-              price,
-              description,
-              components,
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              panelBrand: components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'))?.brand || '',
-              inverterBrand: components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || ''
-            };
-
-            await createDocument('kits', kitData);
-            successCount++;
-          }
-
-          showToast(`${successCount} kits importados com sucesso!`);
-          setActiveSubView('list');
-        } catch (error) {
-          console.error('Error importing kits:', error);
-          showToast('Erro ao importar kits.');
-        } finally {
-          setIsUploading(false);
-          // Reset file input
-          e.target.value = '';
+      complete: (results) => {
+        if (results.data && results.data.length > 0) {
+          setCsvData(results.data);
+          const headers = Object.keys(results.data[0]);
+          setCsvHeaders(headers);
+          
+          // Try to auto-map
+          const newMapping = { ...columnMapping };
+          headers.forEach(h => {
+            const lowerH = h.toLowerCase();
+            if (lowerH.includes('nome')) newMapping.name = h;
+            if (lowerH.includes('potencia') || lowerH.includes('power')) newMapping.power = h;
+            if (lowerH.includes('preco') || lowerH.includes('price')) newMapping.price = h;
+            if (lowerH.includes('descricao') || lowerH.includes('desc')) newMapping.description = h;
+          });
+          setColumnMapping(newMapping);
+          setUploadStep('mapping');
+        } else {
+          showToast('O arquivo parece estar vazio.');
         }
       },
       error: (error) => {
         console.error('Error parsing CSV:', error);
         showToast('Erro ao processar planilha.');
-        setIsUploading(false);
       }
     });
+  };
+
+  const processImport = async () => {
+    setIsUploading(true);
+    showToast(`Processando ${csvData.length} kits...`);
+
+    let successCount = 0;
+    try {
+      for (const row of csvData) {
+        const name = row[columnMapping.name];
+        if (!name) continue;
+
+        const power = parseFloat(row[columnMapping.power] || '0');
+        const price = parseFloat(row[columnMapping.price] || '0');
+        const description = row[columnMapping.description] || '';
+
+        const components: any[] = [];
+        // Support some basic component injection if pattern is found
+        for (let i = 1; i <= 10; i++) {
+          const cName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
+          if (cName) {
+            components.push({
+              name: cName,
+              quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
+              brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
+              model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
+              notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
+            });
+          }
+        }
+
+        const kitData: Omit<Kit, 'id'> = {
+          name,
+          power,
+          price,
+          description,
+          components: components.length > 0 ? components : [],
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          panelBrand: components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'))?.brand || '',
+          inverterBrand: components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || ''
+        };
+
+        await createDocument('kits', kitData);
+        successCount++;
+      }
+      showToast(`${successCount} kits importados com sucesso!`);
+      setActiveSubView('list');
+      setUploadStep('upload');
+      setCsvData([]);
+    } catch (error) {
+      console.error('Error importing:', error);
+      showToast('Erro ao importar dados.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const availableInverterBrands = useMemo(() => {
@@ -158,16 +189,17 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     return Array.from(brands).sort();
   }, [kits]);
   
-  const availablePanelModels = useMemo(() => {
-    const models = new Set<string>();
+  const availablePanelBrands = useMemo(() => {
+    const brands = new Set<string>();
     kits.forEach(k => {
+      if (k.panelBrand) brands.add(k.panelBrand);
       k.components?.forEach(c => {
-        if ((c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.model) {
-          models.add(c.model);
+        if ((c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.brand) {
+          brands.add(c.brand);
         }
       });
     });
-    return Array.from(models).sort();
+    return Array.from(brands).sort();
   }, [kits]);
 
   const filteredKits = useMemo(() => {
@@ -181,8 +213,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                            (k.inverterBrand && filterInverterBrand.includes(k.inverterBrand)) ||
                            k.components?.some(c => c.name.toLowerCase().includes('inversor') && c.brand && filterInverterBrand.includes(c.brand));
                            
-      const matchesPanel = filterPanelModel.length === 0 || 
-                          k.components?.some(c => (c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.model && filterPanelModel.includes(c.model));
+      const matchesPanel = filterPanelBrand.length === 0 || 
+                          (k.panelBrand && filterPanelBrand.includes(k.panelBrand)) ||
+                          k.components?.some(c => (c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.brand && filterPanelBrand.includes(c.brand));
+
+      const matchesMinPower = minPower === '' || k.power >= Number(minPower);
+      const matchesMaxPower = maxPower === '' || k.power <= Number(maxPower);
 
       // Check if search term is a number and matches power
       const searchNum = parseFloat(searchTerm);
@@ -192,10 +228,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       const componentsMatch = k.components?.some((comp: any) => 
         comp.brand?.toLowerCase().includes(searchLower) || 
         comp.model?.toLowerCase().includes(searchLower) ||
-        comp.name?.toLowerCase().includes(searchLower)
+        comp.name?.toLowerCase().includes(searchLower) ||
+        comp.notes?.toLowerCase().includes(searchLower)
       );
 
-      return (matchesText || matchesPower || componentsMatch) && matchesInverter && matchesPanel;
+      return (matchesText || matchesPower || componentsMatch) && 
+             matchesInverter && matchesPanel && matchesMinPower && matchesMaxPower;
     }).sort((a, b) => {
       if (prioritizeTargetPower && targetPower !== '') {
         const diffA = Math.abs(a.power - Number(targetPower));
@@ -209,7 +247,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterInverterBrand, filterPanelModel, prioritizeTargetPower, targetPower]);
+  }, [searchTerm, filterInverterBrand, filterPanelBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
 
   const paginatedKits = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -231,32 +269,27 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   };
 
   const handleUpdateComponent = async (kitId: string, components: any[]) => {
-    // Optimistic update
-    const updatedKits = kits.map(k => k.id === kitId ? { ...k, components } : k);
-    // This is handled by syncCollection, but we can update local state if needed
-    // However, since we use syncCollection, it will update automatically when Firestore updates.
-    // To avoid flicker, we could use a local state for the components being edited.
-    
     try {
       await updateDocument('kits', kitId, { components, updatedAt: new Date().toISOString() });
-      showToast('Componentes atualizados!');
+      // Successful save - indicator will be cleared by the debounced caller
     } catch (error) {
       showToast('Erro ao atualizar componentes.');
     }
   };
 
-  // Debounced version of handleUpdateComponent
   const debouncedUpdateComponent = useMemo(
     () => {
       let timeout: any;
-      return (kitId: string, components: any[]) => {
+      return (kitId: string, components: any[], compIdx: number) => {
+        setIsSavingComponent(`${kitId}-${compIdx}`);
         if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          handleUpdateComponent(kitId, components);
+        timeout = setTimeout(async () => {
+          await handleUpdateComponent(kitId, components);
+          setIsSavingComponent(null);
         }, 1000);
       };
     },
-    [kits] // Re-create if kits change to have latest data, though not strictly necessary for updateDocument
+    [kits]
   );
 
   const downloadTemplate = () => {
@@ -352,23 +385,29 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex flex-col md:flex-row gap-4 items-end bg-slate-50/50 dark:bg-white/5 p-4 rounded-3xl border border-slate-100 dark:border-slate-800">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="text" 
-                  placeholder="Buscar kits por nome ou potência..."
+                  placeholder="Pesquisa inteligente: Nome, potência, marca ou nota de componente..."
                   value={searchTerm || ''}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] transition-all"
+                  className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] transition-all font-medium"
                 />
               </div>
               <div className="space-y-1 relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Inversores</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Inversores</label>
                 <div className="relative">
                   <button 
-                    onClick={() => setShowInverterFilter(!showInverterFilter)}
-                    className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
+                    onClick={() => {
+                      setShowInverterFilter(!showInverterFilter);
+                      setShowPanelFilter(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-between gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px] transition-all",
+                      filterInverterBrand.length > 0 && "border-[#004a61] ring-1 ring-[#004a61]/30"
+                    )}
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
                       {filterInverterBrand.length === 0 ? 'Todas Marcas' : `${filterInverterBrand.length} Sel.`}
@@ -379,20 +418,16 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                   {showInverterFilter && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowInverterFilter(false)} />
-                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                        <button 
-                          onClick={() => {
-                            setFilterInverterBrand([]);
-                            setShowInverterFilter(false);
-                          }}
-                          className={cn(
-                            "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
-                            filterInverterBrand.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
-                          )}
-                        >
-                          Todas as Marcas
-                        </button>
-                        <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
+                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                        {filterInverterBrand.length > 0 && (
+                          <button 
+                            onClick={() => setFilterInverterBrand([])}
+                            className="w-full text-left px-4 py-2 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-lg mb-2 flex items-center justify-between"
+                          >
+                            Limpar Seleção
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
                         {availableInverterBrands.map(brand => (
                           <label key={brand} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
                             <input 
@@ -416,14 +451,20 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 </div>
               </div>
               <div className="space-y-1 relative">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Painéis</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Módulos</label>
                 <div className="relative">
                   <button 
-                    onClick={() => setShowPanelFilter(!showPanelFilter)}
-                    className="flex items-center justify-between gap-2 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px]"
+                    onClick={() => {
+                      setShowPanelFilter(!showPanelFilter);
+                      setShowInverterFilter(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-between gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px] transition-all",
+                      filterPanelBrand.length > 0 && "border-[#004a61] ring-1 ring-[#004a61]/30"
+                    )}
                   >
                     <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
-                      {filterPanelModel.length === 0 ? 'Todos Modelos' : `${filterPanelModel.length} Sel.`}
+                      {filterPanelBrand.length === 0 ? 'Todas Marcas' : `${filterPanelBrand.length} Sel.`}
                     </span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform", showPanelFilter && "rotate-180")} />
                   </button>
@@ -431,40 +472,58 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                   {showPanelFilter && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowPanelFilter(false)} />
-                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                        <button 
-                          onClick={() => {
-                            setFilterPanelModel([]);
-                            setShowPanelFilter(false);
-                          }}
-                          className={cn(
-                            "w-full text-left px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors mb-1",
-                            filterPanelModel.length === 0 ? "bg-[#fdb612]/10 text-[#fdb612]" : "hover:bg-slate-50 dark:hover:bg-white/5 text-slate-500"
-                          )}
-                        >
-                          Todos os Modelos
-                        </button>
-                        <div className="h-px bg-slate-100 dark:bg-slate-700 my-1" />
-                        {availablePanelModels.map(model => (
-                          <label key={model} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
+                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                        {filterPanelBrand.length > 0 && (
+                          <button 
+                            onClick={() => setFilterPanelBrand([])}
+                            className="w-full text-left px-4 py-2 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-lg mb-2 flex items-center justify-between"
+                          >
+                            Limpar Seleção
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                        {availablePanelBrands.map(brand => (
+                          <label key={brand} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
                             <input 
                               type="checkbox"
-                              checked={filterPanelModel.includes(model)}
+                              checked={filterPanelBrand.includes(brand)}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setFilterPanelModel([...filterPanelModel, model]);
+                                  setFilterPanelBrand([...filterPanelBrand, brand]);
                                 } else {
-                                  setFilterPanelModel(filterPanelModel.filter(m => m !== model));
+                                  setFilterPanelBrand(filterPanelBrand.filter(b => b !== brand));
                                 }
                               }}
                               className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
                             />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{model}</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
                           </label>
                         ))}
                       </div>
                     </>
                   )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Min kWp</label>
+                  <input 
+                    type="number" 
+                    placeholder="Min"
+                    value={minPower}
+                    onChange={(e) => setMinPower(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] w-20 text-[10px] font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Max kWp</label>
+                  <input 
+                    type="number" 
+                    placeholder="Max"
+                    value={maxPower}
+                    onChange={(e) => setMaxPower(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] w-20 text-[10px] font-bold"
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -580,7 +639,15 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                           <div key={idx} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2 shadow-sm">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{comp.name}</span>
-                              <span className="text-[10px] font-black text-[#004a61]">x{comp.quantity}</span>
+                              <div className="flex items-center gap-2">
+                                {isSavingComponent === `${kit.id}-${idx}` && (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-black uppercase text-[#004a61] animate-pulse">Salvando</span>
+                                    <Loader2 className="w-3 h-3 text-[#004a61] animate-spin" />
+                                  </div>
+                                )}
+                                <span className="text-[10px] font-black text-[#004a61]">x{comp.quantity}</span>
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div className="space-y-1">
@@ -591,7 +658,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                                   onChange={(e) => {
                                     const newComps = [...kit.components];
                                     newComps[idx] = { ...newComps[idx], brand: e.target.value };
-                                    debouncedUpdateComponent(kit.id, newComps);
+                                    debouncedUpdateComponent(kit.id, newComps, idx);
                                   }}
                                   className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"
                                 />
@@ -604,7 +671,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                                   onChange={(e) => {
                                     const newComps = [...kit.components];
                                     newComps[idx] = { ...newComps[idx], model: e.target.value };
-                                    debouncedUpdateComponent(kit.id, newComps);
+                                    debouncedUpdateComponent(kit.id, newComps, idx);
                                   }}
                                   className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"
                                 />
@@ -618,7 +685,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                                   onChange={(e) => {
                                     const newComps = [...kit.components];
                                     newComps[idx] = { ...newComps[idx], notes: e.target.value };
-                                    debouncedUpdateComponent(kit.id, newComps);
+                                    debouncedUpdateComponent(kit.id, newComps, idx);
                                   }}
                                   className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"
                                 />
@@ -692,45 +759,130 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
 
 
         {activeSubView === 'upload' && (
-          <div className="max-w-2xl mx-auto py-12 text-center space-y-6">
-            <div className="size-24 bg-[#004a61]/10 rounded-3xl flex items-center justify-center text-[#004a61] mx-auto mb-4">
-              {isUploading ? <Loader2 className="w-12 h-12 animate-spin" /> : <Upload className="w-12 h-12" />}
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100">Importação em Massa</h3>
-              <p className="text-slate-500 max-w-md mx-auto mt-2">Arraste sua planilha de kits ou clique para selecionar o arquivo. Suportamos formatos .CSV e .XLSX.</p>
-            </div>
-            
-            <label className="block border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-12 hover:border-[#fdb612] transition-all cursor-pointer group">
-              <input 
-                type="file" 
-                className="hidden" 
-                accept=".csv, .xlsx"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              <div className="space-y-4">
-                <FileText className="w-12 h-12 text-slate-300 mx-auto group-hover:text-[#fdb612] transition-colors" />
-                <div className="text-sm font-bold text-slate-400">
-                  {isUploading ? (
-                    <span className="text-blue-500 animate-pulse">Processando...</span>
-                  ) : (
-                    <>
-                      <span className="text-[#004a61] hover:underline">Clique para fazer upload</span> ou arraste e solte
-                    </>
-                  )}
+          <div className="max-w-4xl mx-auto py-12 text-center space-y-8">
+            {uploadStep === 'upload' ? (
+              <>
+                <div className="size-24 bg-[#004a61]/10 rounded-3xl flex items-center justify-center text-[#004a61] mx-auto mb-4">
+                  {isUploading ? <Loader2 className="w-12 h-12 animate-spin" /> : <Upload className="w-12 h-12" />}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Importação de Kits</h3>
+                  <p className="text-slate-500 max-w-md mx-auto mt-2 font-medium">Suba sua planilha em CSV e mapeie as colunas para importar seus kits automaticamente.</p>
+                </div>
+                
+                <label className="block border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[2.5rem] p-16 hover:border-[#fdb612] transition-all cursor-pointer group bg-slate-50/50 dark:bg-white/5">
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".csv"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                  <div className="space-y-4">
+                    <FileText className="w-16 h-16 text-slate-300 mx-auto group-hover:text-[#fdb612] transition-colors" />
+                    <div className="text-sm font-bold text-slate-400">
+                      {isUploading ? (
+                        <span className="text-[#004a61] animate-pulse">Lendo arquivo...</span>
+                      ) : (
+                        <>
+                          <span className="text-[#004a61] hover:underline uppercase tracking-widest">Clique para selecionar</span> ou arraste e solte o CSV
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </label>
+
+                <div className="pt-8">
+                  <button 
+                    onClick={downloadTemplate}
+                    className="text-[10px] font-black text-slate-400 hover:text-[#004a61] uppercase tracking-widest transition-colors flex items-center gap-2 mx-auto"
+                  >
+                    <Download className="w-4 h-4" />
+                    Baixar Modelo de Planilha (.CSV)
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300 text-left">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Mapeamento de Colunas</h3>
+                    <p className="text-slate-500 font-medium">Identificamos {csvData.length} registros. Relacione as colunas da sua planilha.</p>
+                  </div>
+                  <button 
+                    onClick={() => setUploadStep('upload')}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-[#004a61] border-b border-slate-200 dark:border-slate-800 pb-2">Campos do Sistema</h4>
+                    
+                    {[
+                      { key: 'name', label: 'Nome do Kit' },
+                      { key: 'power', label: 'Potência (kWp)' },
+                      { key: 'price', label: 'Preço (R$)' },
+                      { key: 'description', label: 'Descrição' }
+                    ].map(field => (
+                      <div key={field.key} className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{field.label}</label>
+                        <select 
+                          value={columnMapping[field.key]}
+                          onChange={(e) => setColumnMapping({ ...columnMapping, [field.key]: e.target.value })}
+                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#004a61]"
+                        >
+                          {csvHeaders.map(h => (
+                            <option key={h} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-[#004a61] border-b border-slate-200 dark:border-slate-800 pb-2">Pré-visualização (Primeira Linha)</h4>
+                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 shadow-sm">
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Nome</span>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{csvData[0]?.[columnMapping.name] || 'N/A'}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Potência</span>
+                          <p className="text-sm font-bold text-[#004a61]">{csvData[0]?.[columnMapping.power] || '0'} kWp</p>
+                        </div>
+                        <div>
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Preço</span>
+                          <p className="text-sm font-bold text-emerald-600">R$ {csvData[0]?.[columnMapping.price] || '0'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Descrição</span>
+                        <p className="text-[10px] text-slate-500 font-medium line-clamp-2">{csvData[0]?.[columnMapping.description] || 'Vazio'}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 space-y-4">
+                      <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl text-blue-600 border border-blue-100 dark:border-blue-900/20">
+                        <Info className="w-5 h-5 shrink-0" />
+                        <p className="text-[10px] font-medium italic">Componentes serão extraídos automaticamente se as colunas iniciarem com "Componente X Nome".</p>
+                      </div>
+                      <button 
+                        onClick={processImport}
+                        disabled={isUploading}
+                        className="w-full py-4 bg-[#004a61] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-[#004a61]/20 hover:shadow-xl hover:-translate-y-0.5 transition-all active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-3"
+                      >
+                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                        Confirmar e Importar Kits
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </label>
-
-            <div className="pt-8">
-              <button 
-                onClick={downloadTemplate}
-                className="text-xs font-black text-[#004a61] hover:underline uppercase tracking-widest"
-              >
-                Baixar Modelo de Planilha
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>

@@ -118,19 +118,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
 
   const stats = useMemo(() => {
     const totalRevenue = filteredAcceptedProposals.reduce((acc, p) => {
-      const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       return acc + val;
     }, 0);
 
     const totalCommission = filteredAcceptedProposals.reduce((acc, p) => {
-      const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       return acc + (val * (rate / 100));
     }, 0);
 
     const paidCommission = filteredAcceptedProposals.reduce((acc, p) => {
       if (p.commissionStatus !== 'paid') return acc;
-      const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       return acc + (val * (rate / 100));
     }, 0);
@@ -174,7 +174,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         months[monthKey] = { month: monthKey, revenue: 0, commission: 0, date: firstDay };
       }
       
-      const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       months[monthKey].revenue += val;
       months[monthKey].commission += (val * (rate / 100));
@@ -196,7 +196,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       if (!reps[p.representative]) {
         reps[p.representative] = { name: p.representative, paid: 0, pending: 0, total: 0 };
       }
-      const val = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
       const rate = p.commission || 5;
       const commission = val * (rate / 100);
       

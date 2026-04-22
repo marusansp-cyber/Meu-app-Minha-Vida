@@ -31,7 +31,8 @@ import {
   Edit2,
   History,
   Paperclip,
-  MapPin
+  MapPin,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -95,6 +96,28 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
       .replace(/(\d{2})(\d)/, '($1) $2')
       .replace(/(\d{5})(\d)/, '$1-$2')
       .replace(/(-\d{4})\d+?$/, '$1');
+  };
+
+  const maskCpfCnpj = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 11) {
+      return numbers
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    }
+    return numbers
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  };
+
+  const maskCep = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{3})\d+?$/, '$1');
   };
 
   const validateEmail = (email: string) => {
@@ -1130,6 +1153,46 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CPF / CNPJ</label>
+                        <input 
+                          type="text"
+                          value={editForm.cpfCnpj || ''}
+                          onChange={(e) => setEditForm({ ...editForm, cpfCnpj: maskCpfCnpj(e.target.value) })}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Número da UC</label>
+                        <input 
+                          type="text"
+                          value={editForm.ucNumber || ''}
+                          onChange={(e) => setEditForm({ ...editForm, ucNumber: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço</label>
+                      <input 
+                        type="text"
+                        value={editForm.address || ''}
+                        onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CEP</label>
+                        <input 
+                          type="text"
+                          value={editForm.cep || ''}
+                          onChange={(e) => setEditForm({ ...editForm, cep: maskCep(e.target.value) })}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
                       <select 
@@ -1240,6 +1303,34 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
                               <Calendar className="w-4 h-4 text-slate-400" />
                               {selectedLead.createdAt || 'N/A'}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CPF / CNPJ</label>
+                            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
+                              <Building2 className="w-4 h-4 text-slate-400" />
+                              {selectedLead.cpfCnpj || 'Não informado'}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Número da UC</label>
+                            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-amber-600">
+                              <Zap className="w-4 h-4" />
+                              {selectedLead.ucNumber || 'Não informado'}
+                            </div>
+                          </div>
+                          <div className="col-span-2 space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço</label>
+                            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
+                              <MapPin className="w-4 h-4 text-[#fdb612]" />
+                              {selectedLead.address || selectedLead.endereco || 'Não informado'}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CEP</label>
+                            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
+                              <Info className="w-4 h-4 text-slate-400" />
+                              {selectedLead.cep || 'Não informado'}
                             </div>
                           </div>
                         </div>

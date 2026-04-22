@@ -81,7 +81,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   const stats = useMemo(() => {
     const totalSales = filteredData.proposals
       .filter(p => p.status === 'accepted')
-      .reduce((acc, p) => acc + (parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
+      .reduce((acc, p) => acc + (parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
 
     const conversionRate = filteredData.proposals.length > 0 
       ? (filteredData.proposals.filter(p => p.status === 'accepted').length / filteredData.proposals.length) * 100 
@@ -104,7 +104,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
     const totalSystemSize = filteredData.proposals
       .filter(p => p.status === 'accepted')
       .reduce((acc, p) => {
-        const size = parseFloat(p.systemSize.replace(/[^\d.]/g, '')) || 0;
+        const size = parseFloat((p.systemSize || "0").toString().replace(/[^\d.]/g, '')) || 0;
         return acc + size;
       }, 0);
 
@@ -135,11 +135,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
     }
 
     filteredData.proposals.forEach(p => {
-      const d = new Date(p.date);
+      const d = new Date(p.date || Date.now());
       const key = d.toLocaleString('pt-BR', { month: 'short' });
       if (months[key]) {
         if (p.status === 'accepted') {
-          months[key].sales += parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+          months[key].sales += parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
         }
         months[key].count += 1;
       }

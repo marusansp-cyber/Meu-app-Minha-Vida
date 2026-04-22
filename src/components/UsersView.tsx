@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   Search, 
@@ -24,6 +24,9 @@ export const UsersView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: keyof User; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = syncCollection<User>('users', (data) => {
@@ -44,6 +47,11 @@ export const UsersView: React.FC = () => {
     showToast(`Usuário ${user.name} agora está ${newStatus === 'active' ? 'Ativo' : 'Inativo'}`);
   };
 
+  const updateStatus = async (user: User, newStatus: 'active' | 'inactive' | 'pending') => {
+    await updateDocument('users', user.id, { status: newStatus });
+    showToast(`Status de ${user.name} atualizado para ${newStatus}`);
+  };
+
   const approveUser = async (user: User) => {
     await updateDocument('users', user.id, { status: 'active' });
     showToast(`Usuário ${user.name} aprovado com sucesso!`);
@@ -61,11 +69,58 @@ export const UsersView: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    const rolesMap: Record<UserRole, string> = {
+      admin: 'Administrador',
+      sales: 'Vendedor',
+      engineer: 'Engenheiro',
+      installer: 'Instalador',
+      finance: 'Financeiro',
+      admin_staff: 'Staff Adm'
+    };
+
+    let result = users.filter(u => 
+      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (rolesMap[u.role] || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const aValue = a[sortConfig.key] || '';
+        const bValue = b[sortConfig.key] || '';
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [users, searchTerm, sortConfig]);
+
+  const handleSort = (key: keyof User) => {
+    setSortConfig(current => ({
+      key,
+      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const saveUserEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    
+    const { id, ...data } = editingUser;
+    await updateDocument('users', id, data);
+    setIsEditModalOpen(false);
+    setEditingUser(null);
+    showToast('Usuário atualizado com sucesso!');
+  };
 
   const roles: { value: UserRole, label: string }[] = [
     { value: 'admin', label: 'Administrador' },
@@ -122,6 +177,12 @@ export const UsersView: React.FC = () => {
                 <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-white/5">
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuário</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Permissão (Role)</th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-[#fdb612] transition-colors"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    Criado Em
+                  </th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
                 </tr>
@@ -148,7 +209,7 @@ export const UsersView: React.FC = () => {
                       <select 
                         value={u.role}
                         onChange={(e) => changeRole(u, e.target.value as UserRole)}
-                        className="bg-slate-100 dark:bg-slate-800 border-none text-xs font-bold px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none"
+                        className="bg-slate-100 dark:bg-slate-800 border-none text-xs font-black px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none"
                       >
                         {roles.map(r => (
                           <option key={r.value} value={r.value}>{r.label}</option>
@@ -156,25 +217,33 @@ export const UsersView: React.FC = () => {
                       </select>
                     </td>
                     <td className="px-6 py-4">
-                      {u.status === 'pending' ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-500/10 text-amber-600 font-bold text-[10px] uppercase tracking-wider">
-                          <ShieldAlert className="w-3 h-3" />
-                          Pendente
-                        </span>
-                      ) : u.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 font-bold text-[10px] uppercase tracking-wider">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Ativo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-500/10 text-slate-600 font-bold text-[10px] uppercase tracking-wider">
-                          <XCircle className="w-3 h-3" />
-                          Inativo
-                        </span>
-                      )}
+                      <p className="text-xs font-bold text-slate-500">
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <select 
+                        value={u.status || 'pending'}
+                        onChange={(e) => updateStatus(u, e.target.value as any)}
+                        className={cn(
+                          "bg-slate-100 dark:bg-slate-800 border-none text-[10px] font-black uppercase px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none",
+                          u.status === 'active' ? "text-emerald-500" : u.status === 'inactive' ? "text-slate-500" : "text-amber-500"
+                        )}
+                      >
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                        <option value="pending">Pendente</option>
+                      </select>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => handleEditUser(u)}
+                          className="p-2 text-slate-400 hover:text-[#fdb612] hover:bg-[#fdb612]/10 rounded-xl transition-all"
+                          title="Editar Usuário"
+                        >
+                          <Edit2 className="w-5 h-5" />
+                        </button>
                         {u.status === 'pending' && (
                           <button 
                             onClick={() => approveUser(u)}
@@ -217,6 +286,98 @@ export const UsersView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {isEditModalOpen && editingUser && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-[#231d0f] w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Editar Usuário</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Atualize as informações do perfil</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingUser(null);
+                }}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
+              >
+                <XCircle className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+            
+            <form onSubmit={saveUserEdit} className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome Completo</label>
+                  <input 
+                    type="text" 
+                    value={editingUser.name}
+                    onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">E-mail</label>
+                  <input 
+                    type="email" 
+                    value={editingUser.email}
+                    onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Telefone</label>
+                  <input 
+                    type="tel" 
+                    value={editingUser.phone || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
+                  <select 
+                    value={editingUser.status || 'pending'}
+                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as any })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                  >
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                    <option value="pending">Pendente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingUser(null);
+                  }}
+                  className="flex-1 py-4 text-slate-500 font-black uppercase tracking-widest text-xs hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-[2] py-4 bg-[#fdb612] text-[#231d0f] font-black uppercase tracking-widest text-xs rounded-2xl shadow-lg shadow-[#fdb612]/20 hover:shadow-xl hover:-translate-y-0.5 transition-all active:translate-y-0 active:scale-[0.98]"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -520,6 +520,28 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     setIsDeleteModalOpen(true);
   };
 
+  const panelBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(kit => {
+      if (kit.panelBrand) brands.add(kit.panelBrand);
+      kit.components?.forEach((c: any) => {
+        if ((c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('modulo')) && c.brand) brands.add(c.brand);
+      });
+    });
+    return Array.from(brands).sort();
+  }, [kits]);
+
+  const inverterBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(kit => {
+      if (kit.inverterBrand) brands.add(kit.inverterBrand);
+      kit.components?.forEach((c: any) => {
+        if (c.name.toLowerCase().includes('inversor') && c.brand) brands.add(c.brand);
+      });
+    });
+    return Array.from(brands).sort();
+  }, [kits]);
+
   const filteredProposals = useMemo(() => {
     let result = proposals.filter(p => {
       const kit = kits.find(k => k.id === p.kitId);
@@ -1041,23 +1063,29 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marca Painel</label>
-                <input 
-                  type="text" 
+                <select 
                   value={filters.kitPanel || ''}
                   onChange={(e) => setFilters({ ...filters, kitPanel: e.target.value })}
-                  placeholder="Ex: Jinko, Canadian"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
-                />
+                >
+                  <option value="">Todas</option>
+                  {panelBrands.map(brand => (
+                    <option key={brand} value={brand}>{brand}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Modelo Inversor</label>
-                <input 
-                  type="text" 
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Marca Inversor</label>
+                <select 
                   value={filters.kitInverter || ''}
                   onChange={(e) => setFilters({ ...filters, kitInverter: e.target.value })}
-                  placeholder="Ex: Growatt, Deye"
                   className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
-                />
+                >
+                  <option value="">Todas</option>
+                  {inverterBrands.map(brand => (
+                    <option key={brand} value={brand}>{brand}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-end">
                 <button 

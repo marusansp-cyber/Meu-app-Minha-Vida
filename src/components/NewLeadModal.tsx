@@ -20,7 +20,11 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     value: '',
     representative: 'Marusan Pinto',
     status: 'new' as Lead['status'],
-    urgent: false
+    urgent: false,
+    cpfCnpj: '',
+    address: '',
+    cep: '',
+    ucNumber: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string | null>>({});
@@ -31,6 +35,28 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     if (!name) return "Nome completo é obrigatório";
     if (name.length < 3) return "Nome muito curto";
     return null;
+  };
+
+  const maskCpfCnpj = (value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 11) {
+      return numbers
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    }
+    return numbers
+      .replace(/^(\d{2})(\d)/, '$1.$2')
+      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+      .replace(/\.(\d{3})(\d)/, '.$1/$2')
+      .replace(/(\d{4})(\d)/, '$1-$2');
+  };
+
+  const maskCep = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{3})\d+?$/, '$1');
   };
 
   const validateEmail = (email: string) => {
@@ -104,7 +130,11 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     } as any;
     
     onAdd(leadData);
-    setFormData({ name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', representative: 'Marusan Pinto', status: 'new', urgent: false });
+    setFormData({ 
+      name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', 
+      representative: 'Marusan Pinto', status: 'new', urgent: false,
+      cpfCnpj: '', address: '', cep: '', ucNumber: ''
+    });
     setErrors({});
     onClose();
   };
@@ -319,6 +349,57 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 <option value="Ana Silva">Ana Silva</option>
                 <option value="Carlos Oliveira">Carlos Oliveira</option>
               </select>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Informações Adicionais</h4>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">CPF / CNPJ</label>
+                <input
+                  type="text"
+                  placeholder="000.000.000-00"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                  value={formData.cpfCnpj}
+                  onChange={(e) => setFormData({ ...formData, cpfCnpj: maskCpfCnpj(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Número da UC</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 12345678"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                  value={formData.ucNumber}
+                  onChange={(e) => setFormData({ ...formData, ucNumber: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Endereço Completo</label>
+              <input
+                type="text"
+                placeholder="Rua, número, bairro, cidade - UF"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">CEP</label>
+                <input
+                  type="text"
+                  placeholder="00000-000"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                  value={formData.cep}
+                  onChange={(e) => setFormData({ ...formData, cep: maskCep(e.target.value) })}
+                />
+              </div>
             </div>
           </div>
 

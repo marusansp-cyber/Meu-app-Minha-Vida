@@ -90,7 +90,8 @@ export default function App() {
             email: firebaseUser.email || '',
             role: (firebaseUser.email?.includes('admin') || isOwner) ? 'admin' : 'sales',
             avatar: firebaseUser.photoURL || undefined,
-            status: isOwner ? 'active' : 'pending'
+            status: isOwner ? 'active' : 'pending',
+            createdAt: new Date().toISOString()
           };
           await setDocument('users', firebaseUser.uid, newUser);
           userProfile = newUser;
@@ -463,8 +464,14 @@ export default function App() {
                       handleOpenProposalsWithPreFill({
                         client: lead.name,
                         email: lead.email,
-                        value: lead.value,
-                        systemSize: lead.systemSize
+                        value: typeof lead.value === 'string' ? parseFloat(lead.value.replace(/[^\d,]/g, '').replace(',', '.')) : lead.value,
+                        systemSize: lead.systemSize,
+                        titular: lead.name,
+                        cpfCnpj: lead.cpfCnpj,
+                        endereco: lead.address,
+                        cep: lead.cep,
+                        ucNumber: lead.ucNumber,
+                        telefone: lead.phone
                       });
                     }}
                   />
