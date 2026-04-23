@@ -462,16 +462,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         parseFloat(formData.logisticCost || '0')
       );
       const discountVal = parseFloat(formData.discount || '0');
-      const marginPerc = parseFloat(formData.margin || '0');
+      const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
       
-      // Calculate Margin: (Subtotal * (1 + Margin/100))
-      // Or (Subtotal / (1 - Margin/100)) for standard margin
-      // Let's use simpler Markup for now or clarify. Usually, engineers prefer Markup.
-      // Sales prefer Margin. Let's use Margin: Total = Costs / (1 - Margin/100)
-      
-      const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+      // Safety check for margin: Total = Costs / (1 - Margin/100)
+      // Capped at 99% to avoid division by zero or extreme values
+      const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
       const valueWithMargin = subtotal * multiplier;
-      const totalVal = valueWithMargin - discountVal;
+      const totalVal = Math.max(0, valueWithMargin - discountVal);
 
       // Calculate financing installment value if applicable
       let installmentValue = 0;
@@ -1162,14 +1159,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          const marginPerc = parseFloat(formData.margin || '0');
-                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                          const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const marginVal = (sub * multiplier) - sub;
                           return marginVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         })()}
                       </p>
                     </div>
-                    <div className="space-y-1 text-center">
+                    <div className="space-y-1 text-center font-bold">
                       <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor de Venda</label>
                       <p className="text-2xl font-black text-[#00A86B]">
                         {(() => {
@@ -1178,10 +1175,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          const marginPerc = parseFloat(formData.margin || '0');
-                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                          const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                          return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          return Math.max(0, total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         })()}
                       </p>
                     </div>
@@ -1194,10 +1191,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          const marginPerc = parseFloat(formData.margin || '0');
-                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                          const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                          const comm = total * (parseFloat(formData.commission || '0') / 100);
+                          const comm = Math.max(0, total) * (parseFloat(formData.commission || '0') / 100);
                           return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         })()}
                       </p>
@@ -1576,8 +1573,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                          parseFloat(formData.projectCost || '0') + 
                                          parseFloat(formData.licensingCost || '0') + 
                                          parseFloat(formData.logisticCost || '0'));
-                            const marginPerc = parseFloat(formData.margin || '0');
-                            const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                            const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                            const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                             const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                             return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                           })()}

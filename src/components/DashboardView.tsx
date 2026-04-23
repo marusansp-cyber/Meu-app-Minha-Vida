@@ -137,12 +137,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const stats = useMemo(() => {
     const totalAcceptedRevenue = proposals
       .filter(p => p.status === 'accepted')
-      .reduce((acc, p) => acc + (parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
+      .reduce((acc, p) => {
+        const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+        if (val > 100000000) return acc;
+        return acc + val;
+      }, 0);
 
     const pendingCommissions = proposals
       .filter(p => p.status === 'accepted' && p.commissionStatus !== 'paid')
       .reduce((acc, p) => {
-        const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+        if (val > 100000000) return acc;
         const rate = p.commission || 5;
         return acc + (val * (rate / 100));
       }, 0);

@@ -146,7 +146,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
   const stats = useMemo(() => {
     const totalOpen = (proposals || []).filter(p => p.status === 'pending' || p.status === 'sent').reduce((acc, p) => {
-      const val = parseFloat((p.value || 0).toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      // Safety guard: ignore values over 100M as they are likely erroneous data
+      if (val > 100000000) return acc;
       return acc + val;
     }, 0);
     
