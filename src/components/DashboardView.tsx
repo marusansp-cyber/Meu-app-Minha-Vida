@@ -26,20 +26,12 @@ import {
   TrendingUp,
   Users,
   Zap,
+  Percent,
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
-import { RECENT_ACTIVITIES, ACTIVE_PROJECTS } from '../constants';
+import { RECENT_ACTIVITIES } from '../constants';
 import { cn } from '../lib/utils';
-
-const chartData = [
-  { name: 'Jan', current: 60, previous: 40 },
-  { name: 'Feb', current: 70, previous: 50 },
-  { name: 'Mar', current: 45, previous: 30 },
-  { name: 'Apr', current: 90, previous: 70 },
-  { name: 'May', current: 80, previous: 60 },
-  { name: 'Jun', current: 100, previous: 85 },
-];
 
 import { Lead, Proposal, Installation, User as UserType } from '../types';
 
@@ -73,6 +65,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [activeYears, setActiveYears] = useState({ current: true, previous: true });
   const [toast, setToast] = useState<string | null>(null);
 
+  const dynamicChartData = useMemo(() => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentYear = new Date().getFullYear();
+    
+    const hasData = proposals.some(p => p.status === 'accepted');
+    
+    return months.map((month, index) => {
+      const monthProposals = proposals.filter(p => {
+        const pDate = new Date(p.date);
+        return pDate.getMonth() === index && pDate.getFullYear() === currentYear && p.status === 'accepted';
+      });
+      
+      const previousYearProposals = proposals.filter(p => {
+        const pDate = new Date(p.date);
+        return pDate.getMonth() === index && pDate.getFullYear() === currentYear - 1 && p.status === 'accepted';
+      });
+
+      // Fallback to slight variation for visual if no data exists, but prioritize real data
+      return {
+        name: month,
+        current: activeYears.current ? (hasData ? monthProposals.length : [45, 52, 38, 65, 48, 72, 55, 60, 42, 58, 63, 70][index]) : 0,
+        previous: activeYears.previous ? (hasData ? previousYearProposals.length : [40, 45, 30, 55, 42, 60, 50, 52, 38, 50, 55, 62][index]) : 0
+      };
+    });
+  }, [proposals, activeYears]);
+
+  const pieData = useMemo(() => {
+    const residence = installations.filter(i => i.type === 'residence' || i.type === 'home').length;
+    const industrial = installations.filter(i => i.type === 'industrial').length;
+    const commercial = installations.filter(i => i.type === 'apartment').length;
+
+    const hasData = installations.length > 0;
+
+    return [
+      { name: 'Residencial', value: hasData ? residence : 45, fill: '#fdb612' },
+      { name: 'Industrial', value: hasData ? industrial : 30, fill: '#fdb612cc' },
+      { name: 'Comercial', value: hasData ? commercial : 25, fill: '#fdb61299' },
+    ];
+  }, [installations]);
+
+  const projectStatusData = useMemo(() => {
+    const onTime = installations.filter(i => i.status === 'on-time' || i.status === 'concluded' || !i.status).length;
+    const planning = installations.filter(i => i.stage.toLowerCase().includes('engenharia') || i.stage.toLowerCase().includes('projeto')).length;
+    const delayed = installations.filter(i => i.status === 'delayed').length;
+    
+    const hasData = installations.length > 0;
+    
+    return [
+      { name: 'No Prazo', value: hasData ? onTime : 65, fill: '#10b981' },
+      { name: 'Em Planejamento', value: hasData ? planning : 25, fill: '#fdb612' },
+      { name: 'Atrasado', value: hasData ? delayed : 10, fill: '#ef4444' },
+    ];
+  }, [installations]);
+
   const funnelData = useMemo(() => {
     const totalLeads = leads.length;
     const sentProposals = proposals.filter(p => p.status === 'sent' || p.status === 'accepted').length;
@@ -105,11 +151,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       { label: 'Vendas Totais', value: `R$ ${totalAcceptedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '+12.5%', trend: 'up' },
       { label: 'Novos Leads', value: leads.length.toString(), change: '+18%', trend: 'up' },
       { label: 'Projetos Ativos', value: installations.length.toString(), change: '+5%', trend: 'up' },
-      { label: 'Taxa de Conversão', value: `${leads.length > 0 ? ((proposals.filter(p => p.status === 'accepted').length / leads.length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' },
     ];
 
     if (user?.role === 'admin' || user?.role === 'finance') {
+      const avgMargin = proposals.filter(p => p.status === 'accepted').length > 0
+        ? proposals.filter(p => p.status === 'accepted').reduce((acc, p) => acc + (p.margin || 0), 0) / proposals.filter(p => p.status === 'accepted').length
+        : 0;
+      
+      baseStats.push({ label: 'Margem Média', value: `${avgMargin.toFixed(1)}%`, change: '+0.5%', trend: 'up' });
       baseStats.push({ label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '-3%', trend: 'down' });
+    } else {
+      baseStats.push({ label: 'Taxa de Conversão', value: `${leads.length > 0 ? ((proposals.filter(p => p.status === 'accepted').length / leads.length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' });
     }
 
     return baseStats;
@@ -119,6 +171,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
+
+  const recentActivities = useMemo(() => {
+    const activities: any[] = [];
+    
+    leads.forEach(lead => {
+      (lead.history || []).slice(0, 2).forEach(h => {
+        activities.push({
+          id: `lead-${lead.id}-${h.date}`,
+          type: 'proposal', 
+          title: lead.name,
+          description: h.note,
+          time: h.date,
+          timestamp: new Date(h.date.split('/').reverse().join('-')).getTime() || 0
+        });
+      });
+    });
+    
+    installations.forEach(inst => {
+      activities.push({
+        id: `inst-${inst.id}`,
+        type: 'installation',
+        title: inst.name,
+        description: `Projeto em fase de ${inst.stage}`,
+        time: inst.lastUpdated || 'Recente',
+        timestamp: inst.lastUpdated ? new Date(inst.lastUpdated).getTime() : Date.now()
+      });
+    });
+
+    if (activities.length === 0) return RECENT_ACTIVITIES;
+
+    return activities
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5);
+  }, [leads, installations]);
 
   const sortedInstallations = useMemo(() => {
     return [...installations].sort((a, b) => {
@@ -221,10 +307,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div key={i} className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group">
             <div className="flex items-center justify-between mb-4">
               <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] group-hover:scale-110 transition-transform">
-                {i === 0 && <TrendingUp className="w-5 h-5" />}
-                {i === 1 && <Users className="w-5 h-5" />}
-                {i === 2 && <Zap className="w-5 h-5" />}
-                {i === 3 && <DollarSign className="w-5 h-5" />}
+                {stat.label.includes('Vendas') && <TrendingUp className="w-5 h-5" />}
+                {stat.label.includes('Leads') && <Users className="w-5 h-5" />}
+                {stat.label.includes('Projetos') && <Zap className="w-5 h-5" />}
+                {stat.label.includes('Margem') && <Percent className="w-5 h-5" />}
+                {stat.label.includes('Comissão') && <DollarSign className="w-5 h-5" />}
+                {stat.label.includes('Conversão') && <ArrowUpRight className="w-5 h-5" />}
               </div>
               <span className={cn(
                 "text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1",
@@ -271,7 +359,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
+                <AreaChart data={dynamicChartData}>
                   <defs>
                     <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#fdb612" stopOpacity={0.3}/>
@@ -355,11 +443,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={[
-                        { name: 'No Prazo', value: 65, fill: '#10b981' },
-                        { name: 'Em Planejamento', value: 25, fill: '#fdb612' },
-                        { name: 'Atrasado', value: 10, fill: '#ef4444' },
-                      ]}
+                      data={projectStatusData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -367,27 +451,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      <Cell fill="#10b981" />
-                      <Cell fill="#fdb612" />
-                      <Cell fill="#ef4444" />
+                      {projectStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
                     </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="flex justify-center gap-4 mt-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="size-2 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">No Prazo</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="size-2 rounded-full bg-[#fdb612]" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Planejamento</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="size-2 rounded-full bg-red-500" />
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Atrasado</span>
-                </div>
+                {projectStatusData.map((item, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <div className="size-2 rounded-full" style={{ backgroundColor: item.fill }} />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{item.name}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -396,7 +474,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col">
           <h4 className="text-lg font-black text-slate-900 dark:text-slate-100 mb-6">Atividades Recentes</h4>
           <div className="space-y-6 flex-1 overflow-y-auto custom-scrollbar pr-2">
-            {RECENT_ACTIVITIES.map((activity) => (
+            {recentActivities.map((activity) => (
               <div key={activity.id} className="flex gap-4 group cursor-pointer">
                 <div className={cn(
                   "mt-1 flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110",

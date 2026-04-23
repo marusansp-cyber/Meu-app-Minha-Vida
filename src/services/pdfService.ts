@@ -1,5 +1,78 @@
 import { jsPDF } from "jspdf";
+import autoTable from 'jspdf-autotable';
 import { Proposal, Kit, Installation } from "../types";
+
+export const generateKitsReportPDF = async (kits: Kit[]): Promise<string> => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  const primaryColor = [0, 74, 97]; // #004a61
+  const accentColor = [253, 182, 18]; // #fdb612
+
+  // Header
+  doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+  doc.rect(0, 0, pageWidth, 40, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("CATÁLOGO DE KITS FOTOVOLTAICOS", 20, 25);
+  
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - 60, 25);
+
+  // Table
+  const tableData = kits.map(kit => [
+    kit.name,
+    `${kit.power.toFixed(2)} kWp`,
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kit.price),
+    kit.components.map(c => `${c.quantity}x ${c.name} ${c.brand ? '('+c.brand+')' : ''}`).join('\n')
+  ]);
+
+  autoTable(doc, {
+    startY: 50,
+    head: [['Nome do Kit', 'Potência', 'Preço Sugerido', 'Principais Componentes']],
+    body: tableData,
+    headStyles: {
+      fillColor: primaryColor as any,
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { cellWidth: 50 },
+      1: { cellWidth: 25, halign: 'center' },
+      2: { cellWidth: 35, halign: 'right' },
+      3: { cellWidth: 'auto' }
+    },
+    styles: {
+      fontSize: 8,
+      cellPadding: 3
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245]
+    },
+    margin: { top: 50, left: 20, right: 20 }
+  });
+
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(
+      `Vieira's Solar & Engenharia | Página ${i} de ${pageCount}`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: 'center' }
+    );
+  }
+
+  return doc.output('datauristring');
+};
 
 export const generateInstallationReportPDF = async (installation: Installation): Promise<string> => {
   const doc = new jsPDF();

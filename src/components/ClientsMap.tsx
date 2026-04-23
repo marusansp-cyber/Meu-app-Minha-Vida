@@ -21,6 +21,7 @@ interface ClientsMapProps {
   installations: Installation[];
   className?: string;
   onSelectClient?: (client: Client) => void;
+  onEditClient?: (client: Client) => void;
 }
 
 interface ClientMarker {
@@ -49,7 +50,14 @@ const FitBounds = ({ markers, trigger }: { markers: ClientMarker[], trigger: num
   return null;
 };
 
-export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, proposals, installations, className, onSelectClient }) => {
+export const ClientsMap: React.FC<ClientsMapProps> = ({ 
+  clients, 
+  proposals, 
+  installations, 
+  className, 
+  onSelectClient,
+  onEditClient
+}) => {
   const [markers, setMarkers] = useState<ClientMarker[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,6 +111,12 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, proposals, inst
       geocodeClients();
     }
   }, [clients]);
+
+  useEffect(() => {
+    if (!loading && markers.length > 0) {
+      setFitTrigger(prev => prev + 1);
+    }
+  }, [loading, markers.length]);
 
   if (loading && markers.length === 0) {
     return (
@@ -189,12 +203,22 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({ clients, proposals, inst
                   </div>
 
                   <div className="text-[10px] text-slate-500 mb-2 truncate" title={marker.client.address}>{marker.client.address}</div>
-                  <button 
-                    onClick={() => onSelectClient?.(marker.client)}
-                    className="w-full py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
-                  >
-                    Ver Detalhes
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => onSelectClient?.(marker.client)}
+                      className="flex-1 py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all text-center"
+                    >
+                      Detalhes
+                    </button>
+                    {onEditClient && (
+                      <button 
+                        onClick={() => onEditClient(marker.client)}
+                        className="flex-1 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all text-center"
+                      >
+                        Editar
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>

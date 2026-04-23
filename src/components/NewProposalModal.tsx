@@ -33,7 +33,8 @@ import {
   PenTool,
   Eye,
   Share2,
-  Printer
+  Printer,
+  TrendingUp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
@@ -143,6 +144,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     energyConsumption: initialData?.energyConsumption || '',
     kitId: initialData?.kitId || '',
     discount: initialData?.discount?.toString() || '0',
+    margin: initialData?.margin?.toString() || '0',
     financingBank: initialData?.financingBank || 'Credsol',
     financingInstallments: initialData?.financingInstallments?.toString() || '60',
     financingInstallmentValue: initialData?.financingInstallmentValue || 0,
@@ -329,6 +331,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         licensingCost: initialData.licensingCost?.toString() || '',
         logisticCost: initialData.logisticCost?.toString() || '',
         subtotal: initialData.subtotal?.toString() || '',
+        margin: initialData.margin?.toString() || '0',
  
         paymentMethod: initialData.paymentMethod || 'cash',
         pixInstallmentType: initialData.pixInstallmentType || 'credit_card',
@@ -379,6 +382,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         licensingCost: '',
         logisticCost: '',
         subtotal: '',
+        margin: '0',
  
         paymentMethod: 'cash',
         pixInstallmentType: 'credit_card',
@@ -458,7 +462,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         parseFloat(formData.logisticCost || '0')
       );
       const discountVal = parseFloat(formData.discount || '0');
-      const totalVal = subtotal - discountVal;
+      const marginPerc = parseFloat(formData.margin || '0');
+      
+      // Calculate Margin: (Subtotal * (1 + Margin/100))
+      // Or (Subtotal / (1 - Margin/100)) for standard margin
+      // Let's use simpler Markup for now or clarify. Usually, engineers prefer Markup.
+      // Sales prefer Margin. Let's use Margin: Total = Costs / (1 - Margin/100)
+      
+      const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+      const valueWithMargin = subtotal * multiplier;
+      const totalVal = valueWithMargin - discountVal;
 
       // Calculate financing installment value if applicable
       let installmentValue = 0;
@@ -528,6 +541,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         projectCost: parseFloat(formData.projectCost) || 0,
         licensingCost: parseFloat(formData.licensingCost) || 0,
         logisticCost: parseFloat(formData.logisticCost) || 0,
+        margin: parseFloat(formData.margin) || 0,
         financingRate: parseFloat(formData.financingRate) || 0,
         financingCET: parseFloat(formData.financingCET) || 0,
         downPayment: parseFloat(formData.downPayment) || 0,
@@ -1111,9 +1125,23 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
                   )}
 
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-[#fdb612]">Margem de Lucro (%)</label>
+                    <div className="relative">
+                      <TrendingUp className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#fdb612]" />
+                      <input 
+                        type="number" 
+                        value={formData.margin || ''}
+                        onChange={(e) => setFormData({ ...formData, margin: e.target.value })}
+                        className="w-full pl-12 pr-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/20 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-medium italic">Margem aplicada sobre o custo total</p>
+                  </div>
+
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
                     <div className="space-y-1 text-center md:text-left">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Subtotal (R$)</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Custos</label>
                       <p className="text-xl font-black text-slate-600 dark:text-slate-300">
                         {(() => {
                           const sub = (parseFloat(formData.equipmentCost || '0') + 
@@ -1126,7 +1154,23 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       </p>
                     </div>
                     <div className="space-y-1 text-center">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor Total</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Margem (R$)</label>
+                      <p className="text-xl font-black text-[#fdb612]">
+                        {(() => {
+                          const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                       parseFloat(formData.installationCost || '0') + 
+                                       parseFloat(formData.projectCost || '0') + 
+                                       parseFloat(formData.licensingCost || '0') + 
+                                       parseFloat(formData.logisticCost || '0'));
+                          const marginPerc = parseFloat(formData.margin || '0');
+                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const marginVal = (sub * multiplier) - sub;
+                          return marginVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                        })()}
+                      </p>
+                    </div>
+                    <div className="space-y-1 text-center">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor de Venda</label>
                       <p className="text-2xl font-black text-[#00A86B]">
                         {(() => {
                           const sub = (parseFloat(formData.equipmentCost || '0') + 
@@ -1134,13 +1178,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          const total = sub - parseFloat(formData.discount || '0');
+                          const marginPerc = parseFloat(formData.margin || '0');
+                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                           return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         })()}
                       </p>
                     </div>
                     <div className="space-y-1 text-center md:text-right">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Comissão</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Comissão ({formData.commission}%)</label>
                       <p className="text-xl font-black text-emerald-600">
                         {(() => {
                           const sub = (parseFloat(formData.equipmentCost || '0') + 
@@ -1148,7 +1194,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          const total = sub - parseFloat(formData.discount || '0');
+                          const marginPerc = parseFloat(formData.margin || '0');
+                          const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                          const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                           const comm = total * (parseFloat(formData.commission || '0') / 100);
                           return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                         })()}
@@ -1528,7 +1576,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                          parseFloat(formData.projectCost || '0') + 
                                          parseFloat(formData.licensingCost || '0') + 
                                          parseFloat(formData.logisticCost || '0'));
-                            const total = sub - parseFloat(formData.discount || '0');
+                            const marginPerc = parseFloat(formData.margin || '0');
+                            const multiplier = marginPerc >= 100 ? 1 : 1 / (1 - (marginPerc / 100));
+                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                             return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                           })()}
                         </p>

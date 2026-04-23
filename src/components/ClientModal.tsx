@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair } from 'lucide-react';
 import { Client } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
@@ -9,9 +9,12 @@ interface ClientModalProps {
   onClose: () => void;
   onSave: (client: Partial<Client>) => void;
   client?: Client | null;
+  leads?: Lead[];
+  clients?: Client[];
+  user?: UserType | null;
 }
 
-export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSave, client }) => {
+export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSave, client, leads = [], clients = [], user }) => {
   const [formData, setFormData] = useState<Partial<Client>>({
     name: '',
     email: '',
@@ -24,6 +27,45 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const canSearch = user?.role === 'admin' || user?.role === 'admin_staff' || user?.role === 'sales' || user?.role === 'finance';
+
+  const suggestions = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    
+    const term = searchTerm.toLowerCase();
+    
+    const leadMatches = leads.filter(l => 
+      l.name.toLowerCase().includes(term) || 
+      l.email.toLowerCase().includes(term)
+    ).map(l => ({ ...l, type: 'Lead' as const }));
+
+    const clientMatches = clients.filter(c => 
+      (c.name.toLowerCase().includes(term) || 
+      c.email.toLowerCase().includes(term)) &&
+      c.id !== client?.id
+    ).map(c => ({ ...c, type: 'Cliente' as const }));
+
+    return [...leadMatches, ...clientMatches].slice(0, 8);
+  }, [searchTerm, leads, clients, client]);
+
+  const selectSuggestion = (item: any) => {
+    setFormData({
+      ...formData,
+      name: item.name,
+      email: item.email,
+      phone: item.phone || (item.whatsapp) || (item.type === 'Cliente' ? (item as any).phone : ''),
+      address: item.address || '',
+      cnpj: item.cnpj || (item.cpfCnpj && item.cpfCnpj.length > 11 ? item.cpfCnpj : ''),
+      cpf: item.cpf || (item.cpfCnpj && item.cpfCnpj.length <= 11 ? item.cpfCnpj : ''),
+      latitude: item.latitude,
+      longitude: item.longitude
+    });
+    setSearchTerm('');
+    setShowSuggestions(false);
+  };
 
   useEffect(() => {
     if (client) {
@@ -48,9 +90,19 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     setFormData({ ...formData, cnpj: formatted });
     
     const cleaned = formatted.replace(/\D/g, '');
+    
+    // Clear error if empty or typing
+    if (cleaned.length < 14) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.cnpj;
+        return next;
+      });
+    }
+
     if (cleaned.length === 14) {
       if (!validateCNPJ(cleaned)) {
-        setErrors(prev => ({ ...prev, cnpj: 'CNPJ inválido' }));
+        setErrors(prev => ({ ...prev, cnpj: 'CNPJ inválido (Dígito verificador incorreto)' }));
         return;
       }
       
@@ -92,6 +144,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     setFormData({ ...formData, cpf: formatted });
     
     const cleaned = formatted.replace(/\D/g, '');
+
+    // Clear error if typing
+    if (cleaned.length < 11) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.cpf;
+        return next;
+      });
+    }
+
     if (cleaned.length === 11) {
       if (!validateCPF(cleaned)) {
         setErrors(prev => ({ ...prev, cpf: 'CPF inválido' }));
@@ -115,6 +177,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     e.preventDefault();
     
     const newErrors: Record<string, string> = {};
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'E-mail inválido';
     if (formData.cnpj && !validateCNPJ(formData.cnpj)) newErrors.cnpj = 'CNPJ inválido';
     if (formData.cpf && !validateCPF(formData.cpf)) newErrors.cpf = 'CPF inválido';
     
@@ -182,7 +245,60 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar bg-gradient-to-br from-white to-[#fdb612]/5 dark:from-[#1a160d] dark:to-[#fdb612]/2">
+          {!client && canSearch && (
+            <div className="relative group">
+              <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] mb-1.5 block">
+                Bucar dados (Lead ou Cliente)
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar por nome ou e-mail..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  className="w-full pl-10 pr-4 py-2 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/10 hover:border-[#fdb612]/30 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#fdb612] focus:bg-white dark:focus:bg-slate-900 transition-all font-bold italic"
+                />
+              </div>
+
+              {showSuggestions && searchTerm && (
+                <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[60] overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {suggestions.length > 0 ? (
+                    suggestions.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectSuggestion(item)}
+                        className="w-full px-4 py-3 text-left hover:bg-[#fdb612]/10 flex flex-col gap-0.5 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{item.name}</span>
+                          <span className={cn(
+                            "text-[8px] px-1.5 py-0.5 rounded font-black uppercase",
+                            item.type === 'Cliente' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                          )}>
+                            {item.type}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.email}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-xs text-slate-400 italic">
+                      Nenhum resultado encontrado
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mt-2 h-px bg-slate-100 dark:bg-slate-800 w-full" />
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
               <User className="w-4 h-4 text-[#fdb612]" />
@@ -208,10 +324,26 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 required
                 type="email"
                 value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData({ ...formData, email: val });
+                  if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                    setErrors(prev => ({ ...prev, email: 'E-mail inválido' }));
+                  } else {
+                    setErrors(prev => {
+                      const next = { ...prev };
+                      delete next.email;
+                      return next;
+                    });
+                  }
+                }}
                 placeholder="joao@email.com"
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                className={cn(
+                  "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                  errors.email ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                )}
               />
+              {errors.email && <p className="text-[10px] font-bold text-rose-500">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">

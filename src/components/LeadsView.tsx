@@ -189,31 +189,33 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
     }
   };
 
-  const filteredLeads = leads.filter(lead => {
+  const filteredLeads = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = lead.name.toLowerCase().includes(searchLower) ||
-                         lead.systemSize.toLowerCase().includes(searchLower) ||
-                         (lead.email && lead.email.toLowerCase().includes(searchLower)) ||
-                         (lead.phone && lead.phone.includes(searchTerm)) ||
-                         (lead.whatsapp && lead.whatsapp.includes(searchTerm)) ||
-                         (lead.createdAt && lead.createdAt.includes(searchTerm));
-    const matchesStatus = selectedStatuses.includes(lead.status);
-    const matchesUrgency = onlyUrgent ? lead.urgent : true;
-    const matchesRepresentative = selectedRepresentatives.length === 0 || (lead.representative && selectedRepresentatives.includes(lead.representative));
-    
-    let matchesDate = true;
-    const dateToCompare = dateFilterType === 'created' ? lead.createdAt : lead.scheduledDate;
-    
-    if (dateToCompare) {
-      if (startDate && dateToCompare < startDate) matchesDate = false;
-      if (endDate && dateToCompare > endDate) matchesDate = false;
-    } else if (startDate || endDate) {
-      // If there's a date filter but the lead has no date for that type, exclude it
-      matchesDate = false;
-    }
-    
-    return matchesSearch && matchesStatus && matchesUrgency && matchesDate && matchesRepresentative;
-  });
+    return leads.filter(lead => {
+      const matchesSearch = searchTerm === '' || 
+                           lead.name.toLowerCase().includes(searchLower) ||
+                           lead.systemSize.toLowerCase().includes(searchLower) ||
+                           (lead.email && lead.email.toLowerCase().includes(searchLower)) ||
+                           (lead.phone && lead.phone.includes(searchTerm)) ||
+                           (lead.whatsapp && lead.whatsapp.includes(searchTerm)) ||
+                           (lead.createdAt && lead.createdAt.includes(searchTerm));
+      const matchesStatus = selectedStatuses.includes(lead.status);
+      const matchesUrgency = onlyUrgent ? lead.urgent : true;
+      const matchesRepresentative = selectedRepresentatives.length === 0 || (lead.representative && selectedRepresentatives.includes(lead.representative));
+      
+      let matchesDate = true;
+      const dateToCompare = dateFilterType === 'created' ? lead.createdAt : lead.scheduledDate;
+      
+      if (dateToCompare) {
+        if (startDate && dateToCompare < startDate) matchesDate = false;
+        if (endDate && dateToCompare > endDate) matchesDate = false;
+      } else if (startDate || endDate) {
+        matchesDate = false;
+      }
+      
+      return matchesSearch && matchesStatus && matchesUrgency && matchesDate && matchesRepresentative;
+    });
+  }, [leads, searchTerm, selectedStatuses, onlyUrgent, selectedRepresentatives, startDate, endDate, dateFilterType]);
 
   const columns: { id: Lead['status']; label: string }[] = [
     { id: 'new', label: 'Novo' },
@@ -231,13 +233,17 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
   }));
 
   const funnelData = useMemo(() => {
-    let currentTotal = leads.length;
     return columns.map(col => {
-      const count = leads.filter(l => l.status === col.id).length;
+      // For a proper sales funnel, it should be cumulative:
+      // A lead that is 'closed' has passed through all previous stages.
+      const stageIndex = columns.findIndex(c => c.id === col.id);
+      const relevantStatuses = columns.slice(stageIndex).map(c => c.id);
+      const count = leads.filter(l => relevantStatuses.includes(l.status)).length;
+      
       const data = {
         name: col.label,
         count: count,
-        percentage: currentTotal > 0 ? ((count / currentTotal) * 100).toFixed(1) : '0'
+        percentage: leads.length > 0 ? ((count / leads.length) * 100).toFixed(1) : '0'
       };
       return data;
     });
@@ -776,22 +782,31 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                 if (!selectedStatuses.includes(column.id)) return null;
                 
                 const columnLeads = filteredLeads.filter(l => l.status === column.id);
+                const columnTotalValue = columnLeads.reduce((acc, l) => {
+                  const val = parseFloat(l.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+                  return acc + val;
+                }, 0);
                 
                 return (
                   <div key={column.id} className="w-80 flex flex-col gap-4 shrink-0">
-                    <div className="flex items-center justify-between px-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-slate-900 dark:text-slate-100">{column.label}</h3>
-                        <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-xs font-bold">
-                          {columnLeads.length}
-                        </span>
+                    <div className="flex flex-col gap-1 px-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-900 dark:text-slate-100">{column.label}</h3>
+                          <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-xs font-bold">
+                            {columnLeads.length}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => showToast(`Ações para a coluna: ${column.label}`)}
+                          className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded-md transition-colors"
+                        >
+                          <MoreHorizontal className="text-slate-400 w-5 h-5 cursor-pointer" />
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => showToast(`Ações para a coluna: ${column.label}`)}
-                        className="p-1 hover:bg-slate-200 dark:hover:bg-white/5 rounded-md transition-colors"
-                      >
-                        <MoreHorizontal className="text-slate-400 w-5 h-5 cursor-pointer" />
-                      </button>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Total: R$ {columnTotalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
                     </div>
 
                     <Droppable droppableId={column.id}>

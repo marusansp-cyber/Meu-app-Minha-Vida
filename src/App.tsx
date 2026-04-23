@@ -41,6 +41,7 @@ export default function App() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [proposalPreFill, setProposalPreFill] = useState<Partial<Proposal> | null>(null);
+  const [installationPreFill, setInstallationPreFill] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchLogo = async () => {
@@ -236,6 +237,33 @@ export default function App() {
   const handleOpenProposalsWithPreFill = (data: Partial<Proposal>) => {
     setProposalPreFill(data);
     setCurrentView('proposals');
+  };
+
+  const handleConvertToInstallation = (proposal: Proposal) => {
+    // Determine type from systemSize or notes if possible, fallback to residence
+    const type = proposal.systemSize.toLowerCase().includes('ind') ? 'industrial' : 'residence';
+    
+    const preFilledProject = {
+      name: `Instalação - ${proposal.client}`,
+      projectId: proposal.proposalNumber || proposal.id,
+      stage: 'Projeto / Engenharia',
+      type: type,
+      progress: 0,
+      address: proposal.endereco || '',
+      lastUpdated: new Date().toLocaleDateString('pt-BR'),
+      stages: [
+        { name: 'Projeto / Engenharia', status: 'in-progress' },
+        { name: 'Vistoria Técnica', status: 'pending' },
+        { name: 'Homologação', status: 'pending' },
+        { name: 'Instalação', status: 'pending' },
+        { name: 'Conectorização', status: 'pending' }
+      ]
+    };
+    
+    setEditingProject(preFilledProject as any);
+    setIsProjectModalOpen(true);
+    // Optionally stay on current view or move to installations
+    // setCurrentView('installations');
   };
 
   if (!isAuthenticated) {
@@ -505,6 +533,7 @@ export default function App() {
                     clients={clients} 
                     preFill={proposalPreFill}
                     onPreFillComplete={() => setProposalPreFill(null)}
+                    onConvertToInstallation={handleConvertToInstallation}
                   />
                 )}
                 {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
@@ -525,6 +554,8 @@ export default function App() {
                     clients={clients} 
                     proposals={proposals} 
                     installations={installations}
+                    leads={leads}
+                    user={user}
                     onAddClient={addClient}
                     onUpdateClient={updateClient}
                     onDeleteClient={deleteClient}

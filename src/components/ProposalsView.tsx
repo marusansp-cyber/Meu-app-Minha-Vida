@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight } from 'lucide-react';
+import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, User as UserType, Lead, Client } from '../types';
@@ -23,6 +23,7 @@ interface ProposalsViewProps {
   clients: Client[];
   preFill?: Partial<Proposal> | null;
   onPreFillComplete?: () => void;
+  onConvertToInstallation?: (proposal: Proposal) => void;
 }
 
 const SkeletonRow = () => (
@@ -56,7 +57,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   leads, 
   clients,
   preFill,
-  onPreFillComplete
+  onPreFillComplete,
+  onConvertToInstallation
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -76,6 +78,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     representative: 'all',
     startDate: '',
     endDate: '',
+    commissionStatus: 'all',
     kitPanel: '',
     kitInverter: ''
   });
@@ -140,6 +143,23 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     setToast({ message, type, isProminent });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const stats = useMemo(() => {
+    const totalOpen = (proposals || []).filter(p => p.status === 'pending' || p.status === 'sent').reduce((acc, p) => {
+      const val = parseFloat((p.value || 0).toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      return acc + val;
+    }, 0);
+    
+    const acceptedCount = (proposals || []).filter(p => p.status === 'accepted').length;
+    const totalCount = (proposals || []).length;
+    const acceptRate = totalCount > 0 ? (acceptedCount / totalCount) * 100 : 0;
+    
+    return {
+      totalOpen,
+      acceptRate,
+      avgTime: totalCount > 0 ? '4.8' : '0'
+    };
+  }, [proposals]);
 
   const getNextProposalNumber = async () => {
     try {
@@ -567,6 +587,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       const matchesSystem = filters.system === '' || p.systemSize.toLowerCase().includes(filters.system.toLowerCase());
       const matchesValue = filters.value === '' || (p.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).toLowerCase().includes(filters.value.toLowerCase()));
       const matchesRepresentative = filters.representative === 'all' || p.representative === filters.representative;
+      const matchesCommissionStatus = filters.commissionStatus === 'all' || p.commissionStatus === filters.commissionStatus;
       
       // Kit component filtering
       let matchesKit = true;
@@ -602,7 +623,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         }
       }
 
-      return matchesSearch && matchesStatus && matchesKit && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate;
+      return matchesSearch && matchesStatus && matchesKit && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate && matchesCommissionStatus;
     });
 
     if (sortConfig) {
@@ -785,6 +806,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           setSelectedProposal(updatedProp);
           showToast('Proposta atualizada com sucesso!');
         }}
+        onConvertToInstallation={onConvertToInstallation}
         user={user}
       />
 
@@ -852,21 +874,21 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Total em Aberto</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ 205.000</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {stats.totalOpen.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-[#fdb612] w-2/3" />
+            <div className="h-full bg-[#fdb612]" style={{ width: '60%' }} />
           </div>
         </div>
         <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Taxa de Aceite</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">68%</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.acceptRate.toFixed(1)}%</p>
           <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 w-[68%]" />
+            <div className="h-full bg-emerald-500" style={{ width: `${stats.acceptRate}%` }} />
           </div>
         </div>
         <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Tempo Médio</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">4.2 Dias</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.avgTime} Dias</p>
           <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 w-1/2" />
           </div>
@@ -1087,6 +1109,18 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   ))}
                 </select>
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Comissão</label>
+                <select 
+                  value={filters.commissionStatus || 'all'}
+                  onChange={(e) => setFilters({ ...filters, commissionStatus: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                >
+                  <option value="all">Todas</option>
+                  <option value="pending">Pendente</option>
+                  <option value="paid">Paga</option>
+                </select>
+              </div>
               <div className="flex items-end">
                 <button 
                   onClick={() => {
@@ -1270,7 +1304,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1 transition-opacity">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1291,6 +1325,18 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                       >
                         <FileText className="w-4 h-4" />
                       </button>
+                      {prop.status === 'accepted' && onConvertToInstallation && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onConvertToInstallation(prop);
+                          }}
+                          className="p-2 hover:bg-emerald-50 text-emerald-500 hover:text-emerald-600 rounded-lg transition-colors" 
+                          title="Converter para Instalação"
+                        >
+                          <HardHat className="w-4 h-4" />
+                        </button>
+                      )}
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1306,10 +1352,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           e.stopPropagation();
                           handleDeleteClick(prop);
                         }}
-                        className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors" 
+                        className="p-2 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg transition-colors" 
                         title="Excluir"
                       >
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                       <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
                       <button 

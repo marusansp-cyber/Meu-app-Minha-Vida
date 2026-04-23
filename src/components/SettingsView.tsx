@@ -53,6 +53,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     cnpj: "61.950.902/0018-33",
     address: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
     email: "contato@mvengenharia.com.br",
+    contactEmail: "suporte@mvengenharia.com.br",
     phone: "(11) 3456-7890",
     monthlyInvoice: 0
   });
@@ -571,8 +572,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <div className="flex gap-2">
                     <input 
                       type="email" 
-                      value={company.contactEmail || ''}
-                      onChange={(e) => setCompany(prev => ({ ...prev, contactEmail: e.target.value }))}
+                      value={companySettings.contactEmail || ''}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, contactEmail: e.target.value }))}
                       className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
                       placeholder="email@exemplo.com"
                     />
@@ -606,19 +607,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Plano Atual</p>
-                  <h4 className="text-xl font-black text-slate-900 dark:text-slate-100">{financial.plan}</h4>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-slate-100">{securityData.plan}</h4>
                   <div className="mt-4 inline-flex items-center px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-                    {financial.status}
+                    {securityData.status}
                   </div>
                 </div>
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Próxima Fatura</p>
-                  <h4 className="text-xl font-black text-slate-900 dark:text-slate-100">{financial.nextBilling}</h4>
+                  <h4 className="text-xl font-black text-slate-900 dark:text-slate-100">{securityData.nextBilling}</h4>
                   <p className="text-xs text-slate-500 mt-2">Valor: R$ 499,00</p>
                 </div>
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Método de Pagamento</p>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">{financial.paymentMethod}</h4>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-slate-100">{securityData.paymentMethod}</h4>
                   <button className="text-xs font-bold text-[#fdb612] mt-4 hover:underline">Alterar Cartão</button>
                 </div>
               </div>
@@ -654,7 +655,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {financial.invoices
+                      {securityData.invoices
                         .filter(invoice => {
                           if (!invoiceFilters.startDate && !invoiceFilters.endDate) return true;
                           const [day, month, year] = invoice.date.split('/').map(Number);

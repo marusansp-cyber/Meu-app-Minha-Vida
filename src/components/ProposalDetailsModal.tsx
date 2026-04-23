@@ -35,6 +35,7 @@ interface ProposalDetailsModalProps {
   onDownload: (id: string) => void;
   onPrint: (id: string) => void;
   onUpdate?: (proposal: Proposal) => void;
+  onConvertToInstallation?: (proposal: Proposal) => void;
   user: UserType | null;
 }
 
@@ -46,6 +47,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   onDownload,
   onPrint,
   onUpdate,
+  onConvertToInstallation,
   user
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -548,6 +550,15 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <Edit2 className="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
                   <span>Editar</span>
                 </button>
+                {proposal.status === 'accepted' && onConvertToInstallation && (
+                  <button 
+                    onClick={() => onConvertToInstallation(proposal)}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95 shadow-md md:col-span-1"
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>Instalar</span>
+                  </button>
+                )}
                 <button 
                   onClick={() => onPrint(proposal.id)}
                   className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"

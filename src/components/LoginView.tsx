@@ -66,11 +66,21 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     try {
       if (isSignUp) {
-        if (password.length < 6) {
-          setError('A senha deve ter pelo menos 6 caracteres.');
+        // Best practices: length >= 8, mixed case, number, special char
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        
+        if (password.length < 8) {
+          setError('A senha deve ter pelo menos 8 caracteres.');
           setIsLoading(false);
           return;
         }
+        
+        if (!passwordRegex.test(password)) {
+          setError('A senha deve conter letras maiúsculas, minúsculas, números e pelo menos um caractere especial (@$!%*?&).');
+          setIsLoading(false);
+          return;
+        }
+
         const { createUserWithEmailAndPassword } = await import('firebase/auth');
         const result = await createUserWithEmailAndPassword(auth, email, password);
         if (result.user.email) {

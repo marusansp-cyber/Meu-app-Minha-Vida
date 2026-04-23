@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   Rocket, 
   Plus, 
@@ -9,6 +10,7 @@ import {
   FileDown, 
   MoreVertical,
   Home,
+  LayoutGrid,
   Factory,
   MapPin,
   Building2,
@@ -187,7 +189,34 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   const [projectDeadlineFilter, setProjectDeadlineFilter] = React.useState<string | null>(null);
   const [technicianFilter, setTechnicianFilter] = React.useState<string>('all');
   const [stageFilter, setStageFilter] = React.useState<string>('all');
+  const [typeFilter, setTypeFilter] = React.useState<string>('all');
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
+  const stats = React.useMemo(() => {
+    const active = installations.length;
+    const engineering = installations.filter(i => 
+      i.stage.toLowerCase().includes('engenharia') || 
+      i.stage.toLowerCase().includes('engineering') ||
+      i.stage.toLowerCase().includes('projeto')
+    ).length;
+    
+    const installing = installations.filter(i => 
+      i.stage.toLowerCase().includes('instalação') || 
+      i.stage.toLowerCase().includes('installation')
+    ).length;
+    
+    const inspection = installations.filter(i => 
+      i.stage.toLowerCase().includes('inspeção') || 
+      i.stage.toLowerCase().includes('inspection') ||
+      i.stage.toLowerCase().includes('vistoria')
+    ).length;
+
+    return [
+      { label: 'Total Ativo', value: active.toString(), change: '+12%', color: 'green' },
+      { label: 'Em Engenharia', value: engineering.toString(), tag: 'Ocupado', color: 'yellow' },
+      { label: 'Instalando Hoje', value: installing.toString(), tag: 'Normal', color: 'slate' },
+      { label: 'Aguardando Inspeção', value: inspection.toString(), tag: 'Prioridade', color: 'red' },
+    ];
+  }, [installations]);
   const [reportModal, setReportModal] = useState<{ isOpen: boolean; stageIndex: number | null; installationId: string | null }>({
     isOpen: false,
     stageIndex: null,
@@ -316,13 +345,24 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta instalação?')) {
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  const handleDelete = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
       try {
-        await onDeleteInstallation(id);
+        await onDeleteInstallation(itemToDelete);
         showToast('Instalação excluída com sucesso.');
       } catch (error) {
         showToast('Erro ao excluir instalação.');
+      } finally {
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
       }
     }
   };
@@ -349,7 +389,10 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
       // Technician Filter
       const matchesTechnician = technicianFilter === 'all' || item.technician.name === technicianFilter;
 
-      return matchesStage && matchesTab && matchesDeadline && matchesTechnician;
+      // Type Filter
+      const matchesType = typeFilter === 'all' || (item.type && item.type.toLowerCase() === typeFilter.toLowerCase());
+
+      return matchesStage && matchesTab && matchesDeadline && matchesTechnician && matchesType;
     });
 
     // Sorting by lastUpdated
@@ -396,6 +439,45 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
 
   return (
     <div className="space-y-8 relative">
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            onClick={() => setIsDeleteModalOpen(false)}
+          />
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative bg-white dark:bg-[#231d0f] rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-center"
+          >
+            <div className="size-20 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center text-rose-600 mx-auto mb-6">
+              <Trash2 className="w-10 h-10" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mb-2">Excluir Instalação?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8">
+              Esta ação é permanente e removerá todos os dados técnicos e relatórios associados a este projeto.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 py-3 px-4 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all active:scale-95"
+              >
+                Confirmar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {toast && (
         <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
           <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
@@ -440,12 +522,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Ativo', value: '124', change: '+12%', color: 'green' },
-          { label: 'Em Engenharia', value: '18', tag: 'Ocupado', color: 'yellow' },
-          { label: 'Instalando Hoje', value: '42', tag: 'Normal', color: 'slate' },
-          { label: 'Aguardando Inspeção', value: '7', tag: 'Prioridade', color: 'red' },
-        ].map((stat, i) => (
+        {stats.map((stat, i) => (
           <div key={i} className="bg-white dark:bg-[#231d0f]/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
             <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">{stat.label}</p>
             <div className="flex items-end justify-between">
@@ -510,6 +587,20 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
               {technicians.map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl">
+            <LayoutGrid className="w-4 h-4 text-[#fdb612]" />
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none cursor-pointer"
+            >
+              <option value="all">Todos Tipos</option>
+              <option value="residence">Residencial</option>
+              <option value="commercial">Comercial</option>
+              <option value="industrial">Industrial</option>
+              <option value="rural">Rural</option>
             </select>
           </div>
           <button 
@@ -609,7 +700,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                             e.stopPropagation();
                             handleDelete(item.id);
                           }}
-                          className="p-2 text-slate-400 hover:text-rose-500 transition-all rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/10"
+                          className="p-2 text-rose-500 hover:text-rose-600 transition-all rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/20"
                           title="Excluir Instalação"
                         >
                           <Trash2 className="w-5 h-5" />

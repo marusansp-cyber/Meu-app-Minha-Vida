@@ -34,6 +34,7 @@ import Papa from 'papaparse';
 import { cn } from '../lib/utils';
 import { Kit } from '../types';
 import { createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
+import { generateKitsReportPDF } from '../services/pdfService';
 
 import { NewKitModal } from './NewKitModal';
 
@@ -71,10 +72,14 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isSavingComponent, setIsSavingComponent] = useState<string | null>(null); // kitId-compIdx
 
@@ -124,6 +129,15 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   };
 
   const processImport = async () => {
+    // Validation
+    const required = ['name', 'power', 'price'];
+    const missing = required.filter(key => !columnMapping[key] || !csvHeaders.includes(columnMapping[key]));
+    
+    if (missing.length > 0) {
+      showToast(`Colunas obrigatórias não mapeadas: ${missing.join(', ')}`);
+      return;
+    }
+
     setIsUploading(true);
     showToast(`Processando ${csvData.length} kits...`);
 
@@ -272,6 +286,23 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     }
   };
 
+  const handleDeleteAllKits = async () => {
+    if (kits.length === 0) return;
+    setIsDeletingAll(true);
+    try {
+      for (const kit of kits) {
+        await deleteDocument('kits', kit.id);
+      }
+      showToast(`${kits.length} kits removidos com sucesso!`);
+      setShowDeleteAllConfirm(false);
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao remover todos os kits.');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const handleUpdateComponent = async (kitId: string, components: any[]) => {
     try {
       await updateDocument('kits', kitId, { components, updatedAt: new Date().toISOString() });
@@ -295,6 +326,27 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     },
     [kits]
   );
+
+  const handleExportPdf = async () => {
+    if (filteredKits.length === 0) {
+      showToast('Nenhum kit para exportar.');
+      return;
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const pdfData = await generateKitsReportPDF(filteredKits);
+      const link = document.createElement('a');
+      link.href = pdfData;
+      link.download = `relatorio_kits_${new Date().getTime()}.pdf`;
+      link.click();
+      showToast('Relatório PDF gerado com sucesso!');
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao gerar PDF.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const downloadTemplate = () => {
     const headers = ['Nome', 'Potência (kWp)', 'Preço (R$)', 'Descrição', 'Componente 1 Nome', 'Componente 1 Qtd', 'Componente 1 Marca', 'Componente 1 Modelo'];
@@ -400,16 +452,35 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                     onClick={() => setViewMode('table')}
                     className={cn(
                       "p-1.5 rounded-lg transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest",
-                      viewMode === 'table' ? "bg-white dark:bg-slate-800 text-[#004a61] shadow-sm" : "text-slate-400 hover:text-slate-400"
+                      viewMode === 'table' ? "bg-white dark:bg-slate-800 text-[#004a61] shadow-sm" : "text-slate-400 hover:text-slate-600"
                     )}
                   >
                     <Box className="w-3.5 h-3.5" />
                     <span>Lista</span>
                   </button>
                 </div>
+                <button 
+                  onClick={handleExportPdf}
+                  disabled={isGeneratingPdf}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[#004a61]/10 hover:bg-[#004a61] text-[#004a61] hover:text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                  Exportar PDF
+                </button>
               </div>
-              <div className="text-xs font-bold text-slate-400">
-                {filteredKits.length} kits encontrados
+              <div className="flex items-center gap-4">
+                <div className="text-xs font-bold text-slate-400">
+                  {filteredKits.length} kits encontrados
+                </div>
+                {kits.length > 0 && (
+                  <button 
+                    onClick={() => setShowDeleteAllConfirm(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Limpar Tudo
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1045,6 +1116,52 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         kit={selectedKit}
         showToast={showToast}
       />
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#231d0f] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="size-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-rose-600" />
+                </div>
+                <button 
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+              
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 italic uppercase">
+                Excluir Todos os Kits?
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400">
+                Tem certeza que deseja excluir <span className="font-bold text-slate-900 dark:text-slate-100">{kits.length} kits</span> permanentemente? 
+                Esta ação é irreversível e removerá todos os kits cadastrados no sistema.
+              </p>
+            </div>
+            
+            <div className="p-6 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
+              <button 
+                onClick={() => setShowDeleteAllConfirm(false)}
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleDeleteAllKits}
+                disabled={isDeletingAll}
+                className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-lg shadow-rose-600/20"
+              >
+                {isDeletingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Confirmar Exclusão
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {kitToDelete && (

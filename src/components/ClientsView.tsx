@@ -21,7 +21,7 @@ import {
   X,
   CreditCard
 } from 'lucide-react';
-import { Client, Proposal, Installation, History as HistoryType } from '../types';
+import { Client, Proposal, Installation, History as HistoryType, Lead, User as UserType } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClientModal } from './ClientModal';
@@ -32,6 +32,8 @@ interface ClientsViewProps {
   clients: Client[];
   proposals: Proposal[];
   installations: Installation[];
+  leads?: Lead[];
+  user?: UserType | null;
   onAddClient: (client: Partial<Client>) => Promise<void>;
   onUpdateClient: (id: string, client: Partial<Client>) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
@@ -42,6 +44,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   clients, 
   proposals, 
   installations,
+  leads = [],
+  user,
   onAddClient,
   onUpdateClient,
   onDeleteClient,
@@ -63,6 +67,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [toast, setToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [history, setHistory] = useState<HistoryType[]>([]);
+
+  const isAdminOrStaff = user?.role === 'admin' || user?.role === 'admin_staff' || user?.role === 'sales' || user?.role === 'finance' || user?.role === 'engineer';
 
   React.useEffect(() => {
     const unsubscribe = syncCollection<HistoryType>('history', setHistory, 'timestamp');
@@ -612,6 +618,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               onSelectClient={(client) => {
                 setSelectedClient(client);
               }}
+              onEditClient={(client) => {
+                setEditingClient(client);
+                setIsModalOpen(true);
+              }}
             />
             {selectedClient && viewMode === 'map' && (
               <motion.div
@@ -688,16 +698,18 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             <div className="space-y-4">
               <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Buscar por nome, email, tel, CPF/CNPJ..."
-                      value={searchTerm || ''}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all font-medium"
-                    />
-                  </div>
+                  {isAdminOrStaff && (
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome, email, tel, CPF/CNPJ..."
+                        value={searchTerm || ''}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all font-medium"
+                      />
+                    </div>
+                  )}
                   <button 
                     onClick={() => setShowFilters(!showFilters)}
                     className={cn(
@@ -800,11 +812,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     const totalProjects = clientProjects.proposals.length + clientProjects.installations.length;
                     
                     return (
-                      <button
+                      <div
                         key={client.id}
                         onClick={() => setSelectedClient(client)}
                         className={cn(
-                          "w-full text-left p-4 rounded-xl border transition-all group relative overflow-hidden",
+                          "w-full text-left p-4 rounded-xl border transition-all group relative overflow-hidden cursor-pointer",
                           selectedClient?.id === client.id
                             ? "bg-[#fdb612]/10 border-[#fdb612] shadow-md ring-1 ring-[#fdb612]/20"
                             : "bg-white dark:bg-transparent border-slate-100 dark:border-slate-800 hover:border-[#fdb612]/30 hover:shadow-sm"
@@ -868,12 +880,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           >
                             <Mail className="w-4 h-4" />
                           </a>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingClient(client);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-1.5 bg-blue-500/10 text-blue-500 rounded-lg hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"
+                            title="Editar Cliente"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
                           <div className="flex-1" />
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 group-hover:text-[#fdb612]">
                             Ver Detalhes <Maximize className="w-3 h-3" />
                           </span>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                   {filteredClients.length === 0 && (
@@ -936,6 +959,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveClient}
         client={editingClient}
+        leads={leads}
+        clients={clients}
+        user={user}
       />
     </div>
   );
