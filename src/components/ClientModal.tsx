@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2 } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair } from 'lucide-react';
 import { Client } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
@@ -23,6 +23,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   useEffect(() => {
     if (client) {
@@ -126,6 +127,43 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     onClose();
   };
 
+  const handleGeocode = async () => {
+    if (!formData.address?.trim()) {
+      setErrors(prev => ({ ...prev, address: 'Informe um endereço para buscar as coordenadas' }));
+      return;
+    }
+
+    setIsGeocoding(true);
+    setErrors(prev => {
+      const next = { ...prev };
+      delete next.address;
+      return next;
+    });
+
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+          }));
+        } else {
+          setErrors(prev => ({ ...prev, address: 'Endereço não localizado no mapa' }));
+        }
+      } else {
+        setErrors(prev => ({ ...prev, address: 'Erro ao consultar geolocalização' }));
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setErrors(prev => ({ ...prev, address: 'Falha na conexão com o serviço de mapas' }));
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-[#1a160d] w-full max-w-md rounded-2xl shadow-2xl border border-[#fdb612]/20 overflow-hidden">
@@ -196,13 +234,39 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               <MapPin className="w-4 h-4 text-[#fdb612]" />
               Endereço
             </label>
-            <input
-              type="text"
-              value={formData.address || ''}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              placeholder="Rua, Número, Bairro, Cidade - UF"
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
-            />
+            <div className="flex flex-col gap-2">
+              <div className="relative group">
+                <input
+                  type="text"
+                  value={formData.address || ''}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Rua, Número, Bairro, Cidade - UF"
+                  className={cn(
+                    "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                    errors.address ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                  )}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleGeocode}
+                disabled={isGeocoding}
+                className="flex items-center justify-center gap-2 w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 font-bold text-xs disabled:opacity-50"
+              >
+                {isGeocoding ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Buscando...
+                  </>
+                ) : (
+                  <>
+                    <Crosshair className="w-4 h-4" />
+                    Buscar Coordenadas
+                  </>
+                )}
+              </button>
+            </div>
+            {errors.address && <p className="text-[10px] font-bold text-rose-500">{errors.address}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

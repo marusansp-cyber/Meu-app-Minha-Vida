@@ -915,23 +915,36 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 </div>
               </>
             ) : (
-              <div className="space-y-8 animate-in fade-in zoom-in-95 duration-300 text-left">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Mapeamento de Colunas</h3>
-                    <p className="text-slate-500 font-medium">Identificamos {csvData.length} registros. Relacione as colunas da sua planilha.</p>
+              <div className="space-y-8 animate-in fade-in slide-in-from-right duration-500 text-left">
+                <div className="flex items-center justify-between p-8 bg-amber-50 dark:bg-[#fdb612]/5 rounded-[2.5rem] border border-[#fdb612]/20">
+                  <div className="flex items-center gap-6">
+                    <div className="size-16 bg-white dark:bg-slate-900 rounded-3xl flex items-center justify-center text-[#fdb612] shadow-xl border border-[#fdb612]/10">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight italic">Mapeamento de Importação</h3>
+                      <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">{csvData.length} registros prontos para sincronização</p>
+                    </div>
                   </div>
                   <button 
-                    onClick={() => setUploadStep('upload')}
-                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                    onClick={() => {
+                      setUploadStep('upload');
+                      setCsvData([]);
+                    }}
+                    className="p-3 hover:bg-white/50 dark:hover:bg-white/5 rounded-full transition-all group"
                   >
-                    <X className="w-6 h-6 text-slate-400" />
+                    <X className="w-8 h-8 text-slate-400 group-hover:rotate-90 transition-transform" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-[#004a61] border-b border-slate-200 dark:border-slate-800 pb-2">Campos do Sistema</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-[#004a61]/10 rounded-lg text-[#004a61]">
+                        <Settings className="w-5 h-5" />
+                      </div>
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#004a61]">Definição de Colunas</h4>
+                    </div>
                     
                     {[
                       { key: 'name', label: 'Nome do Kit' },
@@ -939,13 +952,14 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                       { key: 'price', label: 'Preço (R$)' },
                       { key: 'description', label: 'Descrição' }
                     ].map(field => (
-                      <div key={field.key} className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">{field.label}</label>
+                      <div key={field.key} className="space-y-2 group">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 transition-colors group-focus-within:text-[#004a61]">{field.label}</label>
                         <select 
                           value={columnMapping[field.key]}
                           onChange={(e) => setColumnMapping({ ...columnMapping, [field.key]: e.target.value })}
-                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#004a61]"
+                          className="w-full px-5 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#004a61] transition-all font-bold text-sm"
                         >
+                          <option value="">-- Ignorar ou Selecionar Coluna --</option>
                           {csvHeaders.map(h => (
                             <option key={h} value={h}>{h}</option>
                           ))}
@@ -954,42 +968,68 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                     ))}
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black uppercase tracking-widest text-[#004a61] border-b border-slate-200 dark:border-slate-800 pb-2">Pré-visualização (Primeira Linha)</h4>
-                    <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4 shadow-sm">
-                      <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Nome</span>
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{csvData[0]?.[columnMapping.name] || 'N/A'}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Potência</span>
-                          <p className="text-sm font-bold text-[#004a61]">{csvData[0]?.[columnMapping.power] || '0'} kWp</p>
-                        </div>
-                        <div>
-                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Preço</span>
-                          <p className="text-sm font-bold text-emerald-600">R$ {csvData[0]?.[columnMapping.price] || '0'}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Descrição</span>
-                        <p className="text-[10px] text-slate-500 font-medium line-clamp-2">{csvData[0]?.[columnMapping.description] || 'Vazio'}</p>
-                      </div>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2 px-1">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-[#004a61]">Pré-visualização</h4>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Primeiros 3 itens</span>
+                    </div>
+
+                    <div className="overflow-hidden bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800">
+                          <tr>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Nome</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Potência</th>
+                            <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Preço</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-white/5">
+                          {csvData.slice(0, 3).map((row, idx) => (
+                            <tr key={idx} className="group hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-700 dark:text-slate-300 truncate max-w-[150px]">
+                                {row[columnMapping.name] || <span className="text-rose-500 italic opacity-50">Não mapeado</span>}
+                              </td>
+                              <td className="px-6 py-4 text-xs font-bold text-[#004a61]">
+                                {row[columnMapping.power] || '0'} kWp
+                              </td>
+                              <td className="px-6 py-4 text-xs font-bold text-emerald-600">
+                                R$ {row[columnMapping.price] || '0'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
 
                     <div className="pt-4 space-y-4">
-                      <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl text-blue-600 border border-blue-100 dark:border-blue-900/20">
-                        <Info className="w-5 h-5 shrink-0" />
-                        <p className="text-[10px] font-medium italic">Componentes serão extraídos automaticamente se as colunas iniciarem com "Componente X Nome".</p>
+                      <div className="flex items-center gap-4 p-5 bg-[#004a61]/5 rounded-[2rem] border border-[#004a61]/10">
+                        <div className="size-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-[#004a61] shadow-sm shrink-0">
+                          <Package className="w-5 h-5" />
+                        </div>
+                        <p className="text-[10px] font-bold text-[#004a61] leading-tight flex-1">
+                          Componentes extras serão extraídos automaticamente se houver colunas começando com "Componente X Nome", "Qtd", "Marca", etc.
+                        </p>
                       </div>
-                      <button 
-                        onClick={processImport}
-                        disabled={isUploading}
-                        className="w-full py-4 bg-[#004a61] text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-[#004a61]/20 hover:shadow-xl hover:-translate-y-0.5 transition-all active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-3"
-                      >
-                        {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                        Confirmar e Importar Kits
-                      </button>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                        <button 
+                          onClick={() => {
+                            setUploadStep('upload');
+                            setCsvData([]);
+                          }}
+                          className="flex-1 py-5 border border-slate-200 dark:border-slate-800 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                        >
+                          Alterar Arquivo
+                        </button>
+                        <button 
+                          onClick={processImport}
+                          disabled={isUploading}
+                          className="flex-[2] py-5 bg-[#004a61] text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-[#004a61]/30 hover:shadow-xl hover:shadow-[#004a61]/50 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                          {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                          Confirmar Importação de {csvData.length} Kits
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

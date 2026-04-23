@@ -531,7 +531,13 @@ export default function App() {
                     onCreateProposal={(client) => {
                       handleOpenProposalsWithPreFill({
                         client: client.name,
-                        email: client.email
+                        email: client.email,
+                        value: (client as any).value || 0,
+                        systemSize: (client as any).systemSize || '',
+                        titular: client.name,
+                        cpfCnpj: client.cnpj || client.cpf || '',
+                        endereco: client.address,
+                        telefone: client.phone
                       });
                     }}
                   />

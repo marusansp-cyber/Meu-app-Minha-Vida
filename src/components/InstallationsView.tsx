@@ -612,7 +612,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                           className="p-2 text-slate-400 hover:text-rose-500 transition-all rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/10"
                           title="Excluir Instalação"
                         >
-                          <X className="w-5 h-5" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={(e) => {

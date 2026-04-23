@@ -67,7 +67,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [dateFilterType, setDateFilterType] = useState<'created' | 'scheduled'>('created');
-  const [selectedRepresentative, setSelectedRepresentative] = useState<string>('all');
+  const [selectedRepresentatives, setSelectedRepresentatives] = useState<string[]>([]);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -199,7 +199,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                          (lead.createdAt && lead.createdAt.includes(searchTerm));
     const matchesStatus = selectedStatuses.includes(lead.status);
     const matchesUrgency = onlyUrgent ? lead.urgent : true;
-    const matchesRepresentative = selectedRepresentative === 'all' || lead.representative === selectedRepresentative;
+    const matchesRepresentative = selectedRepresentatives.length === 0 || (lead.representative && selectedRepresentatives.includes(lead.representative));
     
     let matchesDate = true;
     const dateToCompare = dateFilterType === 'created' ? lead.createdAt : lead.scheduledDate;
@@ -415,7 +415,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
             </button>
           </div>
           <div className="relative flex items-center gap-2">
-            {(selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentative !== 'all') && (
+            {(selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentatives.length > 0) && (
               <button 
                 onClick={() => {
                   setSearchTerm('');
@@ -424,7 +424,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                   setStartDate('');
                   setEndDate('');
                   setDateFilterType('created');
-                  setSelectedRepresentative('all');
+                  setSelectedRepresentatives([]);
                 }}
                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 px-2 py-1"
               >
@@ -436,12 +436,12 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
                 "px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors",
-                (showFilters || selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentative !== 'all') && "border-[#fdb612] text-[#fdb612]"
+                (showFilters || selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentatives.length > 0) && "border-[#fdb612] text-[#fdb612]"
               )}
             >
               <Filter className="w-4 h-4" />
               <span className="hidden sm:inline">Filtrar</span>
-              {(selectedStatuses.length < 5 || onlyUrgent || startDate || endDate || selectedRepresentative !== 'all') && (
+              {(selectedStatuses.length < 5 || onlyUrgent || startDate || endDate || selectedRepresentatives.length > 0) && (
                 <span className="size-2 bg-[#fdb612] rounded-full" />
               )}
             </button>
@@ -545,18 +545,39 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
-                      <select 
-                        value={selectedRepresentative || 'all'}
-                        onChange={(e) => setSelectedRepresentative(e.target.value)}
-                        className="w-full px-4 py-3 lg:px-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612] appearance-none"
-                      >
-                        <option value="all">Todos os Representantes</option>
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representantes</label>
+                      <div className="flex gap-4">
+                        <button 
+                          onClick={() => setSelectedRepresentatives(representatives)}
+                          className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                        >
+                          Todos
+                        </button>
+                        <button 
+                          onClick={() => setSelectedRepresentatives([])}
+                          className="text-[10px] font-bold text-slate-400 hover:underline"
+                        >
+                          Nenhum
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
                         {representatives.map(rep => (
-                          <option key={rep} value={rep}>{rep}</option>
+                          <label key={rep} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                            <input 
+                              type="checkbox" 
+                              className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                              checked={selectedRepresentatives.includes(rep)}
+                              onChange={() => {
+                                setSelectedRepresentatives(prev => 
+                                  prev.includes(rep) ? prev.filter(r => r !== rep) : [...prev, rep]
+                                );
+                              }}
+                            />
+                            <span className="text-xs font-bold truncate">{rep}</span>
+                          </label>
                         ))}
-                      </select>
+                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -614,7 +635,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           setStartDate('');
                           setEndDate('');
                           setDateFilterType('created');
-                          setSelectedRepresentative('all');
+                          setSelectedRepresentatives([]);
                         }}
                         className="w-full py-3 lg:py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
                       >

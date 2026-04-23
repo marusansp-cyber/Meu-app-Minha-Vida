@@ -242,6 +242,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   <Phone className="w-4 h-4 text-[#fdb612]" />
                   {client.phone}
                 </span>
+                {(client.cnpj || client.cpf) && (
+                  <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                    <CreditCard className="w-4 h-4 text-[#fdb612]" />
+                    {client.cnpj || client.cpf}
+                  </span>
+                )}
                 {client.address && (
                   <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
                     <MapPin className="w-4 h-4 text-[#fdb612]" />
@@ -254,7 +260,21 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           <div className="flex items-center gap-2">
             {onCreateProposal && (
               <button 
-                onClick={() => onCreateProposal(client)}
+                onClick={() => {
+                  const projects = getClientProjects(client);
+                  // Find latest proposal to get kWp and value
+                  const latestProposal = projects.proposals.sort((a, b) => {
+                    const dateA = a.date ? new Date(a.date.split('/').reverse().join('-')).getTime() : 0;
+                    const dateB = b.date ? new Date(b.date.split('/').reverse().join('-')).getTime() : 0;
+                    return dateB - dateA;
+                  })[0];
+                  
+                  onCreateProposal({
+                    ...client,
+                    systemSize: latestProposal?.systemSize || '',
+                    value: latestProposal?.value || 0
+                  });
+                }}
                 className="flex items-center gap-2 px-4 py-3 bg-[#fdb612]/10 text-[#fdb612] rounded-xl font-bold text-sm hover:bg-[#fdb612] hover:text-[#231d0f] transition-all group"
               >
                 <FileText className="w-4 h-4" />

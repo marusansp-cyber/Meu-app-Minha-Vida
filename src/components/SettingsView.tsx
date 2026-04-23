@@ -26,8 +26,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-import { User as UserType } from '../types';
-import { updateDocument } from '../firestoreUtils';
+import { User as UserType, CompanySettings } from '../types';
+import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
 
 interface SettingsViewProps {
   user: UserType | null;
@@ -48,6 +48,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     whatsapp: true
   });
 
+  const [companySettings, setCompanySettings] = useState<Partial<CompanySettings>>({
+    companyName: "MV ENGENHARIA E CONSTRUCOES LTDA",
+    cnpj: "61.950.902/0018-33",
+    address: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
+    email: "contato@mvengenharia.com.br",
+    phone: "(11) 3456-7890",
+    monthlyInvoice: 0
+  });
+
   const [profile, setProfile] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -59,20 +68,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   });
 
   const [securityData, setSecurityData] = useState({
-    newPassword: '',
-    confirmPassword: '',
-  });
-
-  const [company, setCompany] = useState({
-    name: "MV ENGENHARIA E CONSTRUCOES LTDA",
-    cnpj: "61.950.902/0018-33",
-    address: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
-    email: "contato@mvengenharia.com.br",
-    contactEmail: "suporte@mvengenharia.com.br", // New field
-    phone: "(11) 3456-7890"
-  });
-
-  const [financial, setFinancial] = useState({
     plan: "Enterprise",
     status: "Ativo",
     nextBilling: "14/04/2026",
@@ -123,6 +118,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
       await updateDocument('users', user.id, updatedUser);
       onUpdateUser(updatedUser);
+
+      // Save Company Settings
+      await setDocument('settings', 'company', {
+        ...companySettings,
+        updatedAt: new Date().toISOString()
+      });
+
       showToast('Configurações salvas com sucesso!');
       setSecurityData({ newPassword: '', confirmPassword: '' });
     } catch (error) {
@@ -162,8 +164,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   };
 
   const handleSendTestEmail = () => {
-    showToast(`E-mail de teste enviado para ${company.contactEmail}!`);
-    console.log(`Simulating test email to ${company.contactEmail}`);
+    showToast(`E-mail de teste enviado para ${companySettings.email}!`);
+    console.log(`Simulating test email to ${companySettings.email}`);
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -190,6 +192,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
+
+  React.useEffect(() => {
+    const fetchCompanySettings = async () => {
+      const settings = await getDocument<CompanySettings>('settings', 'company');
+      if (settings) {
+        setCompanySettings(settings);
+      }
+    };
+    fetchCompanySettings();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -505,8 +517,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Razão Social</label>
                   <input 
                     type="text" 
-                    value={company.name || ''}
-                    onChange={(e) => setCompany(prev => ({ ...prev, name: e.target.value }))}
+                    value={companySettings.companyName || ''}
+                    onChange={(e) => setCompanySettings(prev => ({ ...prev, companyName: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
@@ -517,8 +529,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   </div>
                   <input 
                     type="text" 
-                    value={company.cnpj || ''}
-                    onChange={(e) => setCompany(prev => ({ ...prev, cnpj: e.target.value }))}
+                    value={companySettings.cnpj || ''}
+                    onChange={(e) => setCompanySettings(prev => ({ ...prev, cnpj: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
@@ -526,8 +538,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail Comercial</label>
                   <input 
                     type="email" 
-                    value={company.email || ''}
-                    onChange={(e) => setCompany(prev => ({ ...prev, email: e.target.value }))}
+                    value={companySettings.email || ''}
+                    onChange={(e) => setCompanySettings(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
                 </div>
@@ -535,10 +547,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone Comercial</label>
                   <input 
                     type="text" 
-                    value={company.phone || ''}
-                    onChange={(e) => setCompany(prev => ({ ...prev, phone: e.target.value }))}
+                    value={companySettings.phone || ''}
+                    onChange={(e) => setCompanySettings(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-display">Fatura Mensal do Cliente (Média)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                    <input 
+                      type="number" 
+                      value={companySettings.monthlyInvoice || 0}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, monthlyInvoice: parseFloat(e.target.value) }))}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-bold"
+                      placeholder="500.00"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Este valor será sugerido como faturamento padrão para novos orçamentos.</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail de Contato (Suporte)</label>
@@ -565,8 +591,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input 
                       type="text" 
-                      value={company.address || ''}
-                      onChange={(e) => setCompany(prev => ({ ...prev, address: e.target.value }))}
+                      value={companySettings.address || ''}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, address: e.target.value }))}
                       className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                     />
                   </div>

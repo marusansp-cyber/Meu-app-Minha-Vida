@@ -270,7 +270,28 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
               </div>
             </div>
             
-            <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-6">
+              <div className="space-y-3">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Sugestões Rápidas</span>
+                <div className="flex flex-wrap gap-2">
+                  {['Painel Solar', 'Inversor', 'Microinversor', 'Estrutura de Solo', 'Estrutura de Telhado', 'String Box', 'Cabo Solar', 'Conectores MC4'].map(suggestion => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setNewComponent(prev => ({ ...prev, name: suggestion }))}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all border",
+                        newComponent.name === suggestion
+                          ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f]"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 hover:border-[#fdb612] hover:text-[#fdb612]"
+                      )}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome do Item</span>

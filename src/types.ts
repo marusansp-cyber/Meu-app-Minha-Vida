@@ -267,3 +267,14 @@ export interface SalesGoal {
   targetCount: number;
   createdAt: string;
 }
+
+export interface CompanySettings {
+  id: string;
+  monthlyInvoice?: number;
+  companyName?: string;
+  logo?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  updatedAt?: string;
+}
