@@ -9,6 +9,14 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
+  console.log("Verificando configuração SMTP...");
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    console.log(`SMTP_USER detectado: ${process.env.SMTP_USER}`);
+    console.log("SMTP_PASS detectado (tamanho):", process.env.SMTP_PASS.length);
+  } else {
+    console.warn("AVISO: SMTP_USER ou SMTP_PASS não configurados nas variáveis de ambiente.");
+  }
+
   // Email Configuration
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -16,7 +24,7 @@ async function startServer() {
     secure: process.env.SMTP_PORT === "465",
     auth: {
       user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
+      pass: process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : undefined,
     },
   });
 

@@ -91,10 +91,11 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
   const maskCurrency = (value: string) => {
     const numbers = value.replace(/\D/g, '');
     if (!numbers) return '';
-    const amount = parseInt(numbers) / 100;
+    const amount = Math.floor(parseInt(numbers) / 100);
     return amount.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
+      maximumFractionDigits: 0,
     });
   };
 

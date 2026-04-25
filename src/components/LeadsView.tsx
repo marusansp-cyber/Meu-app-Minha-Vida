@@ -29,7 +29,7 @@ import {
   LogOut,
   Save,
   Edit2,
-  History,
+  History as HistoryIcon,
   Paperclip,
   MapPin,
   Building2
@@ -146,7 +146,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
     setTimeout(() => setToast(null), 3000);
   };
 
-  const representatives = Array.from(new Set(leads.map(l => l.representative).filter(Boolean))) as string[];
+  const representatives = Array.from(new Set((leads || []).map(l => l.representative).filter(Boolean))) as string[];
 
   React.useEffect(() => {
     const handleClickOutside = () => setActiveActionMenu(null);
@@ -191,7 +191,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
 
   const filteredLeads = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
-    return leads.filter(lead => {
+    return (leads || []).filter(lead => {
       const matchesSearch = searchTerm === '' || 
                            lead.name.toLowerCase().includes(searchLower) ||
                            lead.systemSize.toLowerCase().includes(searchLower) ||
@@ -227,9 +227,9 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
 
   const chartData = columns.map(col => ({
     name: col.label,
-    count: leads.filter(l => l.status === col.id).length,
+    count: (leads || []).filter(l => l.status === col.id).length,
     color: col.id === 'closed' ? '#10b981' : '#fdb612',
-    fullLabel: `${col.label}: ${leads.filter(l => l.status === col.id).length}`
+    fullLabel: `${col.label}: ${(leads || []).filter(l => l.status === col.id).length}`
   }));
 
   const funnelData = useMemo(() => {
@@ -238,12 +238,12 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
       // A lead that is 'closed' has passed through all previous stages.
       const stageIndex = columns.findIndex(c => c.id === col.id);
       const relevantStatuses = columns.slice(stageIndex).map(c => c.id);
-      const count = leads.filter(l => relevantStatuses.includes(l.status)).length;
+      const count = (leads || []).filter(l => relevantStatuses.includes(l.status)).length;
       
       const data = {
         name: col.label,
         count: count,
-        percentage: leads.length > 0 ? ((count / leads.length) * 100).toFixed(1) : '0'
+        percentage: (leads || []).length > 0 ? ((count / (leads || []).length) * 100).toFixed(1) : '0'
       };
       return data;
     });
@@ -1088,7 +1088,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       leadModalTab === 'history' ? "text-[#fdb612] border-b-2 border-[#fdb612] bg-[#fdb612]/5" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                     )}
                   >
-                    <History className="w-3" />
+                    <HistoryIcon className="w-3" />
                     Histórico
                   </button>
                   <button 
@@ -1484,7 +1484,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                               </div>
                               <div className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <History className="w-4 h-4 text-slate-300" />
+                                  <HistoryIcon className="w-4 h-4 text-slate-300" />
                                 </div>
                                 <div className="flex justify-between items-start mb-2">
                                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.date}</span>

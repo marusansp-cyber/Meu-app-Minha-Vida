@@ -97,6 +97,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                            p.representative.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = proposalStatusFilter === 'all' || p.status === proposalStatusFilter;
       const matchesRep = representativeFilter === 'all' || p.representative === representativeFilter;
+      const matchesCommissionStatus = commissionStatusFilter === 'all' || p.commissionStatus === commissionStatusFilter;
       
       let matchesDate = true;
       if (startDate || endDate) {
@@ -112,9 +113,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         }
       }
       
-      return matchesSearch && matchesStatus && matchesRep && matchesDate;
+      return matchesSearch && matchesStatus && matchesRep && matchesDate && matchesCommissionStatus;
     });
-  }, [proposals, searchTerm, proposalStatusFilter, representativeFilter, startDate, endDate]);
+  }, [proposals, searchTerm, proposalStatusFilter, representativeFilter, startDate, endDate, commissionStatusFilter]);
 
   const stats = useMemo(() => {
     const totalRevenue = filteredAcceptedProposals.reduce((acc, p) => {
@@ -252,12 +253,12 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`Faturamento Total: R$ ${stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 87);
-      doc.text(`Total em Comissões: R$ ${stats.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 95);
+      doc.text(`Faturamento Total: R$ ${stats.totalRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 25, 87);
+      doc.text(`Total em Comissões: R$ ${stats.totalCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 25, 95);
       doc.setTextColor(16, 185, 129); // emerald-600
-      doc.text(`Comissões Pagas: R$ ${stats.paidCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 103);
+      doc.text(`Comissões Pagas: R$ ${stats.paidCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 25, 103);
       doc.setTextColor(217, 119, 6); // amber-600
-      doc.text(`Comissões Pendentes: R$ ${stats.pendingCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, 111);
+      doc.text(`Comissões Pendentes: R$ ${stats.pendingCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 25, 111);
       doc.setTextColor(0, 0, 0);
 
       // Chart Section
@@ -317,8 +318,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
 
         doc.text(p.client.substring(0, 25), 20, y);
         doc.text(p.representative.substring(0, 20), 70, y);
-        doc.text(`R$ ${projectValue.toLocaleString('pt-BR')}`, 110, y);
-        doc.text(`R$ ${commissionValue.toLocaleString('pt-BR')}`, 140, y);
+        doc.text(`R$ ${projectValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 110, y);
+        doc.text(`R$ ${commissionValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 140, y);
         doc.text(p.commissionStatus === 'paid' ? 'PAGO' : 'PENDENTE', 175, y);
         
         y += 8;
@@ -409,7 +410,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Faturamento Total</p>
           <h3 className="text-2xl font-black font-display">
-            R$ {stats.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {stats.totalRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
         </div>
 
@@ -421,7 +422,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total em Comissões</p>
           <h3 className="text-2xl font-black font-display">
-            R$ {stats.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {stats.totalCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
         </div>
 
@@ -433,7 +434,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Comissões Pagas</p>
           <h3 className="text-2xl font-black font-display text-emerald-600">
-            R$ {stats.paidCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {stats.paidCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
         </div>
 
@@ -445,7 +446,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           </div>
           <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Comissões Pendentes</p>
           <h3 className="text-2xl font-black font-display text-amber-600">
-            R$ {stats.pendingCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {stats.pendingCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
         </div>
       </div>
@@ -527,7 +528,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Total']}
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 'Total']}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
               </PieChart>
@@ -546,7 +547,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Pagas</span>
               </div>
               <span className="text-sm font-black text-emerald-600">
-                R$ {stats.paidCommission.toLocaleString('pt-BR')}
+                R$ {stats.paidCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/20">
@@ -555,7 +556,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Pendentes</span>
               </div>
               <span className="text-sm font-black text-amber-600">
-                R$ {stats.pendingCommission.toLocaleString('pt-BR')}
+                R$ {stats.pendingCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
               </span>
             </div>
           </div>
@@ -602,7 +603,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     padding: '12px'
                   }}
-                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`]}
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`]}
                 />
                 <Bar dataKey="paid" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={20} />
                 <Bar dataKey="pending" stackId="a" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
@@ -614,7 +615,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
               <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">{rep.name}</span>
-                  <span className="text-xs font-black text-[#fdb612]">R$ {rep.total.toLocaleString('pt-BR')}</span>
+                  <span className="text-xs font-black text-[#fdb612]">R$ {rep.total.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
@@ -624,7 +625,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                         style={{ width: `${(rep.paid / rep.total) * 100}%` }} 
                       />
                     </div>
-                    <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-tighter">Pago: R$ {rep.paid.toLocaleString('pt-BR')}</p>
+                    <p className="text-[9px] font-bold text-emerald-600 mt-1 uppercase tracking-tighter">Pago: R$ {rep.paid.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                   </div>
                   <div className="flex-1">
                     <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
@@ -633,7 +634,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                         style={{ width: `${(rep.pending / rep.total) * 100}%` }} 
                       />
                     </div>
-                    <p className="text-[9px] font-bold text-amber-600 mt-1 uppercase tracking-tighter">Pendente: R$ {rep.pending.toLocaleString('pt-BR')}</p>
+                    <p className="text-[9px] font-bold text-amber-600 mt-1 uppercase tracking-tighter">Pendente: R$ {rep.pending.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                   </div>
                 </div>
               </div>
@@ -764,7 +765,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                           <p className="text-sm font-medium">{prop.representative}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm font-bold">R$ {projectValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-bold">R$ {projectValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-xs font-black px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
@@ -773,7 +774,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-sm font-black text-[#fdb612]">
-                            R$ {commissionValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            R$ {commissionValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                           </p>
                         </td>
                         <td className="px-6 py-4">

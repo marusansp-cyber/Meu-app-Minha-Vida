@@ -50,13 +50,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   const reportRef = useRef<HTMLDivElement>(null);
 
   const consultants = useMemo(() => {
-    const list = new Set(proposals.map(p => p.representative).filter(Boolean));
+    const list = new Set((proposals || []).map(p => p.representative).filter(Boolean));
     return Array.from(list);
   }, [proposals]);
 
   const filteredData = useMemo(() => {
-    let prps = [...proposals];
-    let inst = [...installations];
+    let prps = [...(proposals || [])];
+    let inst = [...(installations || [])];
 
     const now = new Date();
     if (dateRange === '30days') {
@@ -79,37 +79,37 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   }, [proposals, installations, dateRange, consultantFilter, statusFilter]);
 
   const stats = useMemo(() => {
-    const totalSales = filteredData.proposals
+    const totalSales = (filteredData.proposals || [])
       .filter(p => p.status === 'accepted')
       .reduce((acc, p) => acc + (parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
 
-    const conversionRate = filteredData.proposals.length > 0 
-      ? (filteredData.proposals.filter(p => p.status === 'accepted').length / filteredData.proposals.length) * 100 
+    const conversionRate = (filteredData.proposals || []).length > 0 
+      ? ((filteredData.proposals || []).filter(p => p.status === 'accepted').length / (filteredData.proposals || []).length) * 100 
       : 0;
 
-    const avgProposalValue = filteredData.proposals.length > 0
-      ? totalSales / filteredData.proposals.filter(p => p.status === 'accepted').length
+    const avgProposalValue = (filteredData.proposals || []).length > 0
+      ? totalSales / (filteredData.proposals || []).filter(p => p.status === 'accepted').length
       : 0;
 
     const installationDistribution = [
-      { name: 'Em Andamento', value: installations.filter(i => i.progress < 100).length, color: '#3b82f6' },
-      { name: 'Finalizadas', value: installations.filter(i => i.progress === 100).length, color: '#10b981' },
-      { name: 'Pendentes', value: installations.filter(i => i.progress === 0).length, color: '#f59e0b' }
+      { name: 'Em Andamento', value: (installations || []).filter(i => i.progress < 100).length, color: '#3b82f6' },
+      { name: 'Finalizadas', value: (installations || []).filter(i => i.progress === 100).length, color: '#10b981' },
+      { name: 'Pendentes', value: (installations || []).filter(i => i.progress === 0).length, color: '#f59e0b' }
     ];
 
-    const totalCommission = filteredData.proposals
+    const totalCommission = (filteredData.proposals || [])
       .filter(p => p.status === 'accepted')
       .reduce((acc, p) => acc + (p.commission || 0), 0);
 
-    const totalSystemSize = filteredData.proposals
+    const totalSystemSize = (filteredData.proposals || [])
       .filter(p => p.status === 'accepted')
       .reduce((acc, p) => {
         const size = parseFloat((p.systemSize || "0").toString().replace(/[^\d.]/g, '')) || 0;
         return acc + size;
       }, 0);
 
-    const avgSystemSize = filteredData.proposals.filter(p => p.status === 'accepted').length > 0
-      ? totalSystemSize / filteredData.proposals.filter(p => p.status === 'accepted').length
+    const avgSystemSize = (filteredData.proposals || []).filter(p => p.status === 'accepted').length > 0
+      ? totalSystemSize / (filteredData.proposals || []).filter(p => p.status === 'accepted').length
       : 0;
 
     return {
@@ -119,8 +119,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
       conversionRate,
       avgProposalValue,
       installationDistribution,
-      totalProposals: filteredData.proposals.length,
-      acceptedProposals: filteredData.proposals.filter(p => p.status === 'accepted').length
+      totalProposals: (filteredData.proposals || []).length,
+      acceptedProposals: (filteredData.proposals || []).filter(p => p.status === 'accepted').length
     };
   }, [filteredData, installations]);
 
@@ -231,7 +231,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
               <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">Performance</span>
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Volume de Vendas</p>
-            <h3 className="text-2xl font-black mt-1">R$ {stats.totalSales.toLocaleString('pt-BR')}</h3>
+            <h3 className="text-2xl font-black mt-1">R$ {stats.totalSales.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</h3>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -253,7 +253,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
               <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">Ticket</span>
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Commissionamento</p>
-            <h3 className="text-2xl font-black mt-1">R$ {stats.totalCommission.toLocaleString('pt-BR')}</h3>
+            <h3 className="text-2xl font-black mt-1">R$ {stats.totalCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</h3>
           </div>
 
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -290,7 +290,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={(val) => `R$ ${val/1000}k`} />
                   <Tooltip 
                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']}
+                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 'Faturamento']}
                   />
                   <Area type="monotone" dataKey="sales" stroke="#fdb612" strokeWidth={4} fillOpacity={1} fill="url(#colorSales)" />
                 </AreaChart>

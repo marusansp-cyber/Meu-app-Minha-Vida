@@ -36,7 +36,7 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'financial' | 'system' | 'support'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'financial' | 'system' | 'integrations' | 'support'>('profile');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,7 +225,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     { id: 'profile', label: 'Meu Perfil', icon: User },
     { id: 'company', label: 'Dados da Empresa', icon: Building },
     { id: 'financial', label: 'Financeiro', icon: CreditCard },
-    { id: 'system', label: 'Configurações do Sistema', icon: Shield },
+    { id: 'system', label: 'Sistema', icon: Shield },
+    { id: 'integrations', label: 'E-mail (SMTP)', icon: Mail },
     { id: 'support', label: 'Suporte', icon: LifeBuoy },
   ];
 
@@ -690,6 +691,98 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'integrations' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-right duration-500">
+              <div className="p-6 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-800">
+                <div className="flex gap-4">
+                  <div className="size-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Configuração de E-mail (Gmail)</h4>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Para enviar propostas diretamente do sistema, você deve configurar as variáveis de ambiente no painel do AI Studio. 
+                      Como você está usando Gmail, é <strong>obrigatório</strong> o uso de uma Senha de App.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Passo a Passo</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-black text-[#fdb612]">01</span>
+                      <p className="text-xs font-bold mt-1">Gere a Senha de App no Google (16 dígitos)</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-black text-[#fdb612]">02</span>
+                      <p className="text-xs font-bold mt-1">Clique na Engrenagem no TOPO DIREITO (ao lado de 'Publish')</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-black text-[#fdb612]">03</span>
+                      <p className="text-xs font-bold mt-1">Vá na aba "Environment Variables"</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-black text-[#fdb612]">04</span>
+                      <p className="text-xs font-bold mt-1">Adicione as chaves SMTP_USER e SMTP_PASS</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Variáveis Necessárias</h5>
+                  <div className="space-y-2">
+                    {[
+                      { key: 'SMTP_USER', value: profile.email, desc: 'Seu e-mail do Gmail' },
+                      { key: 'SMTP_PASS', value: 'nbph uvcl yuyn rqvr', desc: 'A senha de 16 dígitos que você gerou' },
+                      { key: 'SMTP_HOST', value: 'smtp.gmail.com', desc: 'Host do servidor' },
+                      { key: 'SMTP_PORT', value: '587', desc: 'Porta padrão' },
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-xl group hover:border-[#fdb612]/30 transition-all">
+                        <div>
+                          <code className="text-[10px] font-black text-[#0055A4] dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded uppercase">{item.key}</code>
+                          <p className="text-xs font-medium text-slate-500 mt-1">{item.desc}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <code className="text-xs font-bold text-slate-900 dark:text-slate-100">{item.value}</code>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(item.value);
+                              showToast(`${item.key} copiado!`);
+                            }}
+                            className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/smtp/test');
+                      const data = await res.json();
+                      if (data.success) showToast('Conexão SMTP verificada com sucesso!');
+                      else showToast('Erro na verificação SMTP. Confira as variáveis.');
+                    } catch (e) {
+                      showToast('Erro ao testar SMTP.');
+                    }
+                  }}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                >
+                  Testar Conexão Agora
+                </button>
               </div>
             </div>
           )}

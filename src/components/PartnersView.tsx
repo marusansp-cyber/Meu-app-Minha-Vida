@@ -18,7 +18,9 @@ import {
   Loader2,
   Eye,
   LayoutGrid,
-  List
+  List,
+  Clock,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Partner } from '../types';
@@ -39,12 +41,17 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
   const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [viewType, setViewType] = useState<'grid' | 'table'>('grid');
+  const [filterType, setFilterType] = useState<Partner['type'] | 'all'>('all');
 
-  const filteredPartners = partners.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.cnpj.includes(searchTerm) ||
-    p.contactName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPartners = partners.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.cnpj.includes(searchTerm) ||
+      p.contactName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesType = filterType === 'all' || p.type === filterType;
+    
+    return matchesSearch && matchesType;
+  });
 
   const handleDelete = async () => {
     if (partnerToDelete) {
@@ -141,10 +148,20 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
           />
         </div>
-        <button className="px-6 py-3 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all">
-          <Filter className="w-4 h-4" />
-          Filtros
-        </button>
+        <div className="relative">
+          <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="pl-12 pr-10 py-3 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm appearance-none cursor-pointer"
+          >
+            <option value="all">Todos os Tipos</option>
+            <option value="integrator">Integrador</option>
+            <option value="referral">Indicação / Afiliado</option>
+            <option value="maintenance">Manutenção</option>
+            <option value="other">Outros</option>
+          </select>
+        </div>
       </div>
 
       {viewType === 'grid' ? (
@@ -226,6 +243,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
                         <Mail className="w-4 h-4" />
                         <span>{partner.email}</span>
                       </div>
+                      {partner.contractEndDate && (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Clock className="w-4 h-4 text-amber-500" />
+                          <span className="text-xs">Contrato: {partner.contractEndDate}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -236,6 +259,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
                         <Briefcase className="w-4 h-4" />
                         <span className="font-bold text-emerald-600">Comissão: {partner.commissionRate}%</span>
                       </div>
+                      {partner.paymentTerms && (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <CreditCard className="w-4 h-4 text-blue-500" />
+                          <span className="text-xs truncate" title={partner.paymentTerms}>{partner.paymentTerms}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -441,7 +470,7 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
           setFormData(prev => ({
             ...prev,
             name: data.razao_social || prev.name,
-            address: `${data.logradouro}, ${data.numero}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}` || prev.address,
+            address: data.cep ? `${data.logradouro}, ${data.numero}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro}, ${data.municipio} - ${data.uf}` : prev.address,
             cnpjStatus: data.descricao_situacao_cadastral,
             notes: `Situação Cadastral: ${data.descricao_situacao_cadastral}\nData Situação: ${data.data_situacao_cadastral}\nCapital Social: R$ ${data.capital_social?.toLocaleString('pt-BR')}`
           }));
@@ -630,6 +659,37 @@ const PartnerModal: React.FC<PartnerModalProps> = ({ isOpen, onClose, partner, i
                 <option value="pending">Pendente</option>
                 <option value="inactive">Inativo</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Data Início Contrato</label>
+              <input 
+                disabled={isViewOnly}
+                type="date" 
+                value={formData.contractStartDate || ''}
+                onChange={(e) => setFormData({ ...formData, contractStartDate: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prazo / Validade</label>
+              <input 
+                disabled={isViewOnly}
+                type="date" 
+                value={formData.contractEndDate || ''}
+                onChange={(e) => setFormData({ ...formData, contractEndDate: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Termos de Pagamento</label>
+              <input 
+                disabled={isViewOnly}
+                type="text" 
+                placeholder="Ex: 30 dias após emissão da NF, Pix, etc."
+                value={formData.paymentTerms || ''}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all disabled:opacity-70"
+              />
             </div>
           </div>
 

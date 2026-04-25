@@ -14,6 +14,7 @@ import {
   Clock, 
   BarChart3, 
   Package,
+  History as HistoryIcon,
   Edit2, 
   Save,
   Building2,
@@ -352,10 +353,10 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Valor do Investimento</label>
                       <p className="font-black text-3xl text-[#fdb612]">
-                        {proposal.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        {proposal.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                       </p>
                       {proposal.discount > 0 && (
-                        <p className="text-[10px] text-rose-500 font-bold">Desconto aplicado: R$ {proposal.discount.toLocaleString('pt-BR')}</p>
+                        <p className="text-[10px] text-rose-500 font-bold">Desconto aplicado: R$ {proposal.discount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                       )}
                     </div>
                   </div>
@@ -367,7 +368,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Comissão Estimada</label>
                       <p className="font-bold text-xl text-emerald-600">
-                        R$ {((proposal.value || 0) * ((proposal.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {((proposal.value || 0) * ((proposal.commission || 5) / 100)).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                   </div>
@@ -416,7 +417,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                         <p className="font-bold text-xl">{proposal.financingBank} - {proposal.financingInstallments}x</p>
                         {proposal.financingInstallmentValue && proposal.financingInstallmentValue > 0 && (
                           <p className="text-xs font-bold text-rose-500">
-                            {proposal.financingInstallmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} /mês
+                            {proposal.financingInstallmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })} /mês
                           </p>
                         )}
                       </div>
@@ -430,11 +431,11 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       </div>
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Pagamento (Pix + 10x)</label>
-                        <p className="font-bold text-xl">Entrada: R$ {proposal.downPayment?.toLocaleString('pt-BR') || '0,00'}</p>
+                        <p className="font-bold text-xl">Entrada: R$ {proposal.downPayment?.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) || '0'}</p>
                         <p className="text-xs font-bold text-rose-500">
                           {proposal.pixInstallmentType === 'credit_card' ? 'Cartão' : 'Boleto'}: 10x de {(() => {
                             const remaining = (proposal.value || 0) - (proposal.downPayment || 0);
-                            return (remaining / 10).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            return (remaining / 10).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
                       </div>
@@ -465,11 +466,31 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                       <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Economia 25 anos</p>
-                      <p className="text-xl font-black text-emerald-600">R$ 482.000</p>
+                      <p className="text-xl font-black text-emerald-600">R$ {((proposal.value || 0) * 8).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                     </div>
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                       <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Redução de CO2</p>
-                      <p className="text-xl font-black text-blue-600">12.5 Ton/ano</p>
+                      <p className="text-xl font-black text-blue-600">
+                        {(() => {
+                          const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
+                          const annualGenKwh = sysSizeNum * 1300;
+                          const co2SavedKg = annualGenKwh * 0.062;
+                          return co2SavedKg >= 1000 
+                            ? `${(co2SavedKg / 1000).toFixed(2)} Ton/ano`
+                            : `${co2SavedKg.toFixed(0)} kg/ano`;
+                        })()}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                      <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Árvores Equivalentes</p>
+                      <p className="text-xl font-black text-[#fdb612]">
+                        {(() => {
+                          const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
+                          const annualGenKwh = sysSizeNum * 1300;
+                          const co2SavedKg = annualGenKwh * 0.062;
+                          return Math.round(co2SavedKg / 22);
+                        })()}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -481,7 +502,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <span className="text-[10px] font-black uppercase tracking-widest">Garantia Técnica</span>
                     </div>
                     <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Esta proposta inclui 10 anos de garantia de fabricação para os inversores e 25 anos de performance para os módulos fotovoltaicos, assegurada pela Vieira's Solar & Engenharia.
+                      Esta proposta inclui 10 anos de garantia de fabricação para os inversores, 25 anos de performance para os módulos e 6 meses para a instalação, assegurada pela Vieira's Solar & Engenharia.
                     </p>
                   </div>
 
@@ -518,6 +539,189 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* How it Works Section */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-6">
+                  <span className="text-xl">⚡</span>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">Como Funciona sua Usina Solar</h3>
+                </div>
+                
+                <div className="relative">
+                  <div className="grid grid-cols-5 gap-2 items-center">
+                    {[
+                      { icon: "☀️", label: "SOL" },
+                      { icon: "🔌", label: "PAINÉIS" },
+                      { icon: "⚡", label: "INVERSOR" },
+                      { icon: "🏠", label: "CONSUMO" },
+                      { icon: "🌐", label: "REDE" }
+                    ].map((step, i) => (
+                      <div key={i} className="flex flex-col items-center gap-3 relative">
+                        <div className="w-12 h-12 rounded-2xl bg-white dark:bg-white/5 border border-slate-100 dark:border-slate-800 flex items-center justify-center text-xl shadow-sm">
+                          {step.icon}
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{step.label}</span>
+                        {i < 4 && (
+                          <div className="absolute top-6 -right-4 text-slate-300 dark:text-slate-700">
+                            →
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed text-center font-medium">
+                      Sua usina gera energia limpa que é consumida instantaneamente. O excedente é injetado na rede e vira <span className="text-[#fdb612] font-black">créditos</span> para abater seu consumo em outros horários ou meses.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                {/* Premises & Technical Data */}
+                <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-[#fdb612] mb-6">
+                    <LayoutGrid className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">📐 Premissas & Dados Técnicos</span>
+                  </div>
+                  <div className="space-y-3">
+                    {(() => {
+                      const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 12.93;
+                      const annualGen = sysSizeNum * 1300;
+                      return [
+                        { label: "Tarifa de referência", value: "R$ 1,05/kWh (CEMIG – Zona Rural)" },
+                        { label: "Consumo médio", value: "1.357 kWh/mês" },
+                        { label: "Taxa mínima estimada", value: "R$ 100,00/mês" },
+                        { label: "Dimensionamento", value: "100% do consumo histórico" },
+                        { label: "Validade dos créditos", value: "60 meses (Lei 14.300/2022)" },
+                        { label: "Potência instalada", value: `${sysSizeNum.toFixed(2)} kWp` },
+                        { label: "Geração anual estimada", value: `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(annualGen)} kWh/ano` }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800 last:border-0">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.label}</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{item.value}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/20 flex gap-3">
+                    <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0" />
+                    <p className="text-[10px] text-amber-800 dark:text-amber-200 italic leading-relaxed">
+                      ⚠️ Nota regulatória: Novos sistemas enquadrados na GD III terão compensação gradualmente impactada pelo “custo do fio B”, com transição até 2029.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Savings Comparison */}
+                <div className="flex items-center gap-2 text-emerald-600 mb-8">
+                  <Zap className="w-5 h-5" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Simulação de Fluxo Mensal</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  {[
+                    { label: "Conta Atual", val: "R$ 1.425,00", color: "text-slate-500" },
+                    { label: "Taxa Mínima", val: "R$ 100,00", color: "text-amber-500" },
+                    { label: "Economia Bruta", val: "R$ 1.325,00", color: "text-emerald-500" },
+                    { label: "Financiamento", val: "R$ 500,00", color: "text-rose-500" },
+                    { label: "Ganho Líquido", val: "R$ 825,00", color: "text-emerald-600 font-black" }
+                  ].map((item, i) => (
+                    <div key={i} className="flex flex-col gap-1">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                      <span className={cn("text-lg font-bold", item.color)}>{item.val}</span>
+                      {i < 4 && <div className="h-px bg-emerald-200 dark:bg-emerald-800 mt-2 md:hidden" />}
+                    </div>
+                  ))}
+                </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Investment Breakdown */}
+                <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-[#fdb112] mb-6">
+                    <ShieldCheck className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">📋 Composição do Investimento</span>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Equipamentos (Tier-1)", value: "R$ 22.499,99" },
+                      { label: "Instalação e Montagem", value: "R$ 4.500,00" },
+                      { label: "Projeto Técnico (ART)", value: "R$ 1.500,00" },
+                      { label: "Licenciamento e Logística", value: "R$ 1.500,00" },
+                      { label: "TOTAL INVESTIMENTO", value: (proposal.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }), highlight: true }
+                    ].map((item, idx) => (
+                      <div key={idx} className={cn(
+                        "flex justify-between items-center py-2",
+                        item.highlight ? "mt-4 pt-4 border-t border-slate-200 dark:border-slate-800" : ""
+                      )}>
+                        <span className={cn("text-[10px] font-black uppercase", item.highlight ? "text-[#fdb612]" : "text-slate-400")}>{item.label}</span>
+                        <span className={cn("font-bold text-xs", item.highlight ? "text-lg text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400")}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Technical Specification */}
+                <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-400 mb-6">
+                    <HistoryIcon className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">📝 Especificação Técnica</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Módulos Fotovoltaicos</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">24x Painéis Tier-1 (Células N-Type)</p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Inversor String</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">1x Inversor 12 kW (Wifi Monitoramento)</p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Estrutura & Proteção</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Kit Completo em Alumínio Anodizado</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conversion Closure */}
+              <div className="mt-8 p-8 bg-slate-900 border border-slate-800 rounded-[32px] text-white">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                  <div>
+                    <h4 className="text-xl font-bold mb-2 flex items-center gap-2 text-emerald-400">
+                       ✅ PRÓXIMOS PASSOS
+                    </h4>
+                    <p className="text-slate-400 text-xs font-medium">Sua jornada para a independência energética começa aqui:</p>
+                  </div>
+                  <div className="bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/20">
+                    <span className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">⏰ OFERTA VÁLIDA POR 15 DIAS</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
+                   {[
+                     { step: "1", title: "ASSINATURA", desc: "Assine digitalmente sua proposta agora" },
+                     { step: "2", title: "VISTORIA", desc: "Agendamos em até 48h no local" },
+                     { step: "3", title: "OPERAÇÃO", desc: "Energia injetada em até 30 dias" }
+                   ].map((s, i) => (
+                     <div key={i} className="flex gap-4 group">
+                       <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-black text-lg shrink-0 border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-slate-900 transition-all duration-300">
+                         {s.step}
+                       </div>
+                       <div>
+                         <p className="font-black text-[10px] tracking-widest text-emerald-400 uppercase mb-1">{s.title}</p>
+                         <p className="text-xs text-slate-300 font-medium leading-relaxed">{s.desc}</p>
+                       </div>
+                     </div>
+                   ))}
+                </div>
+
+                <button 
+                  onClick={() => onSend(proposal.id)}
+                  className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-black text-lg md:text-xl flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-95 shadow-xl shadow-emerald-500/20"
+                >
+                  🚀 QUERO ECONOMIZAR R$ 1.325,00/MÊS
+                </button>
               </div>
             </div>
           )}

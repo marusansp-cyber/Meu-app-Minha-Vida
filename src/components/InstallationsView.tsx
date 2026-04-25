@@ -192,19 +192,19 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   const [typeFilter, setTypeFilter] = React.useState<string>('all');
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc');
   const stats = React.useMemo(() => {
-    const active = installations.length;
-    const engineering = installations.filter(i => 
+    const active = (installations || []).length;
+    const engineering = (installations || []).filter(i => 
       i.stage.toLowerCase().includes('engenharia') || 
       i.stage.toLowerCase().includes('engineering') ||
       i.stage.toLowerCase().includes('projeto')
     ).length;
     
-    const installing = installations.filter(i => 
+    const installing = (installations || []).filter(i => 
       i.stage.toLowerCase().includes('instalação') || 
       i.stage.toLowerCase().includes('installation')
     ).length;
     
-    const inspection = installations.filter(i => 
+    const inspection = (installations || []).filter(i => 
       i.stage.toLowerCase().includes('inspeção') || 
       i.stage.toLowerCase().includes('inspection') ||
       i.stage.toLowerCase().includes('vistoria')

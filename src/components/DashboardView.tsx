@@ -69,15 +69,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     const currentYear = new Date().getFullYear();
     
-    const hasData = proposals.some(p => p.status === 'accepted');
+    const hasData = (proposals || []).some(p => p.status === 'accepted');
     
     return months.map((month, index) => {
-      const monthProposals = proposals.filter(p => {
+      const monthProposals = (proposals || []).filter(p => {
         const pDate = new Date(p.date);
         return pDate.getMonth() === index && pDate.getFullYear() === currentYear && p.status === 'accepted';
       });
       
-      const previousYearProposals = proposals.filter(p => {
+      const previousYearProposals = (proposals || []).filter(p => {
         const pDate = new Date(p.date);
         return pDate.getMonth() === index && pDate.getFullYear() === currentYear - 1 && p.status === 'accepted';
       });
@@ -92,11 +92,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [proposals, activeYears]);
 
   const pieData = useMemo(() => {
-    const residence = installations.filter(i => i.type === 'residence' || i.type === 'home').length;
-    const industrial = installations.filter(i => i.type === 'industrial').length;
-    const commercial = installations.filter(i => i.type === 'apartment').length;
+    const residence = (installations || []).filter(i => i.type === 'residence' || i.type === 'home').length;
+    const industrial = (installations || []).filter(i => i.type === 'industrial').length;
+    const commercial = (installations || []).filter(i => i.type === 'apartment').length;
 
-    const hasData = installations.length > 0;
+    const hasData = (installations || []).length > 0;
 
     return [
       { name: 'Residencial', value: hasData ? residence : 45, fill: '#fdb612' },
@@ -106,11 +106,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [installations]);
 
   const projectStatusData = useMemo(() => {
-    const onTime = installations.filter(i => i.status === 'on-time' || i.status === 'concluded' || !i.status).length;
-    const planning = installations.filter(i => i.stage.toLowerCase().includes('engenharia') || i.stage.toLowerCase().includes('projeto')).length;
-    const delayed = installations.filter(i => i.status === 'delayed').length;
+    const onTime = (installations || []).filter(i => i.status === 'on-time' || i.status === 'concluded' || !i.status).length;
+    const planning = (installations || []).filter(i => i.stage.toLowerCase().includes('engenharia') || i.stage.toLowerCase().includes('projeto')).length;
+    const delayed = (installations || []).filter(i => i.status === 'delayed').length;
     
-    const hasData = installations.length > 0;
+    const hasData = (installations || []).length > 0;
     
     return [
       { name: 'No Prazo', value: hasData ? onTime : 65, fill: '#10b981' },
@@ -120,10 +120,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [installations]);
 
   const funnelData = useMemo(() => {
-    const totalLeads = leads.length;
-    const sentProposals = proposals.filter(p => p.status === 'sent' || p.status === 'accepted').length;
-    const acceptedProposals = proposals.filter(p => p.status === 'accepted').length;
-    const negotiation = proposals.filter(p => p.status === 'pending').length;
+    const totalLeads = (leads || []).length;
+    const sentProposals = (proposals || []).filter(p => p.status === 'sent' || p.status === 'accepted').length;
+    const acceptedProposals = (proposals || []).filter(p => p.status === 'accepted').length;
+    const negotiation = (proposals || []).filter(p => p.status === 'pending').length;
     
     return [
       { name: 'Leads', value: totalLeads || 120, fill: '#fdb612' },
@@ -135,7 +135,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [leads, proposals]);
 
   const stats = useMemo(() => {
-    const totalAcceptedRevenue = proposals
+    const totalAcceptedRevenue = (proposals || [])
       .filter(p => p.status === 'accepted')
       .reduce((acc, p) => {
         const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
@@ -143,7 +143,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         return acc + val;
       }, 0);
 
-    const pendingCommissions = proposals
+    const pendingCommissions = (proposals || [])
       .filter(p => p.status === 'accepted' && p.commissionStatus !== 'paid')
       .reduce((acc, p) => {
         const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
@@ -153,20 +153,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       }, 0);
 
     const baseStats = [
-      { label: 'Vendas Totais', value: `R$ ${totalAcceptedRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '+12.5%', trend: 'up' },
-      { label: 'Novos Leads', value: leads.length.toString(), change: '+18%', trend: 'up' },
-      { label: 'Projetos Ativos', value: installations.length.toString(), change: '+5%', trend: 'up' },
+      { label: 'Vendas Totais', value: `R$ ${totalAcceptedRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, change: '+12.5%', trend: 'up' },
+      { label: 'Novos Leads', value: (leads || []).length.toString(), change: '+18%', trend: 'up' },
+      { label: 'Projetos Ativos', value: (installations || []).length.toString(), change: '+5%', trend: 'up' },
     ];
 
     if (user?.role === 'admin' || user?.role === 'finance') {
-      const avgMargin = proposals.filter(p => p.status === 'accepted').length > 0
-        ? proposals.filter(p => p.status === 'accepted').reduce((acc, p) => acc + (p.margin || 0), 0) / proposals.filter(p => p.status === 'accepted').length
+      const avgMargin = (proposals || []).filter(p => p.status === 'accepted').length > 0
+        ? (proposals || []).filter(p => p.status === 'accepted').reduce((acc, p) => acc + (p.margin || 0), 0) / (proposals || []).filter(p => p.status === 'accepted').length
         : 0;
       
       baseStats.push({ label: 'Margem Média', value: `${avgMargin.toFixed(1)}%`, change: '+0.5%', trend: 'up' });
-      baseStats.push({ label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '-3%', trend: 'down' });
+      baseStats.push({ label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, change: '-3%', trend: 'down' });
     } else {
-      baseStats.push({ label: 'Taxa de Conversão', value: `${leads.length > 0 ? ((proposals.filter(p => p.status === 'accepted').length / leads.length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' });
+      baseStats.push({ label: 'Taxa de Conversão', value: `${(leads || []).length > 0 ? (((proposals || []).filter(p => p.status === 'accepted').length / (leads || []).length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' });
     }
 
     return baseStats;

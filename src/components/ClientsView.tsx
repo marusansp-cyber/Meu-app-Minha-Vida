@@ -7,7 +7,7 @@ import {
   Phone, 
   MapPin, 
   ExternalLink,
-  History,
+  History as HistoryIcon,
   FileText,
   Construction,
   Filter,
@@ -59,7 +59,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     cnpj_cpf: '',
     startDate: '',
     endDate: '',
-    hasProject: 'all' as 'all' | 'yes' | 'no'
+    hasProject: 'all' as 'all' | 'yes' | 'no',
+    type: 'all' as Client['type'] | 'all'
   });
   const [sortBy, setSortBy] = useState<'name' | 'recent' | 'projects'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,7 +78,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
   const clientHistory = useMemo(() => {
     if (!selectedClient) return [];
-    return history.filter(h => h.collection === 'clients' && h.docId === selectedClient.id);
+    return (history || []).filter(h => h.collection === 'clients' && h.docId === selectedClient.id);
   }, [history, selectedClient]);
 
   const showToast = (message: string) => {
@@ -112,8 +113,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   };
 
   const getClientProjects = (client: Client) => {
-    const clientProposals = proposals.filter(p => p.client === client.name);
-    const clientInstallations = installations.filter(i => i.name === client.name);
+    const clientProposals = (proposals || []).filter(p => p.client === client.name);
+    const clientInstallations = (installations || []).filter(i => i.name === client.name);
     
     return {
       proposals: clientProposals,
@@ -122,7 +123,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   };
 
   const filteredClients = useMemo(() => {
-    return clients.filter(client => {
+    return (clients || []).filter(client => {
       const projects = getClientProjects(client);
       const hasProjects = projects.proposals.length > 0 || projects.installations.length > 0;
 
@@ -155,7 +156,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         (clientFilters.hasProject === 'yes' && hasProjects) ||
         (clientFilters.hasProject === 'no' && !hasProjects);
       
-      return matchesSearch && matchesStatus && matchesCnpj && matchesDate && matchesProjectFilter;
+      const matchesType = clientFilters.type === 'all' || client.type === clientFilters.type;
+      
+      return matchesSearch && matchesStatus && matchesCnpj && matchesDate && matchesProjectFilter && matchesType;
     }).sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'recent') {
@@ -173,9 +176,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   }, [clients, searchTerm, filterStatus, clientFilters, sortBy, proposals, installations]);
 
   const stats = useMemo(() => {
-    const active = clients.filter(c => c.status === 'active').length;
-    const inactive = clients.filter(c => c.status === 'inactive').length;
-    return { active, inactive, total: clients.length };
+    const active = (clients || []).filter(c => c.status === 'active').length;
+    const inactive = (clients || []).filter(c => c.status === 'inactive').length;
+    return { active, inactive, total: (clients || []).length };
   }, [clients]);
 
   const renderClientInteractions = (client: Client) => (
@@ -193,7 +196,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 id: Math.random().toString(36).substr(2, 9),
                 date: new Date().toLocaleDateString('pt-BR'),
                 type: 'Manual',
-                description
+                description,
+                userName: user?.name || 'Vendedor',
+                status: 'completed'
               };
               const updatedInteractions = [...(client.interactions || []), newInteraction];
               onUpdateClient(client.id, { interactions: updatedInteractions });
@@ -209,8 +214,23 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           client.interactions.sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime()).map((interaction) => (
             <div key={interaction.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-start mb-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
-                <span className="text-[10px] font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded uppercase">{interaction.type}</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
+                  {interaction.userName && (
+                    <span className="text-[9px] font-bold text-slate-500 uppercase">Por: {interaction.userName}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {interaction.status && (
+                    <span className={cn(
+                      "text-[9px] font-black px-2 py-0.5 rounded uppercase",
+                      interaction.status === 'completed' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                    )}>
+                      {interaction.status}
+                    </span>
+                  )}
+                  <span className="text-[10px] font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded uppercase">{interaction.type}</span>
+                </div>
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                 {interaction.description}
@@ -334,7 +354,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     {proposal.status}
                   </span>
                 </div>
-                <p className="font-bold text-slate-900 dark:text-slate-100">{proposal.systemSize} - {proposal.value}</p>
+                <p className="font-bold text-slate-900 dark:text-slate-100">
+                  {proposal.systemSize} - {typeof proposal.value === 'number' ? proposal.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : proposal.value}
+                </p>
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-[10px] text-slate-500 font-medium">Rep: {proposal.representative}</span>
                   <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
@@ -475,7 +497,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* Timeline History */}
       <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
         <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-8">
-          <History className="w-5 h-5 text-[#fdb612]" />
+          <HistoryIcon className="w-5 h-5 text-[#fdb612]" />
           Histórico de Alterações
         </h4>
         <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-white/5">
@@ -768,6 +790,21 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           <option value="all">Todos</option>
                           <option value="yes">Sim</option>
                           <option value="no">Não</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Cliente</label>
+                        <select 
+                          value={clientFilters.type}
+                          onChange={(e) => setClientFilters({ ...clientFilters, type: e.target.value as any })}
+                          className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none"
+                        >
+                          <option value="all">Todos os Tipos</option>
+                          <option value="residential">Residencial</option>
+                          <option value="rural">Rural</option>
+                          <option value="industrial">Industrial</option>
+                          <option value="commercial">Comercial</option>
+                          <option value="public">Público</option>
                         </select>
                       </div>
                     </div>

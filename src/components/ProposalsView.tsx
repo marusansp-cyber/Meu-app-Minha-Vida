@@ -107,20 +107,20 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
   // Auto-expire logic
   useEffect(() => {
-    if (proposals.length === 0) return;
+    if (!proposals || proposals.length === 0) return;
     
     const now = new Date();
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(now.getDate() + 7);
 
-    const expiredProposals = proposals.filter(p => {
+    const expiredProposals = (proposals || []).filter(p => {
       if (!p.id || !p.expiryDate) return false;
       if (p.status !== 'pending' && p.status !== 'sent') return false;
       const expiry = new Date(p.expiryDate);
       return expiry < now;
     });
 
-    const nearExpiration = proposals.filter(p => {
+    const nearExpiration = (proposals || []).filter(p => {
       if (!p.id || !p.expiryDate) return false;
       if (p.status !== 'pending' && p.status !== 'sent') return false;
       const expiry = new Date(p.expiryDate);
@@ -416,11 +416,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         return [
           p.proposalNumber || p.id,
           p.client,
-          `R$ ${value.toLocaleString('pt-BR')}`,
+          `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`,
           p.date,
           p.status.toUpperCase(),
           p.systemSize,
-          `R$ ${commissionValue.toLocaleString('pt-BR')}`
+          `R$ ${commissionValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
         ];
       });
 
@@ -587,7 +587,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       const matchesId = filters.id === '' || p.id.toLowerCase().includes(filters.id.toLowerCase());
       const matchesClient = filters.client === '' || p.client.toLowerCase().includes(filters.client.toLowerCase());
       const matchesSystem = filters.system === '' || p.systemSize.toLowerCase().includes(filters.system.toLowerCase());
-      const matchesValue = filters.value === '' || (p.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).toLowerCase().includes(filters.value.toLowerCase()));
+      const matchesValue = filters.value === '' || (p.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).toLowerCase().includes(filters.value.toLowerCase()));
       const matchesRepresentative = filters.representative === 'all' || p.representative === filters.representative;
       const matchesCommissionStatus = filters.commissionStatus === 'all' || p.commissionStatus === filters.commissionStatus;
       
@@ -876,7 +876,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Total em Aberto</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {stats.totalOpen.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {stats.totalOpen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
           <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div className="h-full bg-[#fdb612]" style={{ width: '60%' }} />
           </div>
@@ -1259,16 +1259,16 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <p className="font-black text-sm text-[#fdb612]">
-                      {prop.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {prop.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                     </p>
                     {prop.discount > 0 && (
-                      <p className="text-[10px] text-rose-500 font-bold">Desc: R$ {prop.discount.toLocaleString('pt-BR')}</p>
+                      <p className="text-[10px] text-rose-500 font-bold">Desc: R$ {prop.discount.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                     )}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <p className="font-bold text-sm text-emerald-500">
-                        R$ {((prop.value || 0) * ((prop.commission || 5) / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {((prop.value || 0) * ((prop.commission || 5) / 100)).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                       </p>
                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{prop.commission || 5}%</p>
                     </div>

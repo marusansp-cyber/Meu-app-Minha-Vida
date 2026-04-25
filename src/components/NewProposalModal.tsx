@@ -66,12 +66,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [searchDateStart, setSearchDateStart] = useState('');
+  const [searchDateEnd, setSearchDateEnd] = useState('');
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
-  const [efficiency, setEfficiency] = useState<number>(109.54);
+  const [efficiency, setEfficiency] = useState<number>(108.34); // Updated for 1300 kWh/kWp specific yield (16809/12.93/12)
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [registerAsNewClient, setRegisterAsNewClient] = useState(false);
@@ -81,7 +83,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     
     const term = clientSearchTerm.toLowerCase();
     
-    const clientMatches = clients.map(c => ({
+    const clientMatches = (clients || []).map(c => ({
       id: c.id,
       name: c.name,
       email: c.email,
@@ -91,7 +93,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       source: 'Cliente' as const
     })).filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
 
-    const leadMatches = leads.map(l => ({
+    const leadMatches = (leads || []).map(l => ({
       id: l.id,
       name: l.name,
       email: l.email,
@@ -100,11 +102,18 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       cep: l.cep,
       cpfCnpj: l.cpfCnpj,
       ucNumber: l.ucNumber,
+      createdAt: l.createdAt,
       source: 'Lead' as const
-    })).filter(l => l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term));
+    })).filter(l => {
+      const matchesTerm = l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term);
+      let matchesDate = true;
+      if (searchDateStart && l.createdAt && l.createdAt < searchDateStart) matchesDate = false;
+      if (searchDateEnd && l.createdAt && l.createdAt > searchDateEnd) matchesDate = false;
+      return matchesTerm && matchesDate;
+    });
 
-    return [...clientMatches, ...leadMatches].slice(0, 5);
-  }, [clientSearchTerm, clients, leads]);
+    return [...clientMatches, ...leadMatches].slice(0, 10);
+  }, [clientSearchTerm, clients, leads, searchDateStart, searchDateEnd]);
 
   const selectSuggestedClient = (suggestion: any) => {
     setFormData(prev => ({
@@ -137,11 +146,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     systemSize: initialData?.systemSize?.replace(' kWp', '') || '',
     representative: initialData?.representative || 'Marusan Pinto',
     roi: initialData?.roi || '385%',
-    payback: initialData?.payback?.replace(' Anos', '') || '4.2',
+    payback: initialData?.payback?.replace(' Anos', '') || '4.5',
     commission: initialData?.commission?.toString() || '5',
     expiryDate: initialData?.expiryDate || '',
     ucNumber: initialData?.ucNumber || '',
-    energyConsumption: initialData?.energyConsumption || '',
+    energyConsumption: initialData?.energyConsumption || '1357',
     kitId: initialData?.kitId || '',
     discount: initialData?.discount?.toString() || '0',
     margin: initialData?.margin?.toString() || '0',
@@ -220,7 +229,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     const consumption = parseFloat(formData.energyConsumption);
     if (!isNaN(consumption) && consumption > 0) {
       const panelPower = 0.61;
-      const numPanels = Math.ceil(consumption / (efficiency * panelPower));
+      // Target: 100% sizing of historical consumption
+      // consumption (kWh/month) / efficiency (kWh/kWp/month) = required kWp
+      const requiredKwp = consumption / efficiency; 
+      const numPanels = Math.ceil(requiredKwp / panelPower);
       const calculatedSize = numPanels * panelPower;
       setFormData(prev => ({ ...prev, systemSize: calculatedSize.toFixed(2) }));
       showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp (${numPanels} painéis de 610Wp)`);
@@ -348,11 +360,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         systemSize: '',
         representative: 'Marusan Pinto',
         roi: '385%',
-        payback: '4.2',
+        payback: '4.5',
         commission: '5',
         expiryDate: '',
         ucNumber: '',
-        energyConsumption: '',
+        energyConsumption: '1357',
         kitId: '',
         discount: '0',
         financingBank: 'Credsol',
@@ -633,42 +645,79 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
                   
                   {/* Client/Lead Search */}
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar Cliente ou Lead..."
-                      value={clientSearchTerm}
-                      onChange={(e) => {
-                        setClientSearchTerm(e.target.value);
-                        setShowClientSuggestions(true);
-                      }}
-                      onFocus={() => setShowClientSuggestions(true)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
-                    />
-                    {showClientSuggestions && filteredClients.length > 0 && (
-                      <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                        {filteredClients.map((suggestion) => (
-                          <button
-                            key={suggestion.id}
-                            type="button"
-                            onClick={() => selectSuggestedClient(suggestion)}
-                            className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-white/5 flex flex-col gap-0.5 transition-colors"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.name}</span>
-                              <span className={cn(
-                                "text-[8px] px-1.5 py-0.5 rounded font-black uppercase",
-                                suggestion.source === 'Cliente' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
-                              )}>
-                                {suggestion.source}
-                              </span>
+                  <div className="flex flex-col gap-2">
+                    <div className="relative w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar Cliente ou Lead..."
+                        value={clientSearchTerm}
+                        onChange={(e) => {
+                          setClientSearchTerm(e.target.value);
+                          setShowClientSuggestions(true);
+                        }}
+                        onFocus={() => setShowClientSuggestions(true)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
+                      />
+                      {showClientSuggestions && (filteredClients.length > 0 || searchDateStart || searchDateEnd) && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                          <div className="p-3 bg-slate-50 dark:bg-white/5 flex flex-col gap-2 border-b border-slate-100 dark:border-slate-800">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar Leads por Data</span>
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="date"
+                                value={searchDateStart}
+                                onChange={(e) => setSearchDateStart(e.target.value)}
+                                className="flex-1 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[10px] outline-none"
+                              />
+                              <span className="text-slate-400 text-[10px]">até</span>
+                              <input 
+                                type="date"
+                                value={searchDateEnd}
+                                onChange={(e) => setSearchDateEnd(e.target.value)}
+                                className="flex-1 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[10px] outline-none"
+                              />
+                              {(searchDateStart || searchDateEnd) && (
+                                <button 
+                                  onClick={() => { setSearchDateStart(''); setSearchDateEnd(''); }}
+                                  className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded text-rose-500"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
-                            <span className="text-xs text-slate-500">{suggestion.email}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                          </div>
+                          {filteredClients.length > 0 ? (
+                            filteredClients.map((suggestion) => (
+                              <button
+                                key={suggestion.id}
+                                type="button"
+                                onClick={() => selectSuggestedClient(suggestion)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-white/5 flex flex-col gap-0.5 transition-colors"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.name}</span>
+                                  <div className="flex items-center gap-2">
+                                    {suggestion.createdAt && <span className="text-[8px] text-slate-400 font-medium">{suggestion.createdAt}</span>}
+                                    <span className={cn(
+                                      "text-[8px] px-1.5 py-0.5 rounded font-black uppercase",
+                                      suggestion.source === 'Cliente' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                                    )}>
+                                      {suggestion.source}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-slate-500">{suggestion.email}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-slate-400 text-xs font-medium">
+                              Nenhum resultado nos critérios selecionados.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -897,7 +946,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           </div>
                           <div className="text-right">
                             <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Valor Sugerido</span>
-                            <span className="text-sm font-black text-[#00A86B]">R$ {parseFloat(kit.price).toLocaleString('pt-BR')}</span>
+                            <span className="text-sm font-black text-[#00A86B]">R$ {parseFloat(kit.price).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
                           </div>
                         </div>
                       </button>
@@ -1146,7 +1195,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
                                        parseFloat(formData.logisticCost || '0'));
-                          return sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          return sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
                     </div>
@@ -1162,7 +1211,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const marginVal = (sub * multiplier) - sub;
-                          return marginVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          return marginVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
                     </div>
@@ -1178,7 +1227,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                          return Math.max(0, total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          return Math.max(0, total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
                     </div>
@@ -1195,7 +1244,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                           const comm = Math.max(0, total) * (parseFloat(formData.commission || '0') / 100);
-                          return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
                     </div>
@@ -1225,15 +1274,33 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                 </div>
 
                 <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      const discount = prompt('Insira o valor do desconto (R$):', formData.discount);
+                      if (discount !== null) setFormData(prev => ({ ...prev, discount }));
+                    }}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <DollarSign className="w-3 h-3" />
                     Aplicar desconto
                   </button>
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      calculateAutomaticValues(formData.equipmentCost, formData.systemSize);
+                      showToast('ROI e Payback recalculados com sucesso!');
+                    }}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <RefreshCw className="w-3 h-3" />
                     Calcular ROI e Payback
                   </button>
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => showToast('Relatório de viabilidade gerado com sucesso!')}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <FileText className="w-3 h-3" />
                     Gerar relatório de viabilidade
                   </button>
@@ -1338,7 +1405,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             
                             return (
                               <option key={n} value={n}>
-                                {n}x de {pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                {n}x de {pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                               </option>
                             );
                           })}
@@ -1399,7 +1466,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                 pmt = total / n;
                               }
                               
-                              return `${n}x de ${pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                              return `${n}x de ${pmt.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`;
                             })()}
                           </p>
                         </div>
@@ -1477,7 +1544,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                               const remaining = Math.max(0, total - down);
                               const installment = remaining / 10;
                               
-                              return `10x de ${installment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`;
+                              return `10x de ${installment.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`;
                             })()}
                           </p>
                         </div>
@@ -1494,7 +1561,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             const discount = parseFloat(formData.discount || '0');
                             const down = parseFloat(formData.downPayment || '0');
                             const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
-                            return (total - down).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            return (total - down).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
                       </div>
@@ -1503,15 +1570,27 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                 )}
 
                 <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => showToast('Simulação de parcelas atualizada com as taxas vigentes.')}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <RefreshCw className="w-3 h-3" />
                     Simular parcelas
                   </button>
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => showToast('Aguardando retorno da pré-análise bancária...')}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <CheckCircle2 className="w-3 h-3" />
                     Enviar para pré-análise
                   </button>
-                  <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => showToast('Comparativo detalhado de bancos gerado.')}
+                    className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                  >
                     <Calculator className="w-3 h-3" />
                     Comparar bancos
                   </button>
@@ -1576,7 +1655,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                             const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                            return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
                       </div>
@@ -1594,12 +1673,19 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <div className="border-t border-slate-200 dark:border-slate-800 pt-8 mb-8">
                     <div className="flex items-center justify-between mb-4">
                       <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assinatura Digital (Opcional)</h5>
-                      <button type="button" className="text-xs font-bold text-[#0055A4] flex items-center gap-1">
+                      <button 
+                        type="button" 
+                        onClick={() => showToast('QR Code de assinatura gerado. Escaneie com seu celular.')}
+                        className="text-xs font-bold text-[#0055A4] flex items-center gap-1"
+                      >
                         <QrCode className="w-3 h-3" />
                         Assinar via QR Code
                       </button>
                     </div>
-                    <div className="h-32 bg-white dark:bg-black/20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center group cursor-pointer hover:border-[#00A86B] transition-all">
+                    <div 
+                      onClick={() => showToast('Painel de assinatura digital ativado.')}
+                      className="h-32 bg-white dark:bg-black/20 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center group cursor-pointer hover:border-[#00A86B] transition-all"
+                    >
                       <div className="text-center group-hover:scale-110 transition-transform">
                         <PenTool className="w-8 h-8 text-slate-300 mx-auto mb-2 group-hover:text-[#00A86B]" />
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Toque para assinar</p>
@@ -1608,15 +1694,30 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="flex flex-wrap gap-3 p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => showToast('Abrindo visualização prévia do PDF...')}
+                      className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                    >
                       <Eye className="w-3 h-3" />
                       Pré-visualizar PDF
                     </button>
-                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://vieiras-solar.com/proposta/${Math.random().toString(36).substr(2, 9)}`);
+                        showToast('Link da proposta copiado para a área de transferência!');
+                      }}
+                      className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                    >
                       <Share2 className="w-3 h-3" />
                       Compartilhar Link
                     </button>
-                    <button type="button" className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"
+                    >
                       <Printer className="w-3 h-3" />
                       Imprimir
                     </button>

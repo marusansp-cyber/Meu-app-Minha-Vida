@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair } from 'lucide-react';
-import { Client } from '../types';
+import { Client, Lead, User as UserType } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
 
@@ -22,7 +22,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     address: '',
     cnpj: '',
     cpf: '',
-    status: 'active'
+    status: 'active',
+    type: 'residential'
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
@@ -78,7 +79,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
         address: '',
         cnpj: '',
         cpf: '',
-        status: 'active'
+        status: 'active',
+        type: 'residential'
       });
     }
   }, [client, isOpen]);
@@ -441,16 +443,32 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Status</label>
-            <select
-              value={formData.status || 'active'}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
-            >
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Status</label>
+              <select
+                value={formData.status || 'active'}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              >
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Tipo de Cliente</label>
+              <select
+                value={formData.type || 'residential'}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as Client['type'] })}
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              >
+                <option value="residential">Residencial</option>
+                <option value="rural">Rural</option>
+                <option value="industrial">Industrial</option>
+                <option value="commercial">Comercial</option>
+                <option value="public">Público</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

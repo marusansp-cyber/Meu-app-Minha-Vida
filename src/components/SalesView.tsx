@@ -87,7 +87,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
     return [
       { 
         label: 'Vendas no Mês', 
-        value: `R$ ${totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 
+        value: `R$ ${totalValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 
         change: '+12.5%', 
         trend: 'up', 
         icon: DollarSign,
@@ -102,7 +102,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
       },
       { 
         label: 'Ticket Médio', 
-        value: `R$ ${avgValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 
+        value: `R$ ${avgValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 
         trend: 'up', 
         icon: Target 
       },
@@ -151,7 +151,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta Mensal</p>
               <div className="flex items-baseline gap-2">
                 <span className="font-black text-slate-900 dark:text-slate-100">
-                  R$ {currentGoal.targetValue.toLocaleString('pt-BR')}
+                  R$ {currentGoal.targetValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-xs text-slate-400 font-bold">({currentGoal.targetCount} vendas)</span>
               </div>
@@ -293,7 +293,11 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <p className="font-black text-slate-900 dark:text-slate-100">{proposal.value}</p>
+                    <p className="font-black text-slate-900 dark:text-slate-100">
+                      {typeof proposal.value === 'number' 
+                        ? proposal.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                        : proposal.value}
+                    </p>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{proposal.systemSize}</p>
                   </td>
                   <td className="px-8 py-5">

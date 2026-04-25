@@ -182,11 +182,18 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
                     </div>
                     <div>
                       <div className="font-bold text-slate-900 leading-tight">{marker.client.name}</div>
-                      <div className={cn(
-                        "text-[9px] font-black uppercase tracking-widest",
-                        marker.client.status === 'active' ? "text-emerald-600" : "text-rose-600"
-                      )}>
-                        {marker.client.status === 'active' ? 'Ativo' : 'Inativo'}
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "text-[9px] font-black uppercase tracking-widest",
+                          marker.client.status === 'active' ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {marker.client.status === 'active' ? 'Ativo' : 'Inativo'}
+                        </div>
+                        {marker.client.type && (
+                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            • {marker.client.type}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

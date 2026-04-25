@@ -19,6 +19,8 @@ export interface Interaction {
   date: string;
   type: string;
   description: string;
+  userName?: string;
+  status?: 'completed' | 'pending';
 }
 
 export interface Client {
@@ -35,6 +37,7 @@ export interface Client {
   interactions?: Interaction[];
   latitude?: number;
   longitude?: number;
+  type?: 'residential' | 'rural' | 'industrial' | 'commercial' | 'public';
 }
 
 export interface Stat {
@@ -224,6 +227,9 @@ export interface Partner {
   commissionRate: number;
   address?: string;
   notes?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
+  paymentTerms?: string;
 }
 
 export interface Collaborator {
