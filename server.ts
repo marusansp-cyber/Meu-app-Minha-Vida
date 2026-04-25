@@ -21,19 +21,28 @@ async function startServer() {
   const getTransporter = () => {
     const user = (process.env.SMTP_USER || "").trim();
     const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim();
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
 
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_PORT === "465",
+    const config: any = {
       auth: {
         user: user,
         pass: pass,
       },
-      tls: {
+    };
+
+    if (isGmail) {
+      config.service = 'gmail';
+    } else {
+      config.host = host;
+      config.port = parseInt(process.env.SMTP_PORT || "587");
+      config.secure = process.env.SMTP_PORT === "465";
+      config.tls = {
         rejectUnauthorized: false
-      }
-    });
+      };
+    }
+
+    return nodemailer.createTransport(config);
   };
 
   // Proposal Email API

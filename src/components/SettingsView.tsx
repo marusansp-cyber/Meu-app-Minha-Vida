@@ -164,9 +164,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     showToast('Dados exportados com sucesso!');
   };
 
-  const handleSendTestEmail = () => {
-    showToast(`E-mail de teste enviado para ${companySettings.email}!`);
-    console.log(`Simulating test email to ${companySettings.email}`);
+  const handleSendTestEmail = async () => {
+    try {
+      const res = await fetch('/api/smtp/test');
+      const data = await res.json();
+      if (data.success) {
+        showToast(`Conexão SMTP verificada com sucesso! Suas credenciais estão corretas.`);
+      } else {
+        showToast(`Erro SMTP: ${data.message || 'Verifique as variáveis'}`);
+      }
+    } catch (e) {
+      showToast('Erro ao conectar com o servidor para testar SMTP.');
+    }
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -739,8 +748,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Variáveis Necessárias</h5>
                   <div className="space-y-2">
                     {[
-                      { key: 'SMTP_USER', value: profile.email, desc: 'Seu e-mail do Gmail' },
-                      { key: 'SMTP_PASS', value: 'nbph uvcl yuyn rqvr', desc: 'A senha de 16 dígitos que você gerou' },
+                      { key: 'SMTP_USER', value: 'marusansp@gmail.com', desc: 'Seu e-mail do Gmail' },
+                      { key: 'SMTP_PASS', value: 'nbphuvclyuynrqvr', desc: 'Sua Senha de App (sem espaços)' },
                       { key: 'SMTP_HOST', value: 'smtp.gmail.com', desc: 'Host do servidor' },
                       { key: 'SMTP_PORT', value: '587', desc: 'Porta padrão' },
                     ].map((item) => (
