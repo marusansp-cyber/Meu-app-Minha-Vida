@@ -722,15 +722,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
                       <span className="text-[10px] font-black text-[#fdb612]">02</span>
-                      <p className="text-xs font-bold mt-1">Clique na Engrenagem no TOPO DIREITO (ao lado de 'Publish')</p>
+                      <p className="text-xs font-bold mt-1">No AI Studio, clique na Engrenagem no TOPO DIREITO (ao lado do botão 'Publish')</p>
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
                       <span className="text-[10px] font-black text-[#fdb612]">03</span>
-                      <p className="text-xs font-bold mt-1">Vá na aba "Environment Variables"</p>
+                      <p className="text-xs font-bold mt-1">Vá na aba "Environment Variables" ou "Secrets"</p>
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
                       <span className="text-[10px] font-black text-[#fdb612]">04</span>
-                      <p className="text-xs font-bold mt-1">Adicione as chaves SMTP_USER e SMTP_PASS</p>
+                      <p className="text-xs font-bold mt-1">Adicione EXATAMENTE as nomes SMTP_USER e SMTP_PASS (Maiúsculas)</p>
                     </div>
                   </div>
                 </div>

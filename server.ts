@@ -17,16 +17,24 @@ async function startServer() {
     console.warn("AVISO: SMTP_USER ou SMTP_PASS não configurados nas variáveis de ambiente.");
   }
 
-  // Email Configuration
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_PORT === "465",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS ? process.env.SMTP_PASS.replace(/\s+/g, '') : undefined,
-    },
-  });
+  // Helper to get transporter with latest env vars
+  const getTransporter = () => {
+    const user = (process.env.SMTP_USER || "").trim();
+    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim();
+
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.SMTP_PORT || "587"),
+      secure: process.env.SMTP_PORT === "465",
+      auth: {
+        user: user,
+        pass: pass,
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  };
 
   // Proposal Email API
   app.post("/api/proposals/send", async (req, res) => {
@@ -44,6 +52,7 @@ async function startServer() {
     }
 
     try {
+      const transporter = getTransporter();
       const mailOptions = {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
         to,
@@ -93,6 +102,15 @@ async function startServer() {
     }
 
     try {
+      const transporter = getTransporter();
+      console.log(`Testando SMTP com Usuário: ${process.env.SMTP_USER}`);
+      // Log partial password for verification without exposing it fully
+      const pass = process.env.SMTP_PASS || "";
+      console.log(`Senha SMTP configurada? ${pass ? "SIM (tamanho: " + pass.length + ")" : "NÃO"}`);
+      if (pass.length > 0) {
+        console.log(`Início da senha (limpa): ${pass.replace(/\s+/g, '').substring(0, 4)}...`);
+      }
+      
       await transporter.verify();
       res.json({ success: true, message: "Conexão SMTP verificada com sucesso!" });
     } catch (error) {
