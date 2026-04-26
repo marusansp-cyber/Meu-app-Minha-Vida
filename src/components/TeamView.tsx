@@ -7,7 +7,7 @@ export const TeamView: React.FC = () => {
       name: "Eng. José Vieira Mendes Junior",
       role: "Engenheiro Eletricista (CREA: 256019D MG)",
       description: "Responsável pelo projeto técnico, licenciamento na CEMIG e emissão de ART.",
-      email: "josejunior.josejunior@hotmail.com",
+      email: "marusanspc@gmail.com",
       whatsapp: "5533998167100",
       icon: Award
     },

@@ -78,6 +78,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
     return { proposals: prps, installations: inst };
   }, [proposals, installations, dateRange, consultantFilter, statusFilter]);
 
+  const consultantCommissionData = useMemo(() => {
+    const data: Record<string, { name: string, paid: number, pending: number }> = {};
+    
+    filteredData.proposals.forEach(p => {
+      if (p.status === 'accepted' && p.representative) {
+        if (!data[p.representative]) {
+          data[p.representative] = { name: p.representative, paid: 0, pending: 0 };
+        }
+        
+        const value = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+        const commissionRate = p.commission || 5;
+        const commissionVolume = value * (commissionRate / 100);
+        
+        if (p.commissionStatus === 'paid') {
+          data[p.representative].paid += commissionVolume;
+        } else {
+          data[p.representative].pending += commissionVolume;
+        }
+      }
+    });
+
+    return Object.values(data).sort((a, b) => (b.paid + b.pending) - (a.paid + a.pending));
+  }, [filteredData]);
+
   const stats = useMemo(() => {
     const totalSales = (filteredData.proposals || [])
       .filter(p => p.status === 'accepted')
@@ -221,6 +245,31 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
       </div>
 
       <div ref={reportRef} className="space-y-8 p-4 bg-slate-50 dark:bg-transparent rounded-3xl">
+        {/* Sales Report Summary */}
+        <div className="bg-[#231d0f] text-white p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-center gap-8 border border-[#fdb612]/20">
+          <div>
+            <h2 className="text-2xl font-black mb-2 flex items-center gap-2">
+              <CheckCircle2 className="text-[#fdb612]" />
+              Relatório de Performance de Vendas
+            </h2>
+            <p className="text-slate-400 text-sm font-medium">Período: {dateRange === '30days' ? 'Últimos 30 Dias' : dateRange === '90days' ? 'Últimos 90 Dias' : 'Todo o Período'}</p>
+          </div>
+          <div className="flex gap-8">
+            <div className="text-center">
+              <p className="text-[#fdb612] text-[10px] font-black uppercase tracking-widest mb-1">Total Vendas</p>
+              <p className="text-2xl font-black">R$ {stats.totalSales.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="text-center border-x border-white/10 px-8">
+              <p className="text-[#fdb612] text-[10px] font-black uppercase tracking-widest mb-1">Conversão</p>
+              <p className="text-2xl font-black">{stats.conversionRate.toFixed(1)}%</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[#fdb612] text-[10px] font-black uppercase tracking-widest mb-1">Ticket Médio</p>
+              <p className="text-2xl font-black">R$ {stats.avgProposalValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Executive Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -332,6 +381,50 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
                     <span className="text-sm font-black">{item.value}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Table */}
+        <div className="grid grid-cols-1 gap-8">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <h4 className="text-lg font-black font-display mb-8 uppercase tracking-widest">Desempenho de Comissão por Consultor</h4>
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={consultantCommissionData} margin={{ top: 20, right: 30, left: 40, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}
+                    angle={-45}
+                    textAnchor="end"
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fontWeight: 700, fill: '#94a3b8' }}
+                    tickFormatter={(val) => `R$ ${val/1000}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 'Comissão']}
+                  />
+                  <Bar dataKey="paid" name="Paga" fill="#10b981" radius={[4, 4, 0, 0]} stackId="a" />
+                  <Bar dataKey="pending" name="Pendente" fill="#f59e0b" radius={[4, 4, 0, 0]} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-8 mt-4">
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#10b981]" />
+                <span className="text-xs font-bold text-slate-500 uppercase">Comissão Paga</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#f59e0b]" />
+                <span className="text-xs font-bold text-slate-500 uppercase">Comissão Pendente</span>
               </div>
             </div>
           </div>

@@ -49,10 +49,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [searchTerm, setSearchTerm] = useState('');
   const [filterInverterBrand, setFilterInverterBrand] = useState<string[]>([]);
   const [filterPanelBrand, setFilterPanelBrand] = useState<string[]>([]);
+  const [filterComponentBrand, setFilterComponentBrand] = useState<string[]>([]);
   const [minPower, setMinPower] = useState<number | ''>('');
   const [maxPower, setMaxPower] = useState<number | ''>('');
   const [showInverterFilter, setShowInverterFilter] = useState(false);
   const [showPanelFilter, setShowPanelFilter] = useState(false);
+  const [showComponentFilter, setShowComponentFilter] = useState(false);
   const [targetPower, setTargetPower] = useState<number | ''>(initialTargetPower || '');
   const [prioritizeTargetPower, setPrioritizeTargetPower] = useState(false);
   const [expandedKitId, setExpandedKitId] = useState<string | null>(null);
@@ -82,6 +84,14 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isSavingComponent, setIsSavingComponent] = useState<string | null>(null); // kitId-compIdx
+  
+  // Search Cache
+  const searchCache = React.useRef<Record<string, Kit[]>>({});
+
+  // Invalidate cache when raw kits data changes
+  React.useEffect(() => {
+    searchCache.current = {};
+  }, [kits]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -248,10 +258,36 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     return Array.from(brands).sort();
   }, [kits]);
 
+  const availableComponentBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(k => {
+      k.components?.forEach(c => {
+        if (c.brand) brands.add(c.brand);
+      });
+    });
+    return Array.from(brands).sort();
+  }, [kits]);
+
   const filteredKits = useMemo(() => {
     const searchLower = searchTerm.toLowerCase();
+    
+    // Generate cache key based on all filters
+    const cacheKey = JSON.stringify({
+      searchTerm,
+      filterInverterBrand,
+      filterPanelBrand,
+      filterComponentBrand,
+      minPower,
+      maxPower,
+      prioritizeTargetPower,
+      targetPower
+    });
 
-    return kits.filter(k => {
+    if (searchCache.current[cacheKey]) {
+      return searchCache.current[cacheKey];
+    }
+
+    const results = kits.filter(k => {
       const matchesText = k.name.toLowerCase().includes(searchLower) ||
                          k.description.toLowerCase().includes(searchLower);
       
@@ -265,6 +301,9 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       const matchesPanel = filterPanelBrand.length === 0 || 
                           (k.panelBrand && filterPanelBrand.includes(k.panelBrand)) ||
                           k.components?.some(c => (c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo')) && c.brand && filterPanelBrand.includes(c.brand));
+
+      const matchesComponentBrand = filterComponentBrand.length === 0 ||
+                                   k.components?.some(c => c.brand && filterComponentBrand.includes(c.brand));
 
       const matchesMinPower = minPower === '' || k.power >= Number(minPower);
       const matchesMaxPower = maxPower === '' || k.power <= Number(maxPower);
@@ -282,7 +321,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       );
 
       return (matchesText || matchesPower || matchesPrice || componentsMatch) && 
-             matchesInverter && matchesPanel && matchesMinPower && matchesMaxPower;
+             matchesInverter && matchesPanel && matchesComponentBrand && matchesMinPower && matchesMaxPower;
     }).sort((a, b) => {
       if (prioritizeTargetPower && targetPower !== '') {
         const diffA = Math.abs(a.power - Number(targetPower));
@@ -291,12 +330,22 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
       }
       return 0;
     });
-  }, [kits, searchTerm, filterInverterBrand, filterPanelBrand, prioritizeTargetPower, targetPower]);
+
+    // Store in cache
+    searchCache.current[cacheKey] = results;
+    // Limit cache size
+    const keys = Object.keys(searchCache.current);
+    if (keys.length > 50) {
+      delete searchCache.current[keys[0]];
+    }
+
+    return results;
+  }, [kits, searchTerm, filterInverterBrand, filterPanelBrand, filterComponentBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
 
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterInverterBrand, filterPanelBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
+  }, [searchTerm, filterInverterBrand, filterPanelBrand, filterComponentBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
 
   const paginatedKits = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -634,6 +683,63 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                   )}
                 </div>
               </div>
+              <div className="space-y-1 relative">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Marcas Extras</label>
+                <div className="relative">
+                  <button 
+                    onClick={() => {
+                      setShowComponentFilter(!showComponentFilter);
+                      setShowInverterFilter(false);
+                      setShowPanelFilter(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-between gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#004a61] min-w-[160px] transition-all",
+                      filterComponentBrand.length > 0 && "border-[#004a61] ring-1 ring-[#004a61]/30"
+                    )}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-widest truncate max-w-[100px]">
+                      {filterComponentBrand.length === 0 ? 'Outras Marcas' : `${filterComponentBrand.length} Sel.`}
+                    </span>
+                    <span className="flex items-center justify-center size-5 bg-slate-100 dark:bg-slate-800 rounded-full group">
+                      <Filter className="w-3 h-3 text-slate-400 group-hover:text-[#004a61]" />
+                    </span>
+                  </button>
+
+                  {showComponentFilter && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowComponentFilter(false)} />
+                      <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-20 p-2 max-h-[300px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                        {filterComponentBrand.length > 0 && (
+                          <button 
+                            onClick={() => setFilterComponentBrand([])}
+                            className="w-full text-left px-4 py-2 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10 rounded-lg mb-2 flex items-center justify-between"
+                          >
+                            Limpar Seleção
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                        {availableComponentBrands.map(brand => (
+                          <label key={brand} className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer transition-colors group">
+                            <input 
+                              type="checkbox"
+                              checked={filterComponentBrand.includes(brand)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFilterComponentBrand([...filterComponentBrand, brand]);
+                                } else {
+                                  setFilterComponentBrand(filterComponentBrand.filter(b => b !== brand));
+                                }
+                              }}
+                              className="size-4 rounded border-slate-300 text-[#004a61] focus:ring-[#004a61]"
+                            />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-100">{brand}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-2">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Min kWp</label>
@@ -828,6 +934,19 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                                     onChange={(e) => {
                                       const newComps = [...kit.components];
                                       newComps[idx] = { ...newComps[idx], model: e.target.value };
+                                      debouncedUpdateComponent(kit.id, newComps, idx);
+                                    }}
+                                    className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Quantidade</span>
+                                  <input 
+                                    type="number"
+                                    defaultValue={comp.quantity}
+                                    onChange={(e) => {
+                                      const newComps = [...kit.components];
+                                      newComps[idx] = { ...newComps[idx], quantity: parseInt(e.target.value) || 0 };
                                       debouncedUpdateComponent(kit.id, newComps, idx);
                                     }}
                                     className="w-full text-[10px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-[#004a61]"

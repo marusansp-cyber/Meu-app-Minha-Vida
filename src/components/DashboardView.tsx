@@ -418,9 +418,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden p-1 inline-grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group">
+          <div key={i} className={cn(
+            "p-6 transition-all group hover:bg-slate-50 dark:hover:bg-white/5",
+            i < 3 && "lg:border-r border-slate-100 dark:border-slate-800",
+            i % 2 === 0 && "sm:border-r sm:border-slate-100 dark:sm:border-slate-800",
+            i < 2 && "border-b sm:border-b-0 border-slate-100 dark:border-slate-800",
+            i >= 2 && "border-t sm:border-t-0 lg:border-t-0 border-slate-100 dark:border-slate-800"
+          )}>
             <div className="flex items-center justify-between mb-4">
               <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] group-hover:scale-110 transition-transform">
                 {stat.label.includes('Vendas') && <TrendingUp className="w-5 h-5" />}
