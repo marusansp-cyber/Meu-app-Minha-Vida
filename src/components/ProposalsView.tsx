@@ -322,6 +322,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         showToast('Proposta enviada ao cliente com sucesso!', 'success', true);
       } else {
         showToast(`Erro ao enviar: ${result.message}`, 'info', true);
+        if (result.message?.includes('Autenticação') || result.message?.includes('Senha Rejeitada') || result.message?.includes('Google rejeitou')) {
+          setIsHelpModalOpen(true);
+        }
       }
     } catch (error) {
       console.error('Erro ao enviar proposta:', error);
@@ -481,6 +484,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     
     let successCount = 0;
     let failCount = 0;
+    let hasAuthError = false;
 
     for (const id of selectedProposalIds) {
       const proposal = proposals.find(p => p.id === id);
@@ -506,6 +510,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           successCount++;
         } else {
           failCount++;
+          if (result.message?.includes('Autenticação') || result.message?.includes('Senha Rejeitada') || result.message?.includes('Google rejeitou')) {
+            hasAuthError = true;
+          }
         }
       } catch (error) {
         console.error(`Erro ao enviar proposta ${id}:`, error);
@@ -516,6 +523,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     setIsSendingBulk(false);
     setSelectedProposalIds([]);
     showToast(`Envio concluído: ${successCount} sucesso, ${failCount} erros.`, successCount > 0 ? 'success' : 'info', true);
+    
+    if (hasAuthError) {
+      setIsHelpModalOpen(true);
+    }
   };
 
   const handleBulkDelete = async () => {

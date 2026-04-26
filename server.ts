@@ -62,6 +62,9 @@ async function startServer() {
 
     try {
       const transporter = getTransporter();
+      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+
       const mailOptions = {
         from: process.env.SMTP_FROM || process.env.SMTP_USER,
         to,
@@ -82,12 +85,14 @@ async function startServer() {
       console.error("Erro ao enviar e-mail:", error);
       let errorMessage = "Erro no serviço de e-mail: Verifique se as credenciais SMTP estão corretas.";
       const errorStr = String(error);
+      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
       
       if (errorStr.includes('EAUTH') || errorStr.includes('Invalid login') || errorStr.includes('535')) {
-        if (process.env.SMTP_HOST?.includes('gmail.com')) {
-          errorMessage = "Erro de Autenticação Gmail: Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas normais não funcionam. Ative a Verificação em Duas Etapas no Google e gere uma Senha de App.";
+        if (isGmail) {
+          errorMessage = "Erro de Autenticação Gmail: O Google rejeitou sua senha. Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas comuns NÃO funcionam. Gere uma em 'Segurança' na sua Conta Google.";
         } else {
-          errorMessage = "Erro de Autenticação SMTP: Usuário ou senha incorretos. Verifique se o provedor exige senhas de aplicativo.";
+          errorMessage = "Erro de Autenticação SMTP (535): Usuário ou senha incorretos. Verifique se o provedor exige senhas de aplicativo.";
         }
       } else if (errorStr.includes('ECONNREFUSED') || errorStr.includes('ETIMEDOUT') || errorStr.includes('ESOCKET')) {
         errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor. Verifique o Host (smtp.gmail.com) e a Porta (587 ou 465).";
@@ -112,6 +117,9 @@ async function startServer() {
 
     try {
       const transporter = getTransporter();
+      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+
       console.log(`Testando SMTP com Usuário: ${process.env.SMTP_USER}`);
       // Log partial password for verification without exposing it fully
       const pass = process.env.SMTP_PASS || "";
@@ -125,10 +133,18 @@ async function startServer() {
     } catch (error) {
       console.error("Erro no teste SMTP:", error);
       let errorMessage = "Falha na conexão SMTP.";
-      if (String(error).includes('EAUTH')) {
-        errorMessage = "Erro de Autenticação: Usuário ou senha incorretos.";
+      const errorStr = String(error);
+      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+
+      if (errorStr.includes('EAUTH') || errorStr.includes('Invalid login') || errorStr.includes('535')) {
+        if (isGmail) {
+          errorMessage = "Erro de Autenticação Gmail: Senha Rejeitada. Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas normais NÃO funcionam no Gmail SMTP.";
+        } else {
+          errorMessage = "Erro de Autenticação SMTP (535): Usuário ou senha incorretos.";
+        }
       }
-      res.status(500).json({ success: false, message: errorMessage, error: String(error) });
+      res.status(500).json({ success: false, message: errorMessage, error: errorStr });
     }
   });
 

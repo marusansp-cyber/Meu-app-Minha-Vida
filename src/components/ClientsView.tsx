@@ -74,18 +74,64 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
   const searchSuggestions = useMemo(() => {
     if (searchTerm.length < 2) return [];
-    return (clients || []).filter(client => 
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.cnpj && client.cnpj.includes(searchTerm)) ||
-      (client.cpf && client.cpf.includes(searchTerm))
-    ).slice(0, 5);
+    const term = searchTerm.toLowerCase();
+    const suggestions: { client: Client; match: string; type: 'name' | 'email' | 'id' }[] = [];
+    
+    (clients || []).forEach(client => {
+      if (client.name.toLowerCase().includes(term)) {
+        suggestions.push({ client, match: client.name, type: 'name' });
+      } else if (client.email.toLowerCase().includes(term)) {
+        suggestions.push({ client, match: client.email, type: 'email' });
+      } else if ((client.cnpj && client.cnpj.includes(term)) || (client.cpf && client.cpf.includes(term))) {
+        suggestions.push({ client, match: client.cnpj || client.cpf || '', type: 'id' });
+      }
+    });
+
+    return suggestions.slice(0, 5);
   }, [clients, searchTerm]);
 
   React.useEffect(() => {
     const unsubscribe = syncCollection<HistoryType>('history', setHistory, 'timestamp');
     return () => unsubscribe();
   }, []);
+
+  const allInteractions = useMemo(() => {
+    if (!selectedClient) return [];
+    
+    const clientProposals = proposals
+      .filter(p => p.client === selectedClient.name)
+      .map(p => ({
+        id: `prop-${p.id}`,
+        date: p.date,
+        type: 'Proposta',
+        title: `Proposta Gerada: ${p.systemSize}`,
+        description: `Valor: ${typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : p.value}`,
+        status: p.status,
+        timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
+        userName: p.representative
+      }));
+    
+    const clientInstallations = installations
+      .filter(i => i.name === selectedClient.name)
+      .map(i => ({
+        id: `inst-${i.id}`,
+        date: i.startDate || i.lastUpdated,
+        type: 'Instalação',
+        title: `Projeto de Instalação: ${i.stage}`,
+        description: `Progresso atual: ${i.progress}%`,
+        status: i.progress + '%',
+        timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
+        userName: i.technician.name
+      }));
+
+    const clientManualInteractions = (selectedClient.interactions || []).map(i => ({
+      ...i,
+      timestamp: i.timestamp || new Date(i.date.split('/').reverse().join('-')).getTime() || 0
+    }));
+
+    return [...clientProposals, ...clientInstallations, ...clientManualInteractions]
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [selectedClient, proposals, installations]);
 
   const clientHistory = useMemo(() => {
     if (!selectedClient) return [];
@@ -235,8 +281,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-[#fdb612]" />
-          Histórico de Interações
+          <HistoryIcon className="w-5 h-5 text-[#fdb612]" />
+          Histórico Completo de Interações
         </h4>
         <button 
           onClick={() => {
@@ -246,9 +292,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 id: Math.random().toString(36).substr(2, 9),
                 date: new Date().toLocaleDateString('pt-BR'),
                 type: 'Manual',
+                title: 'Nota Manual',
                 description,
                 userName: user?.name || 'Vendedor',
-                status: 'completed'
+                status: 'completed',
+                timestamp: Date.now()
               };
               const updatedInteractions = [...(client.interactions || []), newInteraction];
               onUpdateClient(client.id, { interactions: updatedInteractions });
@@ -256,12 +304,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           }}
           className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest hover:underline"
         >
-          + Adicionar Registro
+          + Adicionar Nota
         </button>
       </div>
       <div className="space-y-4">
-        {client.interactions && client.interactions.length > 0 ? (
-          client.interactions.sort((a, b) => new Date(b.date.split('/').reverse().join('-')).getTime() - new Date(a.date.split('/').reverse().join('-')).getTime()).map((interaction) => (
+        {allInteractions.length > 0 ? (
+          allInteractions.map((interaction) => (
             <div key={interaction.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex flex-col">
@@ -271,25 +319,33 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "text-[9px] font-black px-2 py-0.5 rounded uppercase",
+                    interaction.type === 'Proposta' ? "bg-amber-100 text-amber-600" : 
+                    interaction.type === 'Instalação' ? "bg-blue-100 text-blue-600" :
+                    "bg-slate-100 text-slate-600"
+                  )}>
+                    {interaction.type}
+                  </span>
                   {interaction.status && (
                     <span className={cn(
                       "text-[9px] font-black px-2 py-0.5 rounded uppercase",
-                      interaction.status === 'completed' ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"
+                      ['accepted', 'completed', '100%'].includes(interaction.status) ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-500"
                     )}>
                       {interaction.status}
                     </span>
                   )}
-                  <span className="text-[10px] font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded uppercase">{interaction.type}</span>
                 </div>
               </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
+              <p className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">{interaction.title}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
                 {interaction.description}
               </p>
             </div>
           ))
         ) : (
-          <div className="py-8 text-center text-slate-400">
-            <p className="text-xs italic">Nenhuma interação manual registrada.</p>
+          <div className="py-8 text-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl">
+            <p className="text-xs italic">Nenhuma interação, proposta ou instalação registrada.</p>
           </div>
         )}
       </div>
@@ -476,90 +532,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
       </div>
 
-      {/* Interaction History (Recent Business Activity) */}
-      <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-        <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-6">
-          <Users className="w-5 h-5 text-[#fdb612]" />
-          Últimas Interações
-        </h4>
-        <div className="space-y-4">
-          {(() => {
-            const clientProposals = proposals
-              .filter(p => p.client === client.name)
-              .map(p => ({
-                type: 'proposal',
-                title: `Proposta Criada: ${p.systemSize}`,
-                date: p.date,
-                timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
-                status: p.status
-              }));
-            
-            const clientInstallations = installations
-              .filter(i => i.name === client.name)
-              .map(i => ({
-                type: 'installation',
-                title: `Instalação Iniciada: ${i.stage}`,
-                date: i.startDate || i.lastUpdated,
-                timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
-                status: i.progress + '%'
-              }));
-
-            const clientManualInteractions = (client.interactions || []).map(i => ({
-              type: i.type,
-              title: i.title,
-              date: i.date,
-              timestamp: i.timestamp,
-              status: i.status
-            }));
-
-            const allInteractions = [...clientProposals, ...clientInstallations, ...clientManualInteractions]
-              .sort((a, b) => b.timestamp - a.timestamp)
-              .slice(0, 5);
-
-            if (allInteractions.length === 0) {
-              return (
-                <div className="py-4 text-center text-slate-400">
-                  <p className="text-xs italic">Nenhuma interação registrada para este cliente.</p>
-                </div>
-              );
-            }
-
-            return allInteractions.map((interaction, idx) => (
-              <div key={idx} className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className={cn(
-                  "size-10 rounded-xl flex items-center justify-center shrink-0",
-                  interaction.type === 'proposal' ? "bg-[#fdb612]/10 text-[#fdb612]" : "bg-blue-500/10 text-blue-500"
-                )}>
-                  {interaction.type === 'proposal' ? <FileText className="w-5 h-5" /> : <Construction className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-black text-slate-900 dark:text-slate-100 truncate">{interaction.title}</p>
-                    <span className="text-[10px] font-black text-slate-400 uppercase">{interaction.date}</span>
-                  </div>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest",
-                    interaction.type === 'proposal' 
-                      ? (interaction.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')
-                      : 'bg-blue-500/10 text-blue-500'
-                  )}>
-                    {interaction.status}
-                  </span>
-                </div>
-              </div>
-            ));
-          })()}
-        </div>
-      </div>
-
-      {/* Timeline History */}
+      {/* Timeline History (System Audit) */}
       <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
         <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-8">
           <HistoryIcon className="w-5 h-5 text-[#fdb612]" />
           Histórico de Alterações
         </h4>
         <div className="space-y-8 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 dark:before:bg-white/5">
-          {history.filter(h => h.collection === 'clients' && h.docId === client.id).map((item, idx) => (
+          {clientHistory.map((item, idx) => (
             <div key={item.id || idx} className="relative pl-10">
               <div className={cn(
                 "absolute left-0 top-1 size-6 rounded-full border-4 border-white dark:border-[#231d0f] flex items-center justify-center",
@@ -581,10 +561,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 block">
                   {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleString('pt-BR') : 'Agora'}
                 </span>
+                {item.action && (
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium italic">{item.action}</p>
+                )}
               </div>
             </div>
           ))}
-          {history.filter(h => h.collection === 'clients' && h.docId === client.id).length === 0 && (
+          {clientHistory.length === 0 && (
             <div className="py-4 text-center text-slate-400">
               <p className="text-xs italic">Nenhum histórico registrado para este cliente.</p>
             </div>
@@ -809,21 +792,33 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                             >
                               <div className="p-2 space-y-1">
                                 <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-3 py-2">Sugestões</p>
-                                {searchSuggestions.map((suggestion) => (
+                                {searchSuggestions.map((suggestion, idx) => (
                                   <button
-                                    key={suggestion.id}
+                                    key={`${suggestion.client.id}-${idx}`}
                                     onClick={() => {
-                                      setSearchTerm(suggestion.name);
+                                      setSearchTerm(suggestion.client.name);
                                       setShowSuggestions(false);
-                                      setSelectedClient(suggestion);
+                                      setSelectedClient(suggestion.client);
                                     }}
-                                    className="w-full flex items-center justify-between p-3 hover:bg-[#fdb612]/10 rounded-xl transition-colors text-left"
+                                    className="w-full flex items-center justify-between p-3 hover:bg-[#fdb612]/10 rounded-xl transition-colors text-left group"
                                   >
-                                    <div>
-                                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.name}</p>
-                                      <p className="text-[10px] text-slate-500 font-medium">{suggestion.email}</p>
+                                    <div className="flex items-center gap-3">
+                                      <div className="size-8 rounded-lg bg-[#fdb612]/20 flex items-center justify-center text-[#fdb612] font-black text-xs">
+                                        {suggestion.client.name.charAt(0)}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.client.name}</p>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] text-slate-500 font-medium">
+                                            {suggestion.type === 'name' ? suggestion.client.email : suggestion.match}
+                                          </span>
+                                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 font-black uppercase">
+                                            {suggestion.type === 'id' ? 'DOCUMENTO' : suggestion.type === 'email' ? 'E-MAIL' : 'NOME'}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <ExternalLink className="w-3 h-3 text-[#fdb612]" />
+                                    <ExternalLink className="w-3 h-3 text-[#fdb612] opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </button>
                                 ))}
                               </div>

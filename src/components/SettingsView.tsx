@@ -22,12 +22,14 @@ import {
   MessageSquare,
   LifeBuoy,
   FileText,
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 import { User as UserType, CompanySettings } from '../types';
 import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
+import { SMTPHelpModal } from './SMTPHelpModal';
 
 interface SettingsViewProps {
   user: UserType | null;
@@ -39,6 +41,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'financial' | 'system' | 'integrations' | 'support'>('profile');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [showSMTPHelp, setShowSMTPHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [notifications, setNotifications] = useState({
@@ -169,9 +172,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       const res = await fetch('/api/smtp/test');
       const data = await res.json();
       if (data.success) {
-        showToast(`Conexão SMTP verificada com sucesso! Suas credenciais estão corretas.`);
+        showToast(`✅ Conexão SMTP verificada com sucesso!`);
       } else {
-        showToast(`Erro SMTP: ${data.message || 'Verifique as variáveis'}`);
+        showToast(`❌ Erro SMTP: ${data.message || 'Verifique as variáveis'}`);
+        if (data.message?.includes('Autenticação') || data.message?.includes('Senha Rejeitada')) {
+          setShowSMTPHelp(true);
+        }
       }
     } catch (e) {
       showToast('Erro ao conectar com o servidor para testar SMTP.');
@@ -778,27 +784,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
               <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
                 <button 
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/smtp/test');
-                      const data = await res.json();
-                      if (data.success) {
-                        showToast('✅ CONEXÃO SMTP OK! Suas credenciais funcionam.');
-                      } else {
-                        showToast(`❌ ERRO: ${data.message}`);
-                        console.error('SMTP Error:', data.error);
-                      }
-                    } catch (e) {
-                      showToast('❌ Erro de Rede ao testar.');
-                    }
-                  }}
-                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                  onClick={handleSendTestEmail}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
                 >
                   Testar Conexão Agora
                 </button>
-                <p className="text-[10px] text-center text-slate-500">
-                  Certifique-se de salvar as variáveis no ícone de <strong>Engrenagem no Topo Direito</strong> do editor.
-                </p>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[10px] text-center text-slate-500">
+                    Certifique-se de salvar as variáveis no ícone de <strong>Engrenagem no Topo Direito</strong> do editor.
+                  </p>
+                  <button 
+                    onClick={() => setShowSMTPHelp(true)}
+                    className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest hover:underline flex items-center gap-1"
+                  >
+                    <HelpCircle className="w-3 h-3" />
+                    Problemas com Gmail? Veja como resolver
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -873,6 +875,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
           </div>
         </div>
       </div>
+      <SMTPHelpModal isOpen={showSMTPHelp} onClose={() => setShowSMTPHelp(false)} />
     </div>
   );
 };
