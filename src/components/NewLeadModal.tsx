@@ -62,27 +62,41 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
   const validateEmail = (email: string) => {
     if (!email) return "E-mail é obrigatório";
     const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!regex.test(email)) return "Formato de e-mail inválido";
+    if (!regex.test(email.trim())) return "Formato de e-mail inválido";
     return null;
   };
 
   const validatePhone = (phone: string) => {
-    if (!phone) return "Telefone é obrigatório";
-    const regex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
-    if (!regex.test(phone)) return "Formato inválido: (XX) 9XXXX-XXXX";
+    if (!phone) return "Campo obrigatório";
+    const numbers = phone.replace(/\D/g, '');
+    if (numbers.length < 10 || numbers.length > 11) return "Número incompleto";
+    return null;
+  };
+
+  const validateSystemSize = (size: string) => {
+    if (!size) return "Obrigatório";
+    const num = parseFloat(size.replace(',', '.'));
+    if (isNaN(num)) return "Valor inválido";
+    if (num <= 0) return "Deve ser maior que zero";
     return null;
   };
 
   const validateValue = (value: string) => {
     if (!value) return "Valor é obrigatório";
     const numbers = value.replace(/\D/g, '');
-    if (parseInt(numbers) === 0) return "O valor deve ser maior que zero";
+    if (!numbers || parseInt(numbers) <= 0) return "Deve ser maior que zero";
     return null;
   };
 
   const maskPhone = (value: string) => {
-    return value
-      .replace(/\D/g, '')
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 10) {
+      return numbers
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2')
+        .replace(/(-\d{4})\d+?$/, '$1');
+    }
+    return numbers
       .replace(/(\d{2})(\d)/, '($1) $2')
       .replace(/(\d{5})(\d)/, '$1-$2')
       .replace(/(-\d{4})\d+?$/, '$1');
@@ -105,9 +119,9 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     const nameErr = validateName(formData.name);
     const emailErr = validateEmail(formData.email);
     const phoneErr = validatePhone(formData.phone);
+    const whatsappErr = validatePhone(formData.whatsapp);
     const valueErr = validateValue(formData.value);
-    const systemSizeErr = !formData.systemSize ? "Tamanho do sistema é obrigatório" : null;
-    const whatsappErr = !formData.whatsapp ? "WhatsApp é obrigatório" : null;
+    const systemSizeErr = validateSystemSize(formData.systemSize);
 
     const newErrors: Record<string, string | null> = {
       name: nameErr,
@@ -221,26 +235,29 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 </label>
                 {errors.phone && <span className="text-[9px] font-bold text-red-500">{errors.phone}</span>}
               </div>
-              <div className="relative">
-                <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.phone ? "text-red-400" : "text-slate-400")} />
-                <input
-                  type="tel"
-                  placeholder="(00) 90000-0000"
-                  className={cn(
-                    "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.phone ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
-                  )}
-                  value={formData.phone || ''}
-                  onChange={(e) => {
-                    const masked = maskPhone(e.target.value);
-                    setFormData({ ...formData, phone: masked });
-                    if (errors.phone) {
-                      const err = validatePhone(masked);
-                      setErrors({ ...errors, phone: err });
-                    }
-                  }}
-                />
-              </div>
+            <div className="relative">
+              <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.phone ? "text-red-400" : (formData.phone && !errors.phone) ? "text-green-500" : "text-slate-400")} />
+              <input
+                type="tel"
+                placeholder="(00) 90000-0000"
+                className={cn(
+                  "w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                  errors.phone ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : 
+                  (formData.phone && !errors.phone) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
+                  "border-slate-200 dark:border-slate-800"
+                )}
+                value={formData.phone || ''}
+                onChange={(e) => {
+                  const masked = maskPhone(e.target.value);
+                  setFormData({ ...formData, phone: masked });
+                  const errContext = validatePhone(masked);
+                  setErrors({ ...errors, phone: errContext });
+                }}
+              />
+              {formData.phone && !errors.phone && (
+                <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 animate-in zoom-in duration-300" />
+              )}
+            </div>
             </div>
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
@@ -250,21 +267,27 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 {errors.whatsapp && <span className="text-[9px] font-bold text-red-500">{errors.whatsapp}</span>}
               </div>
               <div className="relative">
-                <MessageCircle className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.whatsapp ? "text-red-400" : "text-slate-400")} />
+                <MessageCircle className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.whatsapp ? "text-red-400" : (formData.whatsapp && !errors.whatsapp) ? "text-green-500" : "text-slate-400")} />
                 <input
                   type="tel"
-                  placeholder="(00) 00000-0000"
+                  placeholder="(00) 90000-0000"
                   className={cn(
-                    "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.whatsapp ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
+                    "w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                    errors.whatsapp ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : 
+                    (formData.whatsapp && !errors.whatsapp) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
+                    "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.whatsapp || ''}
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, whatsapp: masked });
-                    if (errors.whatsapp && masked) setErrors({ ...errors, whatsapp: null });
+                    const errContext = validatePhone(masked);
+                    setErrors({ ...errors, whatsapp: errContext });
                   }}
                 />
+                {formData.whatsapp && !errors.whatsapp && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500 animate-in zoom-in duration-300" />
+                )}
               </div>
             </div>
           </div>
@@ -281,15 +304,19 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 <Zap className={cn("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4", errors.systemSize ? "text-red-400" : "text-slate-400")} />
                 <input
                   type="text"
-                  placeholder="Ex: 5.4 kWp"
+                  placeholder="Ex: 5.4"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.systemSize ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
+                    errors.systemSize ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : 
+                    (formData.systemSize && !errors.systemSize) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
+                    "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.systemSize || ''}
                   onChange={(e) => {
-                    setFormData({ ...formData, systemSize: e.target.value });
-                    if (errors.systemSize && e.target.value) setErrors({ ...errors, systemSize: null });
+                    const val = e.target.value.replace(/[^0-9.,]/g, '');
+                    setFormData({ ...formData, systemSize: val });
+                    const err = validateSystemSize(val);
+                    setErrors({ ...errors, systemSize: err });
                   }}
                 />
               </div>
@@ -308,16 +335,16 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   placeholder="R$ 0,00"
                   className={cn(
                     "w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.value ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : "border-slate-200 dark:border-slate-800"
+                    errors.value ? "border-red-500 bg-red-50 dark:bg-red-900/10 shadow-sm shadow-red-500/10" : 
+                    (formData.value && !errors.value) ? "border-green-500 bg-green-50 dark:bg-green-900/10" :
+                    "border-slate-200 dark:border-slate-800"
                   )}
                   value={formData.value || ''}
                   onChange={(e) => {
                     const masked = maskCurrency(e.target.value);
                     setFormData({ ...formData, value: masked });
-                    if (errors.value) {
-                      const err = validateValue(masked);
-                      setErrors({ ...errors, value: err });
-                    }
+                    const err = validateValue(masked);
+                    setErrors({ ...errors, value: err });
                   }}
                 />
               </div>

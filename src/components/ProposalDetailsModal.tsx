@@ -23,18 +23,18 @@ import {
   RefreshCw,
   LayoutGrid,
   Sun,
-  ArrowRight
+  ArrowRight,
+  Rocket
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
+
+import { generateProposalPDF } from '../services/pdfService';
 
 interface ProposalDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   proposal: Proposal | null;
-  onSend: (id: string) => void;
-  onDownload: (id: string) => void;
-  onPrint: (id: string) => void;
   onUpdate?: (proposal: Proposal) => void;
   onConvertToInstallation?: (proposal: Proposal) => void;
   user: UserType | null;
@@ -44,19 +44,17 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   isOpen, 
   onClose, 
   proposal,
-  onSend,
-  onDownload,
-  onPrint,
   onUpdate,
   onConvertToInstallation,
   user
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Proposal>>({});
+  const [isSending, setIsSending] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (proposal) {
-      // Format expiryDate for input type="date" if it exists
       const formattedExpiry = proposal.expiryDate ? proposal.expiryDate.split('T')[0] : '';
       setEditForm({ ...proposal, expiryDate: formattedExpiry });
     }
@@ -67,14 +65,70 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
 
   const handleSave = () => {
     if (onUpdate && editForm) {
-      const sanitized = { ...editForm };
-      (Object.keys(sanitized) as (keyof Proposal)[]).forEach(key => {
-        if (sanitized[key] === undefined) {
-          delete sanitized[key];
-        }
-      });
-      onUpdate({ ...proposal, ...sanitized } as Proposal);
+      onUpdate({ ...proposal, ...editForm } as Proposal);
+      setIsEditing(true); // Keep editing or close? Let's stay in edit mode for confirmation or close
       setIsEditing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      const pdfDataUri = await generateProposalPDF(proposal);
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `Proposta_${proposal.proposalNumber || proposal.id}.pdf`;
+      link.click();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Erro ao gerar PDF');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!proposal.email) {
+      alert('E-mail do cliente não cadastrado.');
+      return;
+    }
+
+    try {
+      setIsSending(true);
+      const pdfBase64 = await generateProposalPDF(proposal);
+      
+      const response = await fetch('/api/proposals/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: proposal.email,
+          subject: `Proposta Solar - ${proposal.client}`,
+          body: `Olá ${proposal.client},\n\nSegue em anexo a sua proposta personalizada para instalação de energia solar.\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+          pdfBase64,
+          fileName: `Proposta_${proposal.proposalNumber || proposal.id}.pdf`
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('E-mail enviado com sucesso!');
+        if (onUpdate) {
+            onUpdate({ ...proposal, status: 'sent' });
+        }
+      } else {
+        alert(`Erro ao enviar: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert('Erro ao enviar e-mail. Verifique a conexão.');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleStatusChange = (newStatus: Proposal['status']) => {
+    if (onUpdate) {
+      onUpdate({ ...proposal, status: newStatus });
     }
   };
 
@@ -323,6 +377,38 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
             </div>
           ) : (
             <div className="p-8 space-y-8">
+              {/* Quick Status Update */}
+              <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Alterar Status da Proposta</label>
+                  <div className="flex flex-wrap gap-2">
+                    {(['pending', 'sent', 'accepted', 'expired', 'cancelled'] as Proposal['status'][]).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => handleStatusChange(s)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                          proposal.status === s 
+                            ? "bg-[#fdb612] text-[#231d0f] shadow-lg shadow-[#fdb612]/20" 
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                        )}
+                      >
+                        {s === 'pending' ? 'Pendente' : s === 'sent' ? 'Enviada' : s === 'accepted' ? 'Aceita' : s === 'expired' ? 'Expirada' : 'Cancelada'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {proposal.status === 'accepted' && onConvertToInstallation && (
+                  <button 
+                    onClick={() => onConvertToInstallation(proposal)}
+                    className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95 animate-pulse"
+                  >
+                    <Rocket className="w-4 h-4" />
+                    Gerar Projeto
+                  </button>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
@@ -717,7 +803,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 </div>
 
                 <button 
-                  onClick={() => onSend(proposal.id)}
+                  onClick={handleSendEmail}
                   className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-black text-lg md:text-xl flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-95 shadow-xl shadow-emerald-500/20"
                 >
                   🚀 QUERO ECONOMIZAR R$ 1.325,00/MÊS
@@ -764,25 +850,41 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   </button>
                 )}
                 <button 
-                  onClick={() => onPrint(proposal.id)}
+                  onClick={() => window.print()}
                   className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"
                 >
                   <Printer className="w-4 h-4 text-slate-400 group-hover:text-[#fdb612]" />
                   <span>Imprimir</span>
                 </button>
                 <button 
-                  onClick={() => onDownload(proposal.id)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group",
+                    isDownloading && "opacity-50 cursor-not-allowed"
+                  )}
                 >
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
-                  <span>Baixar PDF</span>
+                  {isDownloading ? (
+                    <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500" />
+                  )}
+                  <span>{isDownloading ? 'Gerando...' : 'Baixar PDF'}</span>
                 </button>
                 <button 
-                  onClick={() => onSend(proposal.id)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 shadow-md"
+                  onClick={handleSendEmail}
+                  disabled={isSending}
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-4 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 shadow-md",
+                    isSending && "opacity-50 cursor-not-allowed"
+                  )}
                 >
-                  <Send className="w-4 h-4" />
-                  <span>Enviar E-mail</span>
+                  {isSending ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  <span>{isSending ? 'Enviando...' : 'Enviar E-mail'}</span>
                 </button>
               </>
             )}

@@ -796,9 +796,6 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         isOpen={isDetailsModalOpen}
         onClose={() => setIsDetailsModalOpen(false)}
         proposal={selectedProposal}
-        onSend={handleSend}
-        onDownload={handleDownload}
-        onPrint={handlePrint}
         onUpdate={async (updatedProp) => {
           if (!updatedProp.id) {
             showToast('Erro: ID da proposta não encontrado.', 'info');
@@ -1248,7 +1245,19 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{prop.proposalNumber || prop.id}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{prop.proposalNumber || prop.id}</p>
+                        {prop.expiryDate && (new Date(prop.expiryDate).getTime() - new Date().getTime()) > 0 && (new Date(prop.expiryDate).getTime() - new Date().getTime()) < 7 * 24 * 60 * 60 * 1000 && (
+                            <div className="size-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center animate-pulse" title="Vencimento Próximo (< 7 dias)">
+                                <Clock className="w-3 h-3" />
+                            </div>
+                        )}
+                        {prop.expiryDate && new Date(prop.expiryDate) < new Date() && prop.status !== 'accepted' && (
+                            <div className="size-5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center" title="Expirada">
+                                <AlertCircle className="w-3 h-3" />
+                            </div>
+                        )}
+                    </div>
                     <div className="flex flex-col">
                       <p className="text-xs text-slate-500">Criada: {prop.date}</p>
                     </div>
@@ -1275,8 +1284,30 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(prop.status)}
+                      <div className="flex items-center gap-2 relative group/status-listing" onClick={(e) => e.stopPropagation()}>
+                        <div className="cursor-pointer">
+                          {getStatusBadge(prop.status)}
+                        </div>
+                        <div className="absolute left-0 top-full mt-1 hidden group-hover/status-listing:flex flex-col bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 z-[60] min-w-[120px]">
+                          {(['pending', 'sent', 'accepted', 'expired', 'cancelled'] as Proposal['status'][]).map((s) => (
+                            <button
+                              key={s}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (prop.id) {
+                                  await updateDocument('proposals', prop.id, { status: s });
+                                  showToast(`Status atualizado para ${s}`);
+                                }
+                              }}
+                              className={cn(
+                                "px-3 py-1.5 text-[10px] font-black uppercase text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors",
+                                prop.status === s ? "text-[#fdb612] bg-[#fdb612]/5" : "text-slate-600 dark:text-slate-400"
+                              )}
+                            >
+                              {s === 'pending' ? 'Pendente' : s === 'sent' ? 'Enviada' : s === 'accepted' ? 'Aceita' : s === 'expired' ? 'Expirada' : 'Cancelada'}
+                            </button>
+                          ))}
+                        </div>
                         {prop.status === 'accepted' && (
                           <button 
                             onClick={(e) => handleToggleCommissionStatus(prop, e)}

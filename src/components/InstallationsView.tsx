@@ -29,7 +29,8 @@ import {
   Trash2,
   Download,
   User as UserIcon,
-  ArrowUpDown
+  ArrowUpDown,
+  Zap as ZapIcon
 } from 'lucide-react';
 import { INSTALLATIONS } from '../constants';
 import { cn } from '../lib/utils';
@@ -540,6 +541,47 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-2">
+        {[
+          { name: 'Engenharia', color: 'blue', icon: Settings },
+          { name: 'Materiais', color: 'amber', icon: LayoutGrid },
+          { name: 'Instalação', color: 'slate', icon: ZapIcon },
+          { name: 'Inspeção', color: 'green', icon: CheckCircle2 },
+          { name: 'Concluídas', color: 'indigo', icon: Rocket },
+        ].map((stageData) => {
+          const count = (installations || []).filter(i => {
+            const sName = i.stage.toLowerCase();
+            const target = stageData.name.toLowerCase();
+            if (target === 'instalação') return sName.includes('instalação') || sName.includes('site');
+             if (target === 'materiais') return sName.includes('materiais') || sName.includes('materials');
+             if (target === 'inspeção') return sName.includes('inspeção') || sName.includes('inspection') || sName.includes('vistoria');
+             if (target === 'concluídas') return sName.includes('concluído') || sName.includes('concluída') || sName.includes('finished');
+             return sName.includes(target);
+          }).length;
+
+          const IconComp = stageData.icon;
+
+          return (
+            <div key={stageData.name} className="bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2">
+              <div className={cn(
+                "size-10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform",
+                stageData.color === 'blue' && "bg-blue-100 text-blue-600",
+                stageData.color === 'amber' && "bg-amber-100 text-amber-600",
+                stageData.color === 'slate' && "bg-slate-200 text-slate-700",
+                stageData.color === 'green' && "bg-green-100 text-green-600",
+                stageData.color === 'indigo' && "bg-indigo-100 text-indigo-600"
+              )}>
+                <IconComp className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stageData.name}</span>
+                <span className="text-xl font-black text-slate-900 dark:text-slate-100">{count}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">

@@ -776,22 +776,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
                 <button 
                   onClick={async () => {
                     try {
                       const res = await fetch('/api/smtp/test');
                       const data = await res.json();
-                      if (data.success) showToast('Conexão SMTP verificada com sucesso!');
-                      else showToast('Erro na verificação SMTP. Confira as variáveis.');
+                      if (data.success) {
+                        showToast('✅ CONEXÃO SMTP OK! Suas credenciais funcionam.');
+                      } else {
+                        showToast(`❌ ERRO: ${data.message}`);
+                        console.error('SMTP Error:', data.error);
+                      }
                     } catch (e) {
-                      showToast('Erro ao testar SMTP.');
+                      showToast('❌ Erro de Rede ao testar.');
                     }
                   }}
                   className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
                 >
                   Testar Conexão Agora
                 </button>
+                <p className="text-[10px] text-center text-slate-500">
+                  Certifique-se de salvar as variáveis no ícone de <strong>Engrenagem no Topo Direito</strong> do editor.
+                </p>
               </div>
             </div>
           )}

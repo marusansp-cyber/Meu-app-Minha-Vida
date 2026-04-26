@@ -135,42 +135,139 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [leads, proposals]);
 
   const stats = useMemo(() => {
-    const totalAcceptedRevenue = (proposals || [])
-      .filter(p => p.status === 'accepted')
-      .reduce((acc, p) => {
-        const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-        if (val > 100000000) return acc;
-        return acc + val;
-      }, 0);
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    const pendingCommissions = (proposals || [])
-      .filter(p => p.status === 'accepted' && p.commissionStatus !== 'paid')
-      .reduce((acc, p) => {
-        const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-        if (val > 100000000) return acc;
-        const rate = p.commission || 5;
-        return acc + (val * (rate / 100));
-      }, 0);
+    // Current Month Totals
+    const currentMonthAcceptedProposals = (proposals || []).filter(p => {
+      const pDate = new Date(p.date.split('/').reverse().join('-'));
+      return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.status === 'accepted';
+    });
+
+    const currentMonthRevenue = currentMonthAcceptedProposals.reduce((acc, p) => {
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      return acc + val;
+    }, 0);
+
+    const currentMonthLeads = (leads || []).filter(l => {
+      const lDate = new Date(l.history?.[0]?.date.split('/').reverse().join('-') || Date.now());
+      return lDate.getMonth() === currentMonth && lDate.getFullYear() === currentYear;
+    }).length;
+
+    // Last Month Totals for Variation
+    const lastMonthAcceptedProposals = (proposals || []).filter(p => {
+      const pDate = new Date(p.date.split('/').reverse().join('-'));
+      return pDate.getMonth() === lastMonth && pDate.getFullYear() === lastMonthYear && p.status === 'accepted';
+    });
+
+    const lastMonthRevenue = lastMonthAcceptedProposals.reduce((acc, p) => {
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      return acc + val;
+    }, 0);
+
+    const lastMonthLeads = (leads || []).filter(l => {
+      const lDate = new Date(l.history?.[0]?.date.split('/').reverse().join('-') || Date.now());
+      return lDate.getMonth() === lastMonth && lDate.getFullYear() === lastMonthYear;
+    }).length;
+
+    const calculateVariation = (current: number, last: number) => {
+      if (last === 0) return current > 0 ? '+100%' : '0%';
+      const variation = ((current - last) / last) * 100;
+      return `${variation > 0 ? '+' : ''}${variation.toFixed(1)}%`;
+    };
+
+    const revenueVariation = calculateVariation(currentMonthRevenue, lastMonthRevenue);
+    const leadsVariation = calculateVariation(currentMonthLeads, lastMonthLeads);
+
+    const conversionRate = (leads || []).length > 0 
+      ? (((proposals || []).filter(p => p.status === 'accepted').length / (leads || []).length) * 100)
+      : 0;
 
     const baseStats = [
-      { label: 'Vendas Totais', value: `R$ ${totalAcceptedRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, change: '+12.5%', trend: 'up' },
-      { label: 'Novos Leads', value: (leads || []).length.toString(), change: '+18%', trend: 'up' },
-      { label: 'Projetos Ativos', value: (installations || []).length.toString(), change: '+5%', trend: 'up' },
+      { 
+        label: 'Vendas do Mês', 
+        value: `R$ ${currentMonthRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 
+        change: revenueVariation, 
+        trend: currentMonthRevenue >= lastMonthRevenue ? 'up' : 'down' 
+      },
+      { 
+        label: 'Leads no Mês', 
+        value: currentMonthLeads.toString(), 
+        change: leadsVariation, 
+        trend: currentMonthLeads >= lastMonthLeads ? 'up' : 'down' 
+      },
+      { 
+        label: 'Projetos Ativos', 
+        value: (installations || []).length.toString(), 
+        change: '+5%', 
+        trend: 'up' 
+      },
+      { 
+        label: 'Taxa de Conversão', 
+        value: `${conversionRate.toFixed(1)}%`, 
+        change: '+2.4%', 
+        trend: 'up' 
+      },
     ];
 
     if (user?.role === 'admin' || user?.role === 'finance') {
-      const avgMargin = (proposals || []).filter(p => p.status === 'accepted').length > 0
-        ? (proposals || []).filter(p => p.status === 'accepted').reduce((acc, p) => acc + (p.margin || 0), 0) / (proposals || []).filter(p => p.status === 'accepted').length
-        : 0;
+      const pendingCommissions = (proposals || [])
+        .filter(p => p.status === 'accepted' && p.commissionStatus !== 'paid')
+        .reduce((acc, p) => {
+          const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+          const rate = p.commission || 5;
+          return acc + (val * (rate / 100));
+        }, 0);
       
-      baseStats.push({ label: 'Margem Média', value: `${avgMargin.toFixed(1)}%`, change: '+0.5%', trend: 'up' });
-      baseStats.push({ label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, change: '-3%', trend: 'down' });
-    } else {
-      baseStats.push({ label: 'Taxa de Conversão', value: `${(leads || []).length > 0 ? (((proposals || []).filter(p => p.status === 'accepted').length / (leads || []).length) * 100).toFixed(1) : 0}%`, change: '+2.4%', trend: 'up' });
+      baseStats[3] = { label: 'Comissões Pendentes', value: `R$ ${pendingCommissions.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, change: '-3%', trend: 'down' };
     }
 
     return baseStats;
   }, [leads, proposals, installations, user]);
+
+  const barChartData = useMemo(() => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Get last 6 months
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      let m = currentMonth - i;
+      let y = currentYear;
+      if (m < 0) {
+        m += 12;
+        y -= 1;
+      }
+      last6Months.push({ m, y, name: months[m] });
+    }
+
+    return last6Months.map(({ m, y, name }) => {
+      const currentYearRevenue = (proposals || [])
+        .filter(p => {
+          const pDate = new Date(p.date.split('/').reverse().join('-'));
+          return pDate.getMonth() === m && pDate.getFullYear() === y && p.status === 'accepted';
+        })
+        .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
+
+      const previousYearRevenue = (proposals || [])
+        .filter(p => {
+          const pDate = new Date(p.date.split('/').reverse().join('-'));
+          return pDate.getMonth() === m && pDate.getFullYear() === y - 1 && p.status === 'accepted';
+        })
+        .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
+
+      return {
+        name,
+        atual: currentYearRevenue / 1000, // in kR$
+        anterior: previousYearRevenue / 1000
+      };
+    });
+  }, [proposals]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -335,11 +432,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Performance de Vendas (6 Meses)</h4>
+                <p className="text-xs text-slate-400">Comparativo de receita aceita (kR$) entre o ano atual e anterior</p>
+              </div>
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}
+                    label={{ value: 'Receita (kR$)', angle: -90, position: 'insideLeft', style: { fontSize: 10, fontWeight: 700, fill: '#94a3b8' } }}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: '#231d0f',
+                      color: '#fff'
+                    }}
+                  />
+                  <Bar dataKey="atual" name="Ano Atual" fill="#fdb612" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="anterior" name="Ano Anterior" fill="#fdb61244" radius={[4, 4, 0, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Crescimento Mensal</h4>
-                <p className="text-xs text-slate-400">Comparativo de vendas realizadas por mês</p>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Acompanhamento de Propostas</h4>
+                <p className="text-xs text-slate-400">Distribuição de propostas aceitas ao longo do ano</p>
               </div>
               <div className="flex gap-4">
                 <button 
