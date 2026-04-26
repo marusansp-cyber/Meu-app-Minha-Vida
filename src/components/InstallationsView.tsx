@@ -486,60 +486,70 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="max-w-2xl">
-          <div className="flex items-center gap-2 text-[#fdb612] mb-2">
-            <Rocket className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-widest">Gestão Pós-Venda</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
+        <div className="flex items-center gap-6">
+          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
+            <Rocket className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-slate-100 mb-3 tracking-tight">Instalações Ativas</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed">
-            Monitore as etapas de instalação, atribuições de técnicos e progresso de implantação em tempo real.
-          </p>
+          <div>
+            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
+              Obras & Instalações
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão de implantação e engenharia de campo</p>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="relative group w-full sm:w-auto">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Calendar className="w-5 h-5 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
+              <Calendar className="w-5 h-5 text-slate-400 group-focus-within:text-brand-primary transition-colors" />
             </div>
             <input 
               type="date" 
               value={projectDeadlineFilter || ''}
               onChange={(e) => setProjectDeadlineFilter(e.target.value || null)}
-              className="w-full sm:w-48 pl-12 pr-4 py-3 bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold outline-none focus:border-[#fdb612] focus:ring-2 focus:ring-[#fdb612]/10 transition-all shadow-sm"
+              className="w-full sm:w-48 pl-12 pr-4 py-4 bg-slate-100 dark:bg-white/5 border border-transparent focus:border-brand-primary rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all"
             />
-            <div className="absolute -top-2 left-4 px-2 bg-white dark:bg-[#1a160d] text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Filtrar Prazo
+            <div className="absolute -top-2 left-4 px-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-md text-[9px] font-black uppercase tracking-widest text-slate-400">
+              Prazo
             </div>
           </div>
           <button 
             onClick={onOpenNewProject}
-            className="flex items-center justify-center gap-2 bg-[#fdb612] text-[#231d0f] px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
+            className="flex items-center justify-center gap-3 bg-brand-secondary text-brand-primary px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20 w-full sm:w-auto"
           >
             <Plus className="w-5 h-5" />
-            <span>Criar Novo Projeto</span>
+            Novo Projeto
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-[#231d0f]/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">{stat.label}</p>
-            <div className="flex items-end justify-between">
-              <h3 className="text-2xl font-bold">{stat.value}</h3>
+          <motion.div 
+            key={i}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-primary transition-all overflow-hidden relative"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Rocket className="w-12 h-12" />
+            </div>
+            <p className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">{stat.label}</p>
+            <div className="flex items-end justify-between relative z-10">
+              <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">{stat.value}</h3>
               {stat.change ? (
-                <span className="text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded-full">{stat.change}</span>
+                <span className="text-emerald-500 text-[10px] font-black bg-emerald-500/10 px-3 py-1 rounded-full uppercase tracking-wider">{stat.change}</span>
               ) : (
                 <span className={cn(
-                  "text-xs font-bold px-2 py-1 rounded-full",
-                  stat.color === 'yellow' && "text-[#fdb612] bg-[#fdb612]/10",
+                  "text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider",
+                  stat.color === 'yellow' && "text-brand-secondary bg-brand-secondary/10",
                   stat.color === 'slate' && "text-slate-500 bg-slate-500/10",
-                  stat.color === 'red' && "text-red-500 bg-red-500/10"
+                  stat.color === 'red' && "text-rose-500 bg-rose-500/10"
                 )}>{stat.tag}</span>
               )}
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 

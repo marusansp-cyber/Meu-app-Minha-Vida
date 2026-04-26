@@ -32,15 +32,15 @@ export const TeamView: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-16 py-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
       <section className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#fdb612]/10 text-[#fdb612] rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4">
-          <ShieldCheck className="w-3 h-3" />
-          Corpo Consultivo
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-primary/5 text-brand-primary rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 border border-brand-primary/10">
+          <ShieldCheck className="w-3.5 h-3.5 mt-[-1px]" />
+          Board Consultivo
         </div>
-        <h2 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-slate-100 uppercase">
-          Excelência Técnica <span className="text-[#fdb612]">&</span> Consultiva
+        <h2 className="text-4xl md:text-5xl font-black tracking-tighter text-brand-primary dark:text-slate-100 uppercase">
+          Excelência Técnica <span className="text-brand-secondary">&</span> Operacional
         </h2>
-        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
-          A solidez deste investimento é assegurada por um corpo técnico qualificado e legalmente habilitado.
+        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium tracking-tight">
+          A solidez de Vieira's Solar é assegurada por um corpo técnico qualificado e legalmente habilitado para grandes infraestruturas.
         </p>
       </section>
 
@@ -50,21 +50,21 @@ export const TeamView: React.FC = () => {
           return (
             <div 
               key={index}
-              className="group relative bg-white dark:bg-[#1a160d] border border-slate-200 dark:border-slate-800/50 p-8 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-[#fdb612]/10 transition-all duration-500 flex flex-col justify-between overflow-hidden"
+              className="group relative bg-white dark:bg-white/5 border border-slate-100 dark:border-slate-800 p-8 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:shadow-brand-primary/10 transition-all duration-500 flex flex-col justify-between overflow-hidden"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#fdb612]/10 transition-colors" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-brand-primary/10 transition-colors" />
               
               <div className="space-y-6 relative z-10">
-                <div className="size-14 rounded-2xl bg-slate-900 dark:bg-[#fdb612] flex items-center justify-center text-[#fdb612] dark:text-[#231d0f] shadow-lg">
-                  {Icon && <Icon className="w-6 h-6" />}
+                <div className="size-16 rounded-3xl bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20 group-hover:bg-brand-secondary group-hover:text-brand-primary group-hover:scale-110 transition-all">
+                  {Icon && <Icon className="w-8 h-8" />}
                 </div>
                 
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 leading-tight uppercase tracking-tight">{member.name}</h3>
-                  <div className="inline-block px-3 py-1 bg-[#fdb612]/10 text-[#fdb612] rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                <div className="space-y-3">
+                  <h3 className="text-xl font-black text-brand-primary dark:text-slate-100 leading-tight uppercase tracking-tight">{member.name}</h3>
+                  <div className="inline-block px-3 py-1 bg-brand-secondary/10 text-brand-primary rounded-lg text-[10px] font-black uppercase tracking-wider">
                     {member.role}
                   </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium pt-2">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium pt-2 tracking-tight">
                     {member.description}
                   </p>
                 </div>
@@ -105,40 +105,40 @@ export const TeamView: React.FC = () => {
         })}
       </div>
 
-      <section className="bg-slate-900 text-white p-12 rounded-[3.5rem] border border-slate-800 shadow-2xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#fdb612]/10 blur-[100px] rounded-full -mr-48 -mt-48 animate-pulse"></div>
+      <section className="bg-brand-primary text-white p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-secondary/10 blur-[100px] rounded-full -mr-48 -mt-48 animate-pulse"></div>
         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-12">
           <div className="space-y-6 flex-1">
-            <div className="flex items-center gap-3 text-[#fdb612]">
-              <div className="size-10 bg-[#fdb612]/20 rounded-xl flex items-center justify-center">
+            <div className="flex items-center gap-3 text-brand-secondary">
+              <div className="size-10 bg-white/10 rounded-xl flex items-center justify-center">
                 <Building2 className="w-5 h-5" />
               </div>
               <span className="font-black uppercase tracking-[0.2em] text-xs">Informações Institucionais</span>
             </div>
             <div className="space-y-2">
               <h3 className="text-4xl font-black uppercase tracking-tight">Vieira's Solar</h3>
-              <p className="text-lg text-slate-400 font-medium">MV ENGENHARIA E CONSTRUCOES LTDA</p>
+              <p className="text-lg text-white/60 font-medium tracking-tight">MV ENGENHARIA E CONSTRUCOES LTDA</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">CNPJ Matriz</p>
+              <div className="bg-white/5 border border-white/10 p-5 rounded-3xl">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">CNPJ Matriz</p>
                 <p className="text-sm font-bold text-slate-200">61.950.902/0018-33</p>
               </div>
-              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Certificação Técnica</p>
+              <div className="bg-white/5 border border-white/10 p-5 rounded-3xl">
+                <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Certificação Técnica</p>
                 <p className="text-sm font-bold text-emerald-400">Emissor de ART / CREA-MG</p>
               </div>
             </div>
           </div>
-          <div className="lg:w-80 w-full bg-[#fdb612] text-[#231d0f] p-8 rounded-[2.5rem] flex flex-col items-center text-center gap-4 shadow-xl shadow-[#fdb612]/20 group-hover:scale-105 transition-transform duration-500">
-            <div className="size-16 bg-white/20 rounded-2xl flex items-center justify-center">
-              <ShieldCheck className="w-10 h-10" />
+          <div className="lg:w-80 w-full bg-brand-secondary text-brand-primary p-10 rounded-[3rem] flex flex-col items-center text-center gap-6 shadow-xl shadow-brand-secondary/20 group-hover:scale-105 transition-all duration-500">
+            <div className="size-20 bg-brand-primary/10 rounded-3xl flex items-center justify-center">
+              <ShieldCheck className="w-12 h-12" />
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">Garantia Técnica</p>
-              <p className="text-xl font-black uppercase leading-tight">Projetos 100% Homologados</p>
+              <p className="text-2xl font-black uppercase leading-tight tracking-tighter">Projetos 100% Homologados</p>
             </div>
-            <p className="text-xs font-bold opacity-70 leading-relaxed italic">
+            <p className="text-xs font-bold opacity-70 leading-relaxed italic px-4">
               "Segurança jurídica e técnica em todas as etapas da sua usina solar."
             </p>
           </div>

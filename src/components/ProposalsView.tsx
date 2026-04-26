@@ -773,30 +773,36 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   };
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-3xl font-black tracking-tight">Propostas Comerciais</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie orçamentos e propostas enviadas aos clientes.</p>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
+        <div className="flex items-center gap-6">
+          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
+            <FileText className="w-8 h-8" />
           </div>
+          <div>
+            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
+              Propostas Comerciais
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão estratégica e ecossistema de vendas integrado</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
           <button 
             onClick={() => setIsHelpModalOpen(true)}
-            className="group flex flex-col items-center gap-1 p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-900 transition-all hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
-            title="Dificuldade com e-mail? Clique aqui"
+            className="flex items-center gap-2.5 px-6 py-4 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border border-transparent hover:border-brand-primary/20"
           >
-            <HelpCircle className="w-5 h-5 text-blue-500 animate-pulse" />
-            <span className="text-[8px] font-black uppercase text-blue-400 group-hover:text-blue-600 transition-colors">Ajuda E-mail</span>
+            <HelpCircle className="w-4 h-4 text-brand-secondary" />
+            Suporte E-mail
+          </button>
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-3 px-10 py-4 bg-brand-secondary text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20"
+          >
+            <Plus className="w-5 h-5" />
+            Nova Proposta
           </button>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Proposta
-        </button>
-      </header>
+      </div>
 
       <NewProposalModal 
         isOpen={isModalOpen}
@@ -890,27 +896,64 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Total em Aberto</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">R$ {stats.totalOpen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
-          <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-[#fdb612]" style={{ width: '60%' }} />
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-primary transition-all relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+            <DollarSign className="w-16 h-16 text-brand-primary" />
           </div>
-        </div>
-        <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Taxa de Aceite</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.acceptRate.toFixed(1)}%</p>
-          <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500" style={{ width: `${stats.acceptRate}%` }} />
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Pipeline Aberto</p>
+          <h3 className="text-2xl font-black text-brand-primary dark:text-slate-100">
+            R$ {stats.totalOpen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+          </h3>
+          <div className="flex items-center gap-1 mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full w-fit">
+            <TrendingUp className="w-3 h-3" />
+            <span>Saúde Financeira estável</span>
           </div>
-        </div>
-        <div className="bg-white dark:bg-[#231d0f]/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Tempo Médio</p>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.avgTime} Dias</p>
-          <div className="mt-4 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 w-1/2" />
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-secondary transition-all relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+            <CheckCircle2 className="w-16 h-16 text-brand-secondary" />
           </div>
-        </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Taxa de Aceite</p>
+          <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100">
+            {stats.acceptRate.toFixed(1)}%
+          </h3>
+          <div className="mt-4 w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${stats.acceptRate}%` }}
+              className="h-full bg-brand-secondary" 
+              transition={{ duration: 1.5, ease: "easeOut" }}
+            />
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-accent transition-all relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
+            <Clock className="w-16 h-16 text-brand-accent" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Tempo de Fechamento</p>
+          <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100">
+            {stats.avgTime} Dias
+          </h3>
+          <div className="mt-4 w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-brand-accent w-1/2" />
+          </div>
+        </motion.div>
       </div>
 
       <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm backdrop-blur-sm">

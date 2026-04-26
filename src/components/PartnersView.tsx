@@ -97,18 +97,23 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Empresas Parceiras</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie sua rede de parceiros, integradores e afiliados.</p>
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm mb-2">
+        <div className="flex items-center gap-6">
+          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
+            <Building2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">Eco-Parceiros</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Rede de integradores e afiliados Vieira's Solar</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <div className="flex bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-1">
+        <div className="flex items-center gap-6">
+          <div className="flex bg-slate-100 dark:bg-white/5 border border-transparent p-1.5 rounded-2xl shadow-inner">
             <button 
               onClick={() => setViewType('grid')}
               className={cn(
-                "p-2 rounded-xl transition-all",
-                viewType === 'grid' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
+                "p-3 rounded-xl transition-all",
+                viewType === 'grid' ? "bg-white dark:bg-slate-800 text-brand-primary shadow-md" : "text-slate-400 hover:text-brand-primary/60"
               )}
             >
               <LayoutGrid className="w-5 h-5" />
@@ -116,8 +121,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
             <button 
               onClick={() => setViewType('table')}
               className={cn(
-                "p-2 rounded-xl transition-all",
-                viewType === 'table' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
+                "p-3 rounded-xl transition-all",
+                viewType === 'table' ? "bg-white dark:bg-slate-800 text-brand-primary shadow-md" : "text-slate-400 hover:text-brand-primary/60"
               )}
             >
               <List className="w-5 h-5" />
@@ -129,9 +134,9 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ partners }) => {
               setIsViewOnly(false);
               setIsModalOpen(true);
             }}
-            className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
+            className="group flex items-center justify-center gap-3 bg-brand-secondary text-brand-primary px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
             Novo Parceiro
           </button>
         </div>

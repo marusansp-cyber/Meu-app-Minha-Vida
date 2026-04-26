@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { RECENT_ACTIVITIES } from '../constants';
 import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
 
 import { Lead, Proposal, Installation, User as UserType } from '../types';
 
@@ -418,15 +419,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden p-1 inline-grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, staggerChildren: 0.1 }}
+        className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden p-1 inline-grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+      >
         {stats.map((stat, i) => (
-          <div key={i} className={cn(
-            "p-6 transition-all group hover:bg-slate-50 dark:hover:bg-white/5",
-            i < 3 && "lg:border-r border-slate-100 dark:border-slate-800",
-            i % 2 === 0 && "sm:border-r sm:border-slate-100 dark:sm:border-slate-800",
-            i < 2 && "border-b sm:border-b-0 border-slate-100 dark:border-slate-800",
-            i >= 2 && "border-t sm:border-t-0 lg:border-t-0 border-slate-100 dark:border-slate-800"
-          )}>
+          <motion.div 
+            key={i} 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className={cn(
+              "p-6 transition-all group hover:bg-slate-50 dark:hover:bg-white/5",
+              i < 3 && "lg:border-r border-slate-100 dark:border-slate-800",
+              i % 2 === 0 && "sm:border-r sm:border-slate-100 dark:sm:border-slate-800",
+              i < 2 && "border-b sm:border-b-0 border-slate-100 dark:border-slate-800",
+              i >= 2 && "border-t sm:border-t-0 lg:border-t-0 border-slate-100 dark:border-slate-800"
+            )}
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] group-hover:scale-110 transition-transform">
                 {stat.label.includes('Vendas') && <TrendingUp className="w-5 h-5" />}
@@ -446,9 +458,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest">{stat.label}</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stat.value}</h3>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">

@@ -142,30 +142,33 @@ export const UsersView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {toast && (
-        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
-          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
-          <span className="font-bold text-sm">{toast}</span>
-        </div>
-      )}
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
-            Gestão de Acessos
-          </h2>
-          <p className="text-slate-500 font-medium">Controle quem pode acessar o sistema e quais suas permissões.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm mb-2">
+        <div className="flex items-center gap-6">
+          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
+            <ShieldCheck className="w-8 h-8" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
+              Governança de Acessos
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Controle de privilégios e auditoria Vieira's Solar</p>
+          </div>
         </div>
         
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <div className="relative w-full md:w-96 group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search className="w-5 h-5 text-slate-400 group-focus-within:text-brand-primary transition-colors" />
+          </div>
           <input 
             type="text" 
-            placeholder="Buscar por nome, email ou role..."
+            placeholder="Pesquisar por nome ou e-mail..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+            className="w-full pl-12 pr-4 py-4 bg-slate-100 dark:bg-white/5 border border-transparent focus:border-brand-primary rounded-2xl text-sm font-bold outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all shadow-inner"
           />
+          <div className="absolute -top-2 left-4 px-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-md text-[9px] font-black uppercase tracking-widest text-slate-400">
+            Busca Rápida
+          </div>
         </div>
       </div>
 
