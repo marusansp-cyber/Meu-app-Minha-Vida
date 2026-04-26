@@ -15,14 +15,18 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const nextMonth = new Date();
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    return nextMonth.toISOString().slice(0, 7);
+  }); // YYYY-MM
   
   const currentGoal = useMemo(() => {
     return goals.find(g => g.month === monthFilter) || {
       id: '',
       month: monthFilter,
-      targetValue: 200000,
-      targetCount: 10,
+      targetValue: monthFilter === '2025-05' ? 250000 : 200000,
+      targetCount: monthFilter === '2025-05' ? 15 : 10,
       createdAt: new Date().toISOString()
     };
   }, [goals, monthFilter]);

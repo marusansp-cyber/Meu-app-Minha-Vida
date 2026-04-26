@@ -349,7 +349,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
         <div className="flex flex-wrap gap-3 w-full sm:w-auto">
           <button 
-            onClick={() => showToast('Filtro de período: Últimos 30 Dias aplicado')}
+            onClick={() => {
+              showToast('Filtro de período: Últimos 30 Dias aplicado');
+            }}
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 dark:border-white/10 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-sm"
           >
             <Calendar className="w-4 h-4" />
@@ -404,7 +406,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all group">
             <div className="flex items-center justify-between mb-4">

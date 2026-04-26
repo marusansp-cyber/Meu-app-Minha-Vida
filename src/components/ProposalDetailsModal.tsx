@@ -243,6 +243,18 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                         <option value="paid">Pago</option>
                       </select>
                     </div>
+                    {editForm.status === 'accepted' && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Valor da Comissão (Calculado)</label>
+                        <div className="w-full px-4 py-2.5 bg-emerald-50 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-xl font-bold text-emerald-600">
+                          {(() => {
+                            const val = editForm.value || 0;
+                            const comm = val * ((editForm.commission || 5) / 100);
+                            return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                          })()}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 <div className="space-y-1">
@@ -363,6 +375,33 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Custo Adicional (R$)</label>
+                  <input 
+                    type="number" 
+                    value={editForm.additionalCost || 0}
+                    onChange={(e) => setEditForm({ ...editForm, additionalCost: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Início Instalação</label>
+                  <input 
+                    type="date" 
+                    value={editForm.installationStartDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, installationStartDate: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Conclusão Estimada</label>
+                  <input 
+                    type="date" 
+                    value={editForm.estimatedCompletionDate || ''}
+                    onChange={(e) => setEditForm({ ...editForm, estimatedCompletionDate: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                  />
+                </div>
               </div>
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estudo de Viabilidade</label>
@@ -474,6 +513,38 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
 
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                      <LayoutGrid className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Consumo Mensal</label>
+                      <p className="font-bold text-xl">{proposal.energyConsumption || '0'} kWh</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Data de Criação</label>
+                      <p className="font-bold text-xl">{new Date(proposal.date || proposal.createdAt || '').toLocaleDateString('pt-BR')}</p>
+                    </div>
+                  </div>
+
+                  {proposal.expiryDate && (
+                    <div className="flex items-center gap-4">
+                      <div className="size-12 rounded-2xl bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-rose-600" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Validade da Proposta</label>
+                        <p className="font-bold text-xl">{new Date(proposal.expiryDate).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-4">
                     <div className="size-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                       <TrendingUp className="w-6 h-6 text-indigo-600" />
                     </div>
@@ -582,15 +653,15 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 </div>
 
                 <div className="space-y-6">
-                  <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-[32px] border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2 text-[#fdb612] mb-4">
-                      <ShieldCheck className="w-5 h-5" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Garantia Técnica</span>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Esta proposta inclui 10 anos de garantia de fabricação para os inversores, 25 anos de performance para os módulos e 6 meses para a instalação, assegurada pela Vieira's Solar & Engenharia.
-                    </p>
+                <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-[32px] border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-[#fdb612] mb-4">
+                    <ShieldCheck className="w-5 h-5" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Garantia Técnica</span>
                   </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed text-left">
+                    Esta proposta inclui 25 anos de performance linear para os módulos MAXEON, 10-15 anos para inversores AUXSOL e GARANTIA VITALÍCIA para a estrutura de alumínio anodizado, assegurada pela Vieira's Solar & Engenharia.
+                  </p>
+                </div>
 
                   {proposal.kitId && (
                     <div className="bg-slate-900 p-8 rounded-[32px] text-white">
@@ -730,10 +801,11 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   </div>
                   <div className="space-y-3">
                     {[
-                      { label: "Equipamentos (Tier-1)", value: "R$ 22.499,99" },
-                      { label: "Instalação e Montagem", value: "R$ 4.500,00" },
-                      { label: "Projeto Técnico (ART)", value: "R$ 1.500,00" },
-                      { label: "Licenciamento e Logística", value: "R$ 1.500,00" },
+                      { label: "Equipamentos (Tier-1)", value: (proposal.equipmentCost || 22499.99).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Instalação e Montagem", value: (proposal.installationCost || 4500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Projeto Técnico (ART)", value: (proposal.projectCost || 1500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Licenciamento e Logística", value: (proposal.licensingCost || 1500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Custos Adicionais", value: (proposal.additionalCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
                       { label: "TOTAL INVESTIMENTO", value: (proposal.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }), highlight: true }
                     ].map((item, idx) => (
                       <div key={idx} className={cn(
@@ -756,15 +828,24 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <div className="space-y-4">
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Módulos Fotovoltaicos</p>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">24x Painéis Tier-1 (Células N-Type)</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.panelQuantity || 24}x {proposal.panelBrandModel || "Módulos MAXEON 540 W"}</p>
                     </div>
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Inversor String</p>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">1x Inversor 12 kW (Wifi Monitoramento)</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.invertersQuantity || 1}x {proposal.inverterBrandModel || "AUXSOL 7.5"} (Wifi Monitoramento)</p>
                     </div>
+                    {proposal.installationStartDate && (
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/20">
+                        <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1">📅 Cronograma de Instalação</p>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          Início: {new Date(proposal.installationStartDate).toLocaleDateString('pt-BR')}
+                          {proposal.estimatedCompletionDate && ` | Fim: ${new Date(proposal.estimatedCompletionDate).toLocaleDateString('pt-BR')}`}
+                        </p>
+                      </div>
+                    )}
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Estrutura & Proteção</p>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Kit Completo em Alumínio Anodizado</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Alumínio Anodizado VITALÍCIO</p>
                     </div>
                   </div>
                 </div>

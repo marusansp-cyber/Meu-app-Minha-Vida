@@ -317,67 +317,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text(`DATA: ${formatDate(proposal.date)}`, marginLeft + 10, infoY + 8);
   doc.text(`RESPONSÁVEL: ${proposal.representative || "Equipe Vieira's"}`, marginLeft + 10, infoY + 14);
 
-  // --- PAGE 2: PROBLEMA x SOLUÇÃO + IMPACTO ---
+  // --- PAGE 2: INVESTIMENTO E RETORNO ---
   doc.addPage();
   drawHeaderFooter(2);
-  sectionTitle("POR QUE MUDAR PARA O SOLAR?", 45);
-
-  const cardW = (pageWidth - marginLeft - marginRight - 10) / 2;
-  
-  // Problem Card
-  drawCard(marginLeft, 60, cardW, 60);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(solarOrange[0], solarOrange[1], solarOrange[2]);
-  doc.text("! O CENÁRIO ATUAL", marginLeft + 5, 70);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  const probText = "A inflação de energia no Brasil cresce acima da inflação oficial. Pagar a conta de luz é um custo sem retorno, sujeito a bandeiras tarifárias e reajustes sem controle.";
-  doc.text(doc.splitTextToSize(probText, cardW - 10), marginLeft + 5, 80);
-
-  // Solution Card
-  drawCard(pageWidth - marginRight - cardW, 60, cardW, 60);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-  doc.text("* A SOLUÇÃO VIEIRA'S", pageWidth - marginRight - cardW + 5, 70);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  const solText = "Ao gerar sua própria energia, você trava o preço do seu kWh e gera créditos. Valorização imediata do imóvel e economia real por mais de 25 anos.";
-  doc.text(doc.splitTextToSize(solText, cardW - 10), pageWidth - marginRight - cardW + 5, 80);
-
-  // Impact Metrics
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("IMPACTO AMBIENTAL ESTIMADO (ANUAL)", marginLeft, 140);
-
-  const impactW = (pageWidth - marginLeft - marginRight - 10) / 3;
-  const sysSizeVal = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
-  
-  const drawMetric = (x: number, label: string, value: string, icon: string) => {
-    drawCard(x, 150, impactW, 40);
-    doc.setFontSize(12);
-    doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.text(icon, x + impactW / 2, 162, { align: 'center' });
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(value, x + impactW / 2, 175, { align: 'center' });
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.text(label, x + impactW / 2, 182, { align: 'center' });
-  };
-
-  drawMetric(marginLeft, "CO2 EVITADO", `${(sysSizeVal * 80).toFixed(0)} kg`, "(Mundo)");
-  drawMetric(marginLeft + impactW + 5, "ÁRVORES SALVAS", `${(sysSizeVal * 4).toFixed(0)} un`, "(Arvore)");
-  drawMetric(marginLeft + (impactW * 2) + 10, "POTÊNCIA TOTAL", `${sysSizeVal} kWp`, "(Energia)");
-
-  // --- PAGE 3: INVESTIMENTO E RETORNO ---
-  doc.addPage();
-  drawHeaderFooter(3);
   sectionTitle("INVESTIMENTO E RETORNO", 45);
 
   const invValue = proposal.value || 0;
@@ -442,104 +384,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   
   doc.text(`R$ ${estimatedSavings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}+`, pageWidth - marginRight - roiW / 2, roiY + 30, { align: 'center' });
 
-  // --- PAGE 4: GARANTIAS E TECNOLOGIA ---
+  // --- PAGE 3: CALL TO ACTION + ASSINATURA ---
   doc.addPage();
-  drawHeaderFooter(4);
-  sectionTitle("GARANTIAS E TECNOLOGIA", 45);
-
-  const guarantees = [
-    { title: "MÓDULOS FOTOVOLTAICOS", time: "25 ANOS", desc: "Performance linear garantida de 80-90%." },
-    { title: "INVERSOR SOLAR", time: "10-15 ANOS", desc: "Garantia de fábrica contra defeitos técnicos." },
-    { title: "SERVIÇOS DE INSTALAÇÃO", time: "1 ANO", desc: "Cobertura total contra infiltrações e estrutural." },
-    { title: "HOMOLOGAÇÃO E ART", time: "VITALÍCIO", desc: "Processo 100% legalizado junto à concessionária." }
-  ];
-
-  let guarY = 65;
-  guarantees.forEach(g => {
-    drawCard(marginLeft, guarY, pageWidth - marginLeft - marginRight, 22);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(g.title, marginLeft + 5, guarY + 8);
-    doc.setTextColor(solarOrange[0], solarOrange[1], solarOrange[2]);
-    doc.text(g.time, pageWidth - marginRight - 10, guarY + 8, { align: 'right' });
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.text(g.desc, marginLeft + 5, guarY + 15);
-    guarY += 28;
-  });
-
-  // Technical Specs Card
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("COMPOSIÇÃO DO SISTEMA", marginLeft, guarY + 10);
-  
-  drawCard(marginLeft, guarY + 18, pageWidth - marginLeft - marginRight, 45, [248, 250, 252]);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  const specs = [
-    `• Painéis: ${proposal.panelQuantity || "24"} unidades ${proposal.panelBrandModel || "MAXEON 540 W"}`,
-    `• Inversor: ${proposal.inverterBrandModel || "AUXSOL 7.5"} com Monitoramento Wi-Fi`,
-    `• Estrutura: Alumínio Anodizado (específico para telhado)`,
-    `• Cabeamento: Cabos solares resistentes a UV e String Box blindada`
-  ];
-  specs.forEach((s, i) => doc.text(s, marginLeft + 10, guarY + 30 + (i * 8)));
-
-  // --- PAGE 5: CURVA DE GERAÇÃO + OPERAÇÃO ---
-  doc.addPage();
-  drawHeaderFooter(5);
-  sectionTitle("EXPECTATIVA DE GERAÇÃO", 45);
-
-  const months = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
-  const baseline = 1000;
-  const mods = [1.2, 1.3, 1.45, 1.35, 1.05, 0.9, 0.85, 1.0, 1.15, 1.25, 1.35, 1.4];
-
-  let barX = marginLeft + 15;
-  const barYBase = 120;
-  const maxBarH = 40;
-  const barW = 12;
-
-  months.forEach((m, i) => {
-    const h = (mods[i] / 1.5) * maxBarH;
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(barX, barYBase - h, barW - 2, h, 'F');
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.setFontSize(7);
-    doc.text(m, barX, barYBase + 5);
-    barX += barW + 2;
-  });
-
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("* A geração pode variar conforme sazonalidade e incidência solar local.", marginLeft, 130);
-
-  // O&M Section
-  sectionTitle("OPERAÇÃO E MANUTENÇÃO", 155);
-  drawCard(marginLeft, 165, pageWidth - marginLeft - marginRight, 70);
-  
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("VANTAGENS DO MONITORAMENTO ATIVO:", marginLeft + 5, 175);
-  
-  const omBullets = [
-    "- Diagnóstico imediato via APP e Inteligência Artificial.",
-    "- Antecipação de falhas de rede ou sujeira nos painéis.",
-    "- Relatórios mensais de economia real comprovada.",
-    "- Suporte técnico prioritário Vieira's Solar."
-  ];
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  omBullets.forEach((b, i) => doc.text(b, marginLeft + 10, 188 + (i * 10)));
-
-  // --- PAGE 6: CALL TO ACTION + ASSINATURA ---
-  doc.addPage();
-  drawHeaderFooter(6);
+  drawHeaderFooter(3);
   
   drawCard(marginLeft + 10, 45, pageWidth - (marginLeft + marginRight + 20), 40, [255, 140, 0, 0.1] as any);
   doc.setFontSize(14);

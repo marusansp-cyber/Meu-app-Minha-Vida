@@ -57,9 +57,18 @@ interface LeadsViewProps {
   onUpdateLead: (lead: Lead) => void;
   onLogout: () => void;
   onCreateProposal?: (lead: Lead) => void;
+  onConvertToClient?: (lead: Lead) => void;
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDeleteLead, onUpdateLead, onLogout, onCreateProposal }) => {
+export const LeadsView: React.FC<LeadsViewProps> = ({ 
+  leads, 
+  onOpenNewLead, 
+  onDeleteLead, 
+  onUpdateLead, 
+  onLogout, 
+  onCreateProposal,
+  onConvertToClient 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<Lead['status'][]>(['new', 'survey', 'proposal', 'negotiation', 'closed']);
@@ -632,7 +641,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                       </label>
                     </div>
 
-                    <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                       <button 
                         onClick={() => {
                           setSearchTerm('');
@@ -643,13 +652,13 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                           setDateFilterType('created');
                           setSelectedRepresentatives([]);
                         }}
-                        className="w-full py-3 lg:py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
+                        className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
                       >
                         Limpar Filtros
                       </button>
                       <button 
                         onClick={() => setShowFilters(false)}
-                        className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-xl font-black uppercase tracking-widest text-xs lg:hidden"
+                        className="flex-1 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#fdb612]/10"
                       >
                         Aplicar Filtros
                       </button>
@@ -1396,6 +1405,19 @@ export const LeadsView: React.FC<LeadsViewProps> = ({ leads, onOpenNewLead, onDe
                             </div>
                           </div>
                         )}
+
+                        <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                          <button
+                            onClick={() => onConvertToClient?.(selectedLead)}
+                            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all transform active:scale-95 shadow-lg shadow-emerald-500/20"
+                          >
+                            <Users className="w-4 h-4" />
+                            Converter em Cliente
+                          </button>
+                          <p className="text-[10px] text-center text-slate-400 mt-2 font-medium italic">
+                            Isso criará um novo registro de cliente com os dados deste lead.
+                          </p>
+                        </div>
                       </>
                     ) : leadModalTab === 'history' ? (
                       <div className="space-y-6">

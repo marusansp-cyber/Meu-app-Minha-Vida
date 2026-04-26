@@ -173,6 +173,72 @@ export default function App() {
     });
   };
 
+  const handleConvertToClient = async (lead: Lead) => {
+    // 1. Create client data from lead
+    const clientData: Partial<Client> = {
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      address: lead.address || (lead as any).endereco,
+      cnpj: lead.cpfCnpj?.length > 14 ? lead.cpfCnpj : undefined,
+      cpf: lead.cpfCnpj?.length <= 14 ? lead.cpfCnpj : undefined,
+      status: 'active',
+      type: 'residential', // Default or guess
+      createdAt: new Date().toISOString(),
+      interactions: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'proposal',
+          title: 'Lead Convertido em Cliente',
+          description: 'Este cliente foi criado a partir da conversão de um lead.',
+          date: new Date().toLocaleDateString('pt-BR'),
+          timestamp: Date.now(),
+          status: 'Convertido'
+        },
+        ...(lead.history || []).map(h => ({
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'proposal' as const,
+          title: `Histórico do Lead: ${h.action}`,
+          description: h.action,
+          date: h.date?.split(',')[0] || new Date().toLocaleDateString('pt-BR'),
+          timestamp: Date.now(),
+          status: 'Histórico'
+        }))
+      ],
+      auditLogs: [
+        {
+          id: Math.random().toString(36).substr(2, 9),
+          timestamp: new Date().toISOString(),
+          action: 'Conversão de Lead para Cliente',
+          userId: user?.id || 'system',
+          userName: user?.name || 'Sistema',
+          changes: [
+            { field: 'origin', oldValue: null, newValue: `Lead ID: ${lead.id}` }
+          ]
+        }
+      ]
+    };
+
+    // 2. Add to clients
+    await addClient(clientData);
+
+    // 3. Update lead status to closed
+    await updateLead({
+      ...lead,
+      status: 'closed',
+      history: [
+        {
+          date: new Date().toLocaleString('pt-BR'),
+          action: 'Lead convertido em cliente',
+          user: user?.name || 'Sistema'
+        },
+        ...(lead.history || [])
+      ]
+    });
+
+    setCurrentView('clients');
+  };
+
   const deleteLead = async (id: string) => {
     await deleteDocument('leads', id);
   };
@@ -490,6 +556,7 @@ export default function App() {
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
                     onLogout={handleLogout}
+                    onConvertToClient={handleConvertToClient}
                     onCreateProposal={(lead) => {
                       handleOpenProposalsWithPreFill({
                         client: lead.name,

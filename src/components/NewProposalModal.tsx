@@ -148,6 +148,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     roi: initialData?.roi || '385%',
     payback: initialData?.payback?.replace(' Anos', '') || '4.5',
     commission: initialData?.commission?.toString() || '5',
+    commissionStatus: initialData?.commissionStatus || 'pending',
     expiryDate: initialData?.expiryDate || '',
     ucNumber: initialData?.ucNumber || '',
     energyConsumption: initialData?.energyConsumption || '1357',
@@ -157,6 +158,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     financingBank: initialData?.financingBank || 'Credsol',
     financingInstallments: initialData?.financingInstallments?.toString() || '60',
     financingInstallmentValue: initialData?.financingInstallmentValue || 0,
+    internalNotes: initialData?.internalNotes || '',
+    proposalNumber: initialData?.proposalNumber || '',
+    additionalCost: initialData?.additionalCost?.toString() || '',
+    installationStartDate: initialData?.installationStartDate || '',
+    estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
     
     // Step 1: UCS
     titular: initialData?.titular || '',
@@ -168,14 +174,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     tensaoFornecimento: initialData?.tensaoFornecimento || 'Trifásico',
 
     // Step 2: KIT FV
-    panelBrandModel: initialData?.panelBrandModel || '',
-    panelQuantity: initialData?.panelQuantity?.toString() || '',
-    inverterBrandModel: initialData?.inverterBrandModel || '',
+    panelBrandModel: initialData?.panelBrandModel || 'Módulos MAXEON 540 W',
+    panelQuantity: initialData?.panelQuantity?.toString() || '24',
+    inverterBrandModel: initialData?.inverterBrandModel || 'AUXSOL 7.5',
     invertersQuantity: initialData?.invertersQuantity?.toString() || '1',
-    structureQuantity: initialData?.structureQuantity?.toString() || '',
-    structureType: initialData?.structureType || 'Sobre telhado',
+    structureQuantity: initialData?.structureQuantity?.toString() || '1',
+    structureType: initialData?.structureType || 'Alumínio Anodizado (específico para telhado)',
     cablesIncluded: initialData?.cablesIncluded !== undefined ? initialData.cablesIncluded : true,
-    protectionSystem: initialData?.protectionSystem || 'String box',
+    protectionSystem: initialData?.protectionSystem || 'String Box blindada',
 
     // Step 3: PRECIFICAÇÃO
     equipmentCost: initialData?.equipmentCost?.toString() || '',
@@ -311,6 +317,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         roi: initialData.roi || '385%',
         payback: initialData.payback?.replace(' Anos', '') || '4.2',
         commission: initialData.commission?.toString() || '5',
+        commissionStatus: initialData.commissionStatus || 'pending',
         expiryDate: initialData.expiryDate || '',
         ucNumber: initialData.ucNumber || '',
         energyConsumption: initialData.energyConsumption || '',
@@ -319,6 +326,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         financingBank: initialData.financingBank || 'Credsol',
         financingInstallments: initialData.financingInstallments?.toString() || '60',
         financingInstallmentValue: initialData.financingInstallmentValue || 0,
+        internalNotes: initialData.internalNotes || '',
+        proposalNumber: initialData.proposalNumber || '',
+        additionalCost: initialData.additionalCost?.toString() || '',
+        installationStartDate: initialData.installationStartDate || '',
+        estimatedCompletionDate: initialData.estimatedCompletionDate || '',
         
         titular: initialData.titular || '',
         cpfCnpj: initialData.cpfCnpj || '',
@@ -362,6 +374,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         roi: '385%',
         payback: '4.5',
         commission: '5',
+        commissionStatus: 'pending',
         expiryDate: '',
         ucNumber: '',
         energyConsumption: '1357',
@@ -370,6 +383,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         financingBank: 'Credsol',
         financingInstallments: '60',
         financingInstallmentValue: 0,
+        internalNotes: '',
+        proposalNumber: '',
+        additionalCost: '',
+        installationStartDate: '',
+        estimatedCompletionDate: '',
         
         titular: '',
         cpfCnpj: '',
@@ -471,7 +489,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         parseFloat(formData.installationCost || '0') + 
         parseFloat(formData.projectCost || '0') + 
         parseFloat(formData.licensingCost || '0') + 
-        parseFloat(formData.logisticCost || '0')
+        parseFloat(formData.logisticCost || '0') +
+        parseFloat(formData.additionalCost || '0')
       );
       const discountVal = parseFloat(formData.discount || '0');
       const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
@@ -481,6 +500,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
       const valueWithMargin = subtotal * multiplier;
       const totalVal = Math.max(0, valueWithMargin - discountVal);
+
+      // Store commission value
+      const commissionPerc = parseFloat(formData.commission || '0');
+      const commissionValue = totalVal * (commissionPerc / 100);
 
       // Calculate financing installment value if applicable
       let installmentValue = 0;
@@ -550,6 +573,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         projectCost: parseFloat(formData.projectCost) || 0,
         licensingCost: parseFloat(formData.licensingCost) || 0,
         logisticCost: parseFloat(formData.logisticCost) || 0,
+        additionalCost: parseFloat(formData.additionalCost) || 0,
+        installationStartDate: formData.installationStartDate || null,
+        estimatedCompletionDate: formData.estimatedCompletionDate || null,
+        calculatedCommission: commissionValue || 0,
         margin: parseFloat(formData.margin) || 0,
         financingRate: parseFloat(formData.financingRate) || 0,
         financingCET: parseFloat(formData.financingCET) || 0,
@@ -1150,6 +1177,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-[#fdb612]">Custo Adicional (Imprevistos)</label>
+                    <input 
+                      type="number" 
+                      value={formData.additionalCost || ''}
+                      onChange={(e) => setFormData({ ...formData, additionalCost: e.target.value })}
+                      className="w-full px-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/20 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Desconto (R$)</label>
                     <input 
                       type="number" 
@@ -1160,16 +1197,59 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   {(user?.role === 'admin' || user?.role === 'finance') && (
-                    <div className="space-y-2">
-                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
-                      <input 
-                        type="number" 
-                        value={formData.commission || ''}
-                        onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
-                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
-                      />
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Comissão (%)</label>
+                        <input 
+                          type="number" 
+                          value={formData.commission || ''}
+                          onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                        />
+                      </div>
+                      
+                      {formData.status === 'accepted' && (
+                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <label className="text-xs font-black uppercase tracking-widest text-emerald-600">Valor da Comissão (Calculado)</label>
+                          <div className="w-full px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl font-black text-[#00A86B] shadow-inner">
+                            {(() => {
+                              const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                           parseFloat(formData.installationCost || '0') + 
+                                           parseFloat(formData.projectCost || '0') + 
+                                           parseFloat(formData.licensingCost || '0') + 
+                                           parseFloat(formData.logisticCost || '0') +
+                                           parseFloat(formData.additionalCost || '0'));
+                              const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                              const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                              const comm = Math.max(0, total) * (parseFloat(formData.commission || '0') / 100);
+                              return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Data de Início da Instalação</label>
+                    <input 
+                      type="date"
+                      value={formData.installationStartDate || ''}
+                      onChange={(e) => setFormData({ ...formData, installationStartDate: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Conclusão Estimada</label>
+                    <input 
+                      type="date"
+                      value={formData.estimatedCompletionDate || ''}
+                      onChange={(e) => setFormData({ ...formData, estimatedCompletionDate: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-[#fdb612]">Margem de Lucro (%)</label>
@@ -1194,7 +1274,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.installationCost || '0') + 
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0'));
+                                       parseFloat(formData.logisticCost || '0') +
+                                       parseFloat(formData.additionalCost || '0'));
                           return sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
@@ -1207,7 +1288,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.installationCost || '0') + 
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0'));
+                                       parseFloat(formData.logisticCost || '0') +
+                                       parseFloat(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const marginVal = (sub * multiplier) - sub;
@@ -1223,7 +1305,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.installationCost || '0') + 
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0'));
+                                       parseFloat(formData.logisticCost || '0') +
+                                       parseFloat(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
@@ -1239,7 +1322,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                        parseFloat(formData.installationCost || '0') + 
                                        parseFloat(formData.projectCost || '0') + 
                                        parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0'));
+                                       parseFloat(formData.logisticCost || '0') +
+                                       parseFloat(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const total = (sub * multiplier) - parseFloat(formData.discount || '0');
@@ -1633,9 +1717,32 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="space-y-4">
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Número da Proposta</label>
+                        <input 
+                          type="text"
+                          value={formData.proposalNumber || ''}
+                          onChange={(e) => setFormData({ ...formData, proposalNumber: e.target.value })}
+                          placeholder="Ex: 2024-001"
+                          className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                        />
+                      </div>
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Titular</label>
                         <p className="font-bold">{formData.titular || formData.client || 'Não informado'}</p>
                       </div>
+                      {(user?.role === 'admin' || user?.role === 'finance') && (
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Status da Comissão</label>
+                          <select 
+                            value={formData.commissionStatus || 'pending'}
+                            onChange={(e) => setFormData({ ...formData, commissionStatus: e.target.value as any })}
+                            className="w-full text-sm font-bold bg-transparent outline-none"
+                          >
+                            <option value="pending text-slate-900">Pendente</option>
+                            <option value="paid text-slate-900">Pago</option>
+                          </select>
+                        </div>
+                      )}
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Sistema</label>
                         <p className="font-bold">{formData.systemSize} kWp / {formData.panelQuantity} Módulos</p>
@@ -1643,6 +1750,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div className="space-y-4">
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Observações Internas</label>
+                        <textarea 
+                          value={formData.internalNotes || ''}
+                          onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
+                          placeholder="Notas internas..."
+                          rows={2}
+                          className="w-full text-sm font-bold bg-transparent outline-none resize-none border-b border-slate-200 focus:border-[#00A86B]"
+                        />
+                      </div>
                       <div className="p-4 bg-[#00A86B] text-white rounded-2xl shadow-lg shadow-[#00A86B]/10">
                         <label className="text-[10px] font-black uppercase opacity-60 block mb-1 tracking-widest">Investimento Total</label>
                         <p className="text-2xl font-black">

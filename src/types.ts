@@ -18,9 +18,24 @@ export interface Interaction {
   id: string;
   date: string;
   type: string;
+  title?: string;
   description: string;
   userName?: string;
-  status?: 'completed' | 'pending';
+  status?: string;
+  timestamp?: number;
+}
+
+export interface ClientAuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  changes?: {
+    field: string;
+    oldValue: any;
+    newValue: any;
+  }[];
+  timestamp: string;
 }
 
 export interface Client {
@@ -38,6 +53,9 @@ export interface Client {
   latitude?: number;
   longitude?: number;
   type?: 'residential' | 'rural' | 'industrial' | 'commercial' | 'public';
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
+  auditLogs?: ClientAuditLog[];
 }
 
 export interface Stat {
@@ -174,6 +192,11 @@ export interface Proposal {
   internalNotes?: string | null;
   
   // Advanced Wizard Fields
+  additionalCost?: number;
+  installationStartDate?: string;
+  estimatedCompletionDate?: string;
+  calculatedCommission?: number | null;
+  
   // Step 1: UCS
   titular?: string;
   cpfCnpj?: string;

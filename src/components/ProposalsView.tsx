@@ -66,7 +66,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [proposalToDelete, setProposalToDelete] = useState<Proposal | null>(null);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [representativeFilter, setRepresentativeFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Proposal | 'value_num'; direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'desc' });
   const [showFilters, setShowFilters] = useState(false);
@@ -404,7 +404,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       doc.setFont("helvetica", "normal");
       doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 50);
       doc.text(`Consultor: ${representativeFilter === 'all' ? 'Todos' : representativeFilter}`, 20, 57);
-      doc.text(`Status: ${statusFilter === 'all' ? 'Todos' : statusFilter}`, 20, 64);
+      doc.text(`Status: ${statusFilters.length === 0 ? 'Todos' : statusFilters.join(', ')}`, 20, 64);
       
       // Table
       const headers = [['ID', 'CLIENTE', 'VALOR', 'DATA', 'STATUS', 'SISTEMA (kWp)', 'COMISSÃO']];
@@ -564,6 +564,14 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     return Array.from(brands).sort();
   }, [kits]);
 
+  const representatives = useMemo(() => {
+    const reps = new Set<string>();
+    proposals.forEach(p => {
+      if (p.representative) reps.add(p.representative);
+    });
+    return Array.from(reps).sort();
+  }, [proposals]);
+
   const filteredProposals = useMemo(() => {
     let result = proposals.filter(p => {
       const kit = kits.find(k => k.id === p.kitId);
@@ -581,7 +589,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                            p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            kitSearch;
       
-      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesStatus = statusFilters.length === 0 || statusFilters.includes(p.status);
       const matchesRepFilter = representativeFilter === 'all' || p.representative === representativeFilter;
       
       const matchesId = filters.id === '' || p.id.toLowerCase().includes(filters.id.toLowerCase());
@@ -666,7 +674,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     }
 
     return result;
-  }, [proposals, searchTerm, statusFilter, representativeFilter, filters, sortConfig]);
+  }, [proposals, searchTerm, statusFilters, representativeFilter, filters, sortConfig]);
 
   const handleToggleCommissionStatus = async (proposal: Proposal, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -907,7 +915,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
             />
           </div>
           <div className="flex gap-2 w-full md:w-auto items-center">
-            {(searchTerm || statusFilter !== 'all' || representativeFilter !== 'all' || filters.id || filters.client || filters.system || filters.value || filters.representative !== 'all' || filters.startDate || filters.endDate) && (
+            {(searchTerm || statusFilters.length > 0 || representativeFilter !== 'all' || filters.id || filters.client || filters.system || filters.value || filters.representative !== 'all' || filters.startDate || filters.endDate) && (
               <button 
                 onClick={() => {
                   setFilters({
@@ -920,7 +928,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     endDate: ''
                   });
                   setSearchTerm('');
-                  setStatusFilter('all');
+                  setStatusFilters([]);
                   setRepresentativeFilter('all');
                 }}
                 className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 px-2 py-1"
@@ -946,27 +954,42 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                 className="w-full md:w-auto appearance-none pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
               >
                 <option value="all">Todos Consultores</option>
-                <option value="Marusan Pinto">Marusan Pinto</option>
-                <option value="Ana Silva">Ana Silva</option>
-                <option value="Carlos Oliveira">Carlos Oliveira</option>
+                {representatives.map(rep => (
+                  <option key={rep} value={rep}>{rep}</option>
+                ))}
               </select>
               <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
-            <div className="relative flex-1 md:flex-none">
-              <select 
-                value={statusFilter || 'all'}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full md:w-auto appearance-none pl-10 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
-              >
-                <option value="all">Todos os Status</option>
-                <option value="pending">Pendente</option>
-                <option value="sent">Enviada</option>
-                <option value="accepted">Aceita</option>
-                <option value="expired">Expirada</option>
-                <option value="cancelled">Cancelada</option>
-              </select>
-              <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+
+            <div className="flex flex-wrap gap-2 items-center bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-2 hidden lg:block">Filtrar por Status:</span>
+              {[
+                { id: 'pending', label: 'Pendente', icon: Clock },
+                { id: 'sent', label: 'Enviada', icon: Send },
+                { id: 'accepted', label: 'Aceita', icon: CheckCircle2 },
+                { id: 'expired', label: 'Expirada', icon: AlertCircle },
+                { id: 'cancelled', label: 'Cancelada', icon: XCircle }
+              ].map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    setStatusFilters(prev => 
+                      prev.includes(s.id) ? prev.filter(f => f !== s.id) : [...prev, s.id]
+                    );
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border",
+                    statusFilters.includes(s.id)
+                      ? "bg-[#fdb612] text-[#231d0f] border-[#fdb612] shadow-md shadow-[#fdb612]/20 scale-105"
+                      : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm"
+                  )}
+                >
+                  <s.icon className="w-3 h-3" />
+                  <span className="hidden sm:inline">{s.label}</span>
+                </button>
+              ))}
             </div>
+
             <button 
               onClick={handleExportListPDF}
               className="flex-1 md:flex-none px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -1120,7 +1143,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   <option value="paid">Paga</option>
                 </select>
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
                 <button 
                   onClick={() => {
                     setFilters({
@@ -1132,14 +1155,21 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                       startDate: '',
                       endDate: '',
                       kitPanel: '',
-                      kitInverter: ''
+                      kitInverter: '',
+                      commissionStatus: 'all'
                     });
                     setSearchTerm('');
-                    setStatusFilter('all');
+                    setStatusFilters([]);
                   }}
-                  className="w-full py-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-[#fdb612] transition-colors"
+                  className="flex-1 py-1 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-200 dark:border-slate-800"
                 >
-                  Limpar Filtros
+                  Limpar
+                </button>
+                <button 
+                  onClick={() => setShowFilters(false)}
+                  className="flex-1 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#fdb612]/10"
+                >
+                  Aplicar
                 </button>
               </div>
             </div>

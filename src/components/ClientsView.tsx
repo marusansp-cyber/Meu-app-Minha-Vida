@@ -52,8 +52,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   onCreateProposal
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [clientFilters, setClientFilters] = useState({
     cnpj_cpf: '',
@@ -70,6 +71,16 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [history, setHistory] = useState<HistoryType[]>([]);
 
   const isAdminOrStaff = user?.role === 'admin' || user?.role === 'admin_staff' || user?.role === 'sales' || user?.role === 'finance' || user?.role === 'engineer';
+
+  const searchSuggestions = useMemo(() => {
+    if (searchTerm.length < 2) return [];
+    return (clients || []).filter(client => 
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.cnpj && client.cnpj.includes(searchTerm)) ||
+      (client.cpf && client.cpf.includes(searchTerm))
+    ).slice(0, 5);
+  }, [clients, searchTerm]);
 
   React.useEffect(() => {
     const unsubscribe = syncCollection<HistoryType>('history', setHistory, 'timestamp');
@@ -89,7 +100,38 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const handleSaveClient = async (clientData: Partial<Client>) => {
     try {
       if (editingClient) {
-        await onUpdateClient(editingClient.id, clientData);
+        // Record audit log
+        const changes: any[] = [];
+        const oldData = editingClient as any;
+        const newData = clientData as any;
+        
+        Object.keys(clientData).forEach(key => {
+          if (oldData[key] !== newData[key]) {
+            changes.push({
+              field: key,
+              oldValue: oldData[key],
+              newValue: newData[key]
+            });
+          }
+        });
+
+        const auditLog = {
+          id: Math.random().toString(36).substr(2, 9),
+          userId: user?.id || 'system',
+          userName: user?.name || 'Sistema',
+          action: 'Atualização de Informações',
+          changes,
+          timestamp: new Date().toISOString()
+        };
+
+        const finalData = {
+          ...clientData,
+          lastModifiedBy: user?.name || 'Sistema',
+          lastModifiedAt: new Date().toISOString(),
+          auditLogs: [...(editingClient.auditLogs || []), auditLog]
+        };
+
+        await onUpdateClient(editingClient.id, finalData);
         showToast('Cliente atualizado com sucesso!');
       } else {
         await onAddClient(clientData);
@@ -134,7 +176,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         (client.cnpj && client.cnpj.includes(searchTerm)) ||
         (client.cpf && client.cpf.includes(searchTerm));
       
-      const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
+      const matchesStatus = statusFilters.length === 0 || statusFilters.includes(client.status);
       
       const matchesCnpj = !clientFilters.cnpj_cpf || 
         (client.cnpj && client.cnpj.includes(clientFilters.cnpj_cpf)) ||
@@ -144,8 +186,16 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       if (clientFilters.startDate || clientFilters.endDate) {
         const regDate = client.createdAt ? new Date(client.createdAt) : null;
         if (regDate) {
-          if (clientFilters.startDate && regDate < new Date(clientFilters.startDate)) matchesDate = false;
-          if (clientFilters.endDate && regDate > new Date(clientFilters.endDate)) matchesDate = false;
+          if (clientFilters.startDate) {
+            const start = new Date(clientFilters.startDate);
+            start.setHours(0, 0, 0, 0);
+            if (regDate < start) matchesDate = false;
+          }
+          if (clientFilters.endDate) {
+            const end = new Date(clientFilters.endDate);
+            end.setHours(23, 59, 59, 999);
+            if (regDate > end) matchesDate = false;
+          }
         } else {
           matchesDate = false;
         }
@@ -173,7 +223,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       }
       return 0;
     });
-  }, [clients, searchTerm, filterStatus, clientFilters, sortBy, proposals, installations]);
+  }, [clients, searchTerm, statusFilters, clientFilters, sortBy, proposals, installations]);
 
   const stats = useMemo(() => {
     const active = (clients || []).filter(c => c.status === 'active').length;
@@ -454,7 +504,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 status: i.progress + '%'
               }));
 
-            const allInteractions = [...clientProposals, ...clientInstallations]
+            const clientManualInteractions = (client.interactions || []).map(i => ({
+              type: i.type,
+              title: i.title,
+              date: i.date,
+              timestamp: i.timestamp,
+              status: i.status
+            }));
+
+            const allInteractions = [...clientProposals, ...clientInstallations, ...clientManualInteractions]
               .sort((a, b) => b.timestamp - a.timestamp)
               .slice(0, 5);
 
@@ -727,11 +785,55 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         type="text"
                         placeholder="Buscar por nome, email, tel, CPF/CNPJ..."
                         value={searchTerm || ''}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
                         className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all font-medium"
                       />
+                      
+                      {/* Autocomplete Suggestions */}
+                      <AnimatePresence>
+                        {showSuggestions && searchSuggestions.length > 0 && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setShowSuggestions(false)}
+                            />
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 10 }}
+                              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden"
+                            >
+                              <div className="p-2 space-y-1">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-3 py-2">Sugestões</p>
+                                {searchSuggestions.map((suggestion) => (
+                                  <button
+                                    key={suggestion.id}
+                                    onClick={() => {
+                                      setSearchTerm(suggestion.name);
+                                      setShowSuggestions(false);
+                                      setSelectedClient(suggestion);
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 hover:bg-[#fdb612]/10 rounded-xl transition-colors text-left"
+                                  >
+                                    <div>
+                                      <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.name}</p>
+                                      <p className="text-[10px] text-slate-500 font-medium">{suggestion.email}</p>
+                                    </div>
+                                    <ExternalLink className="w-3 h-3 text-[#fdb612]" />
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
+
                   <button 
                     onClick={() => setShowFilters(!showFilters)}
                     className={cn(
@@ -797,9 +899,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         <select 
                           value={clientFilters.type}
                           onChange={(e) => setClientFilters({ ...clientFilters, type: e.target.value as any })}
-                          className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none"
+                          className="w-full px-3 py-1.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-2 focus:ring-[#fdb612]/30"
                         >
-                          <option value="all">Todos os Tipos</option>
+                          <option value="all">Todos</option>
                           <option value="residential">Residencial</option>
                           <option value="rural">Rural</option>
                           <option value="industrial">Industrial</option>
@@ -807,26 +909,69 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           <option value="public">Público</option>
                         </select>
                       </div>
+                      <div className="pt-2">
+                        <button 
+                          onClick={() => {
+                            setClientFilters({
+                              cnpj_cpf: '',
+                              startDate: '',
+                              endDate: '',
+                              hasProject: 'all',
+                              type: 'all'
+                            });
+                            setSearchTerm('');
+                            setStatusFilters([]);
+                          }}
+                          className="w-full py-2 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-[#fdb612] hover:text-[#231d0f] transition-all"
+                        >
+                          Limpar Filtros
+                        </button>
+                      </div>
                     </div>
                   </motion.div>
                 )}
                 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
-                  <div className="flex bg-slate-50 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
-                    {(['all', 'active', 'inactive'] as const).map((status) => (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Status:</span>
+                    {[
+                      { id: 'active', label: 'Ativos', color: 'bg-emerald-500' },
+                      { id: 'inactive', label: 'Inativos', color: 'bg-slate-500' }
+                    ].map((status) => (
                       <button
-                        key={status}
-                        onClick={() => setFilterStatus(status)}
+                        key={status.id}
+                        onClick={() => {
+                          setStatusFilters(prev => 
+                            prev.includes(status.id) ? prev.filter(s => s !== status.id) : [...prev, status.id]
+                          );
+                        }}
                         className={cn(
-                          "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                          filterStatus === status 
-                            ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm" 
-                            : "text-slate-400 hover:text-slate-600"
+                          "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border shrink-0",
+                          statusFilters.includes(status.id)
+                            ? `bg-white dark:bg-slate-800 border-[#fdb612] text-[#fdb612] shadow-sm` 
+                            : "bg-slate-50/50 dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600"
                         )}
                       >
-                        {status === 'all' ? 'Todos' : status === 'active' ? 'Ativos' : 'Inativos'}
+                        <div className="flex items-center gap-2">
+                          <div className={cn("size-1.5 rounded-full", status.color)} />
+                          {status.label}
+                        </div>
                       </button>
                     ))}
+                    {statusFilters.length > 0 && (
+                      <button 
+                        onClick={() => setStatusFilters([])}
+                        className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline ml-2"
+                      >
+                        Limpar
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setShowFilters(false)}
+                      className="ml-auto px-4 py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-widest text-[9px] shadow-lg shadow-[#fdb612]/10"
+                    >
+                      Aplicar
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-4">

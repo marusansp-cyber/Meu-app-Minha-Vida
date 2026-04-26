@@ -88,6 +88,18 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     setTimeout(() => setToast(null), 3000);
   };
 
+  const toggleKitStatus = async (kitId: string, currentStatus: string | undefined) => {
+    try {
+      await updateDocument('kits', kitId, {
+        status: currentStatus === 'active' ? 'inactive' : 'active',
+        updatedAt: new Date().toISOString()
+      });
+      showToast('Status do kit atualizado.');
+    } catch (error) {
+      showToast('Erro ao atualizar status do kit.');
+    }
+  };
+
   const handleEditKit = (kit: Kit) => {
     setSelectedKit(kit);
     setIsModalOpen(true);
@@ -152,17 +164,36 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         const description = row[columnMapping.description] || '';
 
         const components: any[] = [];
-        // Support some basic component injection if pattern is found
-        for (let i = 1; i <= 10; i++) {
-          const cName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
+        
+        // Map defined components
+        for (let i = 1; i <= 3; i++) {
+          const nameKey = `comp${i}Name`;
+          const qtyKey = `comp${i}Qty`;
+          const cName = row[columnMapping[nameKey]];
           if (cName) {
             components.push({
               name: cName,
-              quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
-              brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
-              model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
-              notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
+              quantity: parseInt(row[columnMapping[qtyKey]] || '1'),
+              brand: '',
+              model: '',
+              notes: ''
             });
+          }
+        }
+
+        // Also check if pattern from previous implementation is still useful as backup
+        if (components.length === 0) {
+          for (let i = 1; i <= 10; i++) {
+            const cName = row[`Componente ${i} Nome`] || row[`componente_${i}_nome`];
+            if (cName) {
+              components.push({
+                name: cName,
+                quantity: parseInt(row[`Componente ${i} Qtd`] || row[`componente_${i}_qtd`] || '1'),
+                brand: row[`Componente ${i} Marca`] || row[`componente_${i}_marca`] || '',
+                model: row[`Componente ${i} Modelo`] || row[`componente_${i}_modelo`] || '',
+                notes: row[`Componente ${i} Notas`] || row[`componente_${i}_notas`] || ''
+              });
+            }
           }
         }
 
@@ -743,9 +774,18 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                             </div>
                             <div className="space-y-1">
                               <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Status</span>
-                              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 rounded text-[8px] font-black uppercase">
+                              <button
+                                onClick={() => toggleKitStatus(kit.id, kit.status)}
+                                className={cn(
+                                  "px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all flex items-center gap-1",
+                                  kit.status === 'active' 
+                                    ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200" 
+                                    : "bg-rose-100 text-rose-600 hover:bg-rose-200"
+                                )}
+                              >
+                                {kit.status === 'active' ? <CheckCircle2 className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
                                 {kit.status === 'active' ? 'Ativo' : 'Inativo'}
-                              </span>
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -1017,12 +1057,19 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-[#004a61]">Definição de Colunas</h4>
                     </div>
                     
-                    {[
-                      { key: 'name', label: 'Nome do Kit' },
-                      { key: 'power', label: 'Potência (kWp)' },
-                      { key: 'price', label: 'Preço (R$)' },
-                      { key: 'description', label: 'Descrição' }
-                    ].map(field => (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {[
+                        { key: 'name', label: 'Nome do Kit' },
+                        { key: 'power', label: 'Potência (kWp)' },
+                        { key: 'price', label: 'Preço (R$)' },
+                        { key: 'description', label: 'Descrição' },
+                        { key: 'comp1Name', label: 'Componente 1 - Nome' },
+                        { key: 'comp1Qty', label: 'Componente 1 - Qtd' },
+                        { key: 'comp2Name', label: 'Componente 2 - Nome' },
+                        { key: 'comp2Qty', label: 'Componente 2 - Qtd' },
+                        { key: 'comp3Name', label: 'Componente 3 - Nome' },
+                        { key: 'comp3Qty', label: 'Componente 3 - Qtd' },
+                      ].map(field => (
                       <div key={field.key} className="space-y-2 group">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 transition-colors group-focus-within:text-[#004a61]">{field.label}</label>
                         <select 
@@ -1037,6 +1084,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                         </select>
                       </div>
                     ))}
+                    </div>
                   </div>
 
                   <div className="space-y-6">

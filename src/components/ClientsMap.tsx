@@ -210,6 +210,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
                   </div>
 
                   <div className="text-[10px] text-slate-500 mb-2 truncate" title={marker.client.address}>{marker.client.address}</div>
+                  <div className="flex flex-col gap-2 mb-3">
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${marker.coords[0]},${marker.coords[1]}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                    >
+                      <MapPin className="w-3 h-3" /> Ver no Google Maps
+                    </a>
+                  </div>
                   <div className="flex gap-2">
                     <button 
                       onClick={() => onSelectClient?.(marker.client)}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize } from 'lucide-react';
 import { Client, Lead, User as UserType } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
@@ -381,24 +381,50 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   )}
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleGeocode}
-                disabled={isGeocoding}
-                className="flex items-center justify-center gap-2 w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 font-bold text-xs disabled:opacity-50"
-              >
-                {isGeocoding ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Buscando...
-                  </>
-                ) : (
-                  <>
-                    <Crosshair className="w-4 h-4" />
-                    Buscar Coordenadas
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleGeocode}
+                  disabled={isGeocoding}
+                  className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 font-bold text-xs disabled:opacity-50"
+                >
+                  {isGeocoding ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Buscando...
+                    </>
+                  ) : (
+                    <>
+                      <Crosshair className="w-3 h-3" />
+                      Buscar por Endereço
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          setFormData({
+                            ...formData,
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                          });
+                        },
+                        (error) => {
+                          console.error('Geolocation error:', error);
+                          alert('Não foi possível obter sua localização atual.');
+                        }
+                      );
+                    }
+                  }}
+                  className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800"
+                  title="Usar minha localização atual"
+                >
+                  <Maximize className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {errors.address && <p className="text-[10px] font-bold text-rose-500">{errors.address}</p>}
           </div>
