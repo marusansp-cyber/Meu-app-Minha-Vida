@@ -17,7 +17,8 @@ import {
   BadgeCheck,
   Award,
   Lock,
-  LayoutGrid
+  LayoutGrid,
+  Download
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
@@ -70,19 +71,62 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
   ];
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
+    <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700 print:p-0 print:m-0 print:max-w-none">
       {/* Header / Hero */}
-      <header className="bg-white dark:bg-[#231d0f] rounded-[3rem] p-10 border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#fdb612]/5 rounded-full -mr-48 -mt-48 blur-3xl" />
+      <header className="bg-white dark:bg-[#231d0f] rounded-[3rem] p-10 border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden print:rounded-none print:shadow-none print:border-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#fdb612]/5 rounded-full -mr-48 -mt-48 blur-3xl print:hidden" />
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative z-10">
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="size-16 bg-[#fdb612] rounded-2xl flex items-center justify-center text-[#231d0f] font-black text-2xl shadow-lg shadow-[#fdb612]/20">
-                VS
+            <div className="flex items-center justify-between w-full md:w-auto">
+              <div className="flex items-center gap-4">
+                <div className="size-16 bg-[#fdb612] rounded-2xl flex items-center justify-center text-[#231d0f] font-black text-2xl shadow-lg shadow-[#fdb612]/20">
+                  VS
+                </div>
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Vieira's Solar</h1>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Engenharia & Energia</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Vieira's Solar</h1>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Engenharia & Energia</p>
+              <div className="flex gap-2 print:hidden ml-4">
+                <button 
+                  onClick={async () => {
+                    const { generateProposalPDF } = await import('../services/pdfService');
+                    // We need a dummy proposal object or better, we should pass the full proposal data to ProposalView
+                    // For now, let's trigger a toast or handle it if we have the data
+                    // Since ProposalView is a presentation component, I will add a loading state
+                    const link = document.createElement('a');
+                    link.href = await generateProposalPDF({
+                      client: clientName,
+                      value: totalInvestment,
+                      systemSize: systemSize,
+                      date: new Date().toISOString(),
+                      status: 'pending',
+                      representative: "Consultor Vieira's",
+                      payback: (paybackMonths / 12).toFixed(1)
+                    } as any);
+                    link.download = `Proposta_${clientName.replace(/\s+/g, '_')}.pdf`;
+                    link.click();
+                  }}
+                  className="p-3 bg-emerald-500 text-white rounded-xl hover:scale-110 transition-all shadow-lg flex items-center gap-2"
+                  title="Baixar Dossiê PDF"
+                >
+                  <Download className="w-5 h-5" />
+                  <span className="hidden lg:inline text-xs font-black uppercase">Dossiê Completo</span>
+                </button>
+                <button 
+                  onClick={() => window.print()}
+                  className="p-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:scale-110 transition-all shadow-lg"
+                  title="Versão para Impressão"
+                >
+                  <FileText className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={onBack}
+                  className="p-3 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white rounded-xl hover:scale-110 transition-all border border-slate-200 dark:border-white/10"
+                  title="Voltar"
+                >
+                  <ArrowRight className="w-5 h-5 rotate-180" />
+                </button>
               </div>
             </div>
             <div className="space-y-1">

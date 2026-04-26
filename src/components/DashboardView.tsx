@@ -277,15 +277,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const recentActivities = useMemo(() => {
     const activities: any[] = [];
     
+    const parseDateBr = (dateStr: string) => {
+      if (!dateStr) return new Date();
+      // Handle "DD/MM/YYYY, HH:mm:ss" or "DD/MM/YYYY HH:mm:ss"
+      const cleanDate = dateStr.split(',')[0].split(' ')[0];
+      const parts = cleanDate.split('/');
+      if (parts.length === 3) {
+        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      }
+      return new Date(dateStr);
+    };
+
     leads.forEach(lead => {
       (lead.history || []).slice(0, 2).forEach(h => {
+        const activityDate = parseDateBr(h.date);
         activities.push({
           id: `lead-${lead.id}-${h.date}`,
           type: 'proposal', 
           title: lead.name,
-          description: h.note,
+          description: h.action, // Changed from h.note which doesn't exist to h.action
           time: h.date,
-          timestamp: new Date(h.date.split('/').reverse().join('-')).getTime() || 0
+          timestamp: activityDate.getTime() || 0
         });
       });
     });

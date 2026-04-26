@@ -49,12 +49,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   });
 
   const [companySettings, setCompanySettings] = useState<Partial<CompanySettings>>({
-    companyName: "MV ENGENHARIA E CONSTRUCOES LTDA",
-    cnpj: "61.950.902/0018-33",
-    address: "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
-    email: "contato@mvengenharia.com.br",
-    contactEmail: "suporte@mvengenharia.com.br",
-    phone: "(11) 3456-7890",
+    companyName: "Vieira's Solar & Engenharia",
+    cnpj: "54.123.456/0001-99", // Placeholder cnpj for solar company
+    address: "Rua das Paineiras, 123 - Centro, Montes Claros - MG",
+    email: "contato@vieirassolar.com.br",
+    contactEmail: "suporte@vieirassolar.com.br",
+    phone: "(38) 3221-0000",
     monthlyInvoice: 0
   });
 
