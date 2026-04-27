@@ -25,7 +25,6 @@ import { GlobalSearch } from './components/GlobalSearch';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument } from './firestoreUtils';
-import { motion, AnimatePresence } from 'motion/react';
 
 import { ToastProvider } from './context/ToastContext';
 
@@ -480,195 +479,169 @@ export default function App() {
           </header>
 
           {/* Desktop Header */}
-          <header className="hidden lg:flex items-center justify-between px-10 py-5 bg-white/80 dark:bg-brand-primary/95 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 sticky top-0 z-[100] shadow-sm">
-            <div className="flex-1 max-w-2xl">
+          <header className="hidden lg:flex items-center justify-between px-8 py-4 bg-white/50 dark:bg-[#231d0f]/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30">
+            <div className="flex-1 max-w-xl">
               <GlobalSearch 
                 clients={clients}
                 proposals={proposals}
                 installations={installations}
                 onResultClick={(view, id) => {
                   setCurrentView(view);
+                  // Optional: handle scrolling or opening details modal
                 }}
               />
             </div>
 
-            <div className="flex items-center gap-8 pl-8">
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => setIsDarkMode(false)}
-                  className={cn(
-                    "p-2 rounded-xl transition-all",
-                    !isDarkMode ? "bg-white text-brand-primary shadow-sm" : "text-slate-400 hover:text-slate-600"
-                  )}
-                  title="Modo Claro"
-                >
-                  <Sun className="w-4.5 h-4.5" />
-                </button>
-                <button
-                  onClick={() => setIsDarkMode(true)}
-                  className={cn(
-                    "p-2 rounded-xl transition-all",
-                    isDarkMode ? "bg-brand-primary text-white shadow-sm" : "text-slate-400 hover:text-slate-200"
-                  )}
-                  title="Modo Escuro"
-                >
-                  <Moon className="w-4.5 h-4.5" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-8">
-                <NotificationCenter proposals={proposals} />
-                <div className="flex items-center gap-4 group cursor-pointer" onClick={() => setCurrentView('settings')}>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-brand-primary dark:text-slate-100 uppercase tracking-tighter leading-none mb-1">{user?.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.role}</p>
-                  </div>
-                  <div className="size-11 rounded-2xl bg-brand-primary text-white flex items-center justify-center font-black shadow-lg shadow-brand-primary/20 group-hover:scale-105 transition-transform overflow-hidden">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="Me" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      user?.email.charAt(0).toUpperCase()
-                    )}
-                  </div>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
+                title={isDarkMode ? "Modo Claro" : "Modo Escuro"}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <NotificationCenter proposals={proposals} />
+              <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-black text-slate-900 dark:text-slate-100 capitalize">{user?.role}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.email}</p>
                 </div>
+                <div className="size-10 rounded-full bg-[#fdb612] flex items-center justify-center text-[#231d0f] font-black mr-2">
+                  {user?.email.charAt(0).toUpperCase()}
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-2"
+                  title="Sair"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-xs font-bold uppercase tracking-widest hidden xl:inline">Sair</span>
+                </button>
               </div>
             </div>
           </header>
 
           <div className="max-w-7xl mx-auto p-4 md:p-8 w-full">
-            <AnimatePresence mode="wait">
-              {!canAccess(currentView) ? (
-                <motion.div 
-                  key="access-denied"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="flex flex-col items-center justify-center h-[60vh] text-slate-400"
+            {!canAccess(currentView) ? (
+              <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
+                <ShieldAlert className="w-16 h-16 mb-4 text-red-500/50" />
+                <p className="text-xl font-bold">Acesso Restrito</p>
+                <p className="text-sm">Você não tem permissão para acessar esta área.</p>
+                <button 
+                  onClick={() => setCurrentView('dashboard')}
+                  className="mt-6 px-6 py-2 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold"
                 >
-                  <ShieldAlert className="w-16 h-16 mb-4 text-red-500/50" />
-                  <p className="text-xl font-bold">Acesso Restrito</p>
-                  <p className="text-sm">Você não tem permissão para acessar esta área.</p>
-                  <button 
-                    onClick={() => setCurrentView('dashboard')}
-                    className="mt-6 px-6 py-2 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold"
-                  >
-                    Voltar ao Painel
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key={currentView}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {currentView === 'dashboard' && (
-                    <DashboardView 
-                      installations={installations} 
-                      leads={leads}
-                      proposals={proposals}
-                      user={user}
-                      onOpenNewProject={() => setIsProjectModalOpen(true)} 
-                      onManageProjects={() => setCurrentView('installations')}
-                      onAddCollaborator={() => setCurrentView('collaborators')}
-                      onGoToLeads={() => setCurrentView('leads')}
-                    />
-                  )}
-                  {currentView === 'leads' && (
-                    <LeadsView 
-                      leads={leads} 
-                      onOpenNewLead={() => setIsLeadModalOpen(true)} 
-                      onDeleteLead={deleteLead}
-                      onUpdateLead={updateLead}
-                      onLogout={handleLogout}
-                      onConvertToClient={handleConvertToClient}
-                      onCreateProposal={(lead) => {
-                        handleOpenProposalsWithPreFill({
-                          client: lead.name,
-                          email: lead.email,
-                          value: typeof lead.value === 'string' ? parseFloat(lead.value.replace(/[^\d,]/g, '').replace(',', '.')) : lead.value,
-                          systemSize: lead.systemSize,
-                          titular: lead.name,
-                          cpfCnpj: lead.cpfCnpj,
-                          endereco: lead.address,
-                          cep: lead.cep,
-                          ucNumber: lead.ucNumber,
-                          telefone: lead.phone
-                        });
-                      }}
-                    />
-                  )}
-                  {currentView === 'installations' && (
-                    <InstallationsView 
-                      installations={installations}
-                      onOpenNewProject={() => {
-                        setEditingProject(null);
-                        setIsProjectModalOpen(true);
-                      }} 
-                      onEditProject={(project) => {
-                        setEditingProject(project);
-                        setIsProjectModalOpen(true);
-                      }}
-                      onUpdateInstallation={updateInstallation}
-                      onDeleteInstallation={deleteInstallation}
-                    />
-                  )}
-                  {currentView === 'team' && <TeamView />}
-                  {currentView === 'users' && <UsersView />}
-                  {currentView === 'sales' && <SalesView proposals={proposals} />}
-                  {currentView === 'proposals' && (
-                    <ProposalsView 
-                      proposals={proposals} 
-                      user={user} 
-                      kits={kits} 
-                      leads={leads} 
-                      clients={clients} 
-                      preFill={proposalPreFill}
-                      onPreFillComplete={() => setProposalPreFill(null)}
-                      onConvertToInstallation={handleConvertToInstallation}
-                    />
-                  )}
-                  {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
-                  {currentView === 'partners' && <PartnersView partners={partners} />}
-                  {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
-                  {currentView === 'kits' && <KitsView kits={kits} />}
-                  {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
-                  {currentView === 'reports' && (
-                    <ReportsView 
-                      proposals={proposals} 
-                      installations={installations}
-                      leads={leads}
-                      clients={clients}
-                    />
-                  )}
-                  {currentView === 'clients' && (
-                    <ClientsView 
-                      clients={clients} 
-                      proposals={proposals} 
-                      installations={installations}
-                      leads={leads}
-                      user={user}
-                      onAddClient={addClient}
-                      onUpdateClient={updateClient}
-                      onDeleteClient={deleteClient}
-                      onCreateProposal={(client) => {
-                        handleOpenProposalsWithPreFill({
-                          client: client.name,
-                          email: client.email,
-                          value: (client as any).value || 0,
-                          systemSize: (client as any).systemSize || '',
-                          titular: client.name,
-                          cpfCnpj: client.cnpj || client.cpf || '',
-                          endereco: client.address,
-                          telefone: client.phone
-                        });
-                      }}
-                    />
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  Voltar ao Painel
+                </button>
+              </div>
+            ) : (
+              <>
+                {currentView === 'dashboard' && (
+                  <DashboardView 
+                    installations={installations} 
+                    leads={leads}
+                    proposals={proposals}
+                    user={user}
+                    onOpenNewProject={() => setIsProjectModalOpen(true)} 
+                    onManageProjects={() => setCurrentView('installations')}
+                    onAddCollaborator={() => setCurrentView('collaborators')}
+                    onGoToLeads={() => setCurrentView('leads')}
+                  />
+                )}
+                {currentView === 'leads' && (
+                  <LeadsView 
+                    leads={leads} 
+                    onOpenNewLead={() => setIsLeadModalOpen(true)} 
+                    onDeleteLead={deleteLead}
+                    onUpdateLead={updateLead}
+                    onLogout={handleLogout}
+                    onConvertToClient={handleConvertToClient}
+                    onCreateProposal={(lead) => {
+                      handleOpenProposalsWithPreFill({
+                        client: lead.name,
+                        email: lead.email,
+                        value: typeof lead.value === 'string' ? parseFloat(lead.value.replace(/[^\d,]/g, '').replace(',', '.')) : lead.value,
+                        systemSize: lead.systemSize,
+                        titular: lead.name,
+                        cpfCnpj: lead.cpfCnpj,
+                        endereco: lead.address,
+                        cep: lead.cep,
+                        ucNumber: lead.ucNumber,
+                        telefone: lead.phone
+                      });
+                    }}
+                  />
+                )}
+                {currentView === 'installations' && (
+                  <InstallationsView 
+                    installations={installations}
+                    onOpenNewProject={() => {
+                      setEditingProject(null);
+                      setIsProjectModalOpen(true);
+                    }} 
+                    onEditProject={(project) => {
+                      setEditingProject(project);
+                      setIsProjectModalOpen(true);
+                    }}
+                    onUpdateInstallation={updateInstallation}
+                    onDeleteInstallation={deleteInstallation}
+                  />
+                )}
+                {currentView === 'team' && <TeamView />}
+                {currentView === 'users' && <UsersView />}
+                {currentView === 'sales' && <SalesView proposals={proposals} />}
+                {currentView === 'proposals' && (
+                  <ProposalsView 
+                    proposals={proposals} 
+                    user={user} 
+                    kits={kits} 
+                    leads={leads} 
+                    clients={clients} 
+                    preFill={proposalPreFill}
+                    onPreFillComplete={() => setProposalPreFill(null)}
+                    onConvertToInstallation={handleConvertToInstallation}
+                  />
+                )}
+                {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}
+                {currentView === 'partners' && <PartnersView partners={partners} />}
+                {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
+                {currentView === 'kits' && <KitsView kits={kits} />}
+                {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
+                {currentView === 'reports' && (
+                  <ReportsView 
+                    proposals={proposals} 
+                    installations={installations}
+                    leads={leads}
+                    clients={clients}
+                  />
+                )}
+                {currentView === 'clients' && (
+                  <ClientsView 
+                    clients={clients} 
+                    proposals={proposals} 
+                    installations={installations}
+                    leads={leads}
+                    user={user}
+                    onAddClient={addClient}
+                    onUpdateClient={updateClient}
+                    onDeleteClient={deleteClient}
+                    onCreateProposal={(client) => {
+                      handleOpenProposalsWithPreFill({
+                        client: client.name,
+                        email: client.email,
+                        value: (client as any).value || 0,
+                        systemSize: (client as any).systemSize || '',
+                        titular: client.name,
+                        cpfCnpj: client.cnpj || client.cpf || '',
+                        endereco: client.address,
+                        telefone: client.phone
+                      });
+                    }}
+                  />
+                )}
+              </>
+            )}
 
             {/* Application Footer */}
             <footer className="mt-20 py-12 border-t border-slate-200 dark:border-slate-800">

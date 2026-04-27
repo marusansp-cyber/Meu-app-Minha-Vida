@@ -105,18 +105,17 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm mb-2">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <Users className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Time & Talentos
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão de capital humano Vieira's Solar</p>
-          </div>
+      {toast && (
+        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
+          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
+          <span className="font-bold text-sm">{toast}</span>
         </div>
+      )}
+
+      <div className="text-center">
+        <h2 className="text-2xl font-black text-[#004a61] dark:text-slate-100 uppercase tracking-tight">
+          Collaborator Registration and Editing
+        </h2>
       </div>
 
       {/* Action Buttons - Styled like the image */}
@@ -128,24 +127,15 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
             setFormData({ name: '', role: 'Vendedor', email: '', phone: '' });
           }}
           className={cn(
-            "flex items-center gap-6 p-10 rounded-[2.5rem] transition-all font-black uppercase tracking-widest text-[10px] relative overflow-hidden group border-2",
+            "flex flex-col items-center justify-center gap-4 p-8 rounded-lg transition-all shadow-md group",
             (activeMode === 'register' && !editingId)
-              ? "bg-brand-primary text-white border-brand-primary shadow-2xl shadow-brand-primary/20" 
-              : "bg-white dark:bg-white/5 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-brand-primary/20 hover:bg-slate-50 dark:hover:bg-brand-primary/5"
+              ? "bg-[#1a9fb4] text-white scale-[1.02] shadow-xl" 
+              : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800"
           )}
         >
-          <div className={cn(
-            "size-20 rounded-[1.5rem] flex items-center justify-center transition-all shadow-xl",
-            activeMode === 'register' && !editingId ? "bg-white/10" : "bg-brand-primary/10 text-brand-primary group-hover:scale-110"
-          )}>
-            <UserPlus className="w-10 h-10" />
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-lg font-black tracking-tight">Novo Talento</span>
-            <span className={cn("text-[10px] font-bold opacity-60", activeMode === 'register' && !editingId ? "text-white" : "text-slate-400")}>Adicionar ao time comercial</span>
-          </div>
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Users className="w-32 h-32" />
+          <span className="text-sm font-black uppercase tracking-widest">Register Collaborator</span>
+          <div className="relative">
+            <UserPlus className="w-16 h-16" strokeWidth={1.5} />
           </div>
         </button>
 
@@ -155,25 +145,14 @@ export const CollaboratorsView: React.FC<CollaboratorsViewProps> = ({ collaborat
             setEditingId(null);
           }}
           className={cn(
-            "flex items-center gap-6 p-10 rounded-[2.5rem] transition-all font-black uppercase tracking-widest text-[10px] group border-2 relative overflow-hidden",
+            "flex flex-col items-center justify-center gap-4 p-8 rounded-lg transition-all shadow-md group",
             activeMode === 'search' || editingId
-              ? "bg-brand-primary text-white border-brand-primary shadow-2xl shadow-brand-primary/20" 
-              : "bg-white dark:bg-white/5 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-brand-primary/20 hover:bg-slate-50 dark:hover:bg-brand-primary/5"
+              ? (activeMode === 'search' ? "bg-[#1a9fb4] text-white scale-[1.02] shadow-xl" : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800")
+              : "bg-white dark:bg-[#231d0f]/40 text-[#1a9fb4] border border-slate-200 dark:border-slate-800"
           )}
         >
-          <div className={cn(
-            "size-20 rounded-[1.5rem] flex items-center justify-center transition-all shadow-xl",
-            activeMode === 'search' || editingId ? "bg-white/10" : "bg-brand-primary/10 text-brand-primary group-hover:scale-110"
-          )}>
-            <Search className="w-10 h-10" />
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-lg font-black tracking-tight">Buscar Time</span>
-            <span className={cn("text-[10px] font-bold opacity-60", activeMode === 'search' || editingId ? "text-white" : "text-slate-400")}>Pesquisar colaboradores</span>
-          </div>
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <Search className="w-32 h-32" />
-          </div>
+          <span className="text-sm font-black uppercase tracking-widest">Search Collaborator</span>
+          <Search className="w-16 h-16" strokeWidth={1.5} />
         </button>
       </div>
 

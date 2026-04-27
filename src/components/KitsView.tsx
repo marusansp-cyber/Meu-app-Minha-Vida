@@ -447,40 +447,38 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <Package className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Kits Fotovoltaicos
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão de tecnologia e ativos solares Vieira's Solar</p>
-          </div>
+      {toast && (
+        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
+          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
+          <span className="font-bold text-sm">{toast}</span>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 bg-[#004a61]/10 rounded-lg text-[#004a61]">
+              <LayoutGrid className="w-6 h-6" />
+            </div>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100 uppercase">Kits</h2>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Gerenciamento de kits fotovoltaicos e componentes.</p>
+        </div>
+      </header>
+
+      {/* Sub-navigation based on the image */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <button 
           onClick={() => setActiveSubView('list')}
           className={cn(
-            "flex items-center gap-5 p-8 rounded-[2rem] transition-all font-black uppercase tracking-widest text-[10px] relative overflow-hidden group border-2",
+            "flex items-center gap-4 p-6 rounded-xl transition-all font-black uppercase tracking-widest text-sm",
             activeSubView === 'list' 
-              ? "bg-brand-primary text-white border-brand-primary shadow-2xl shadow-brand-primary/20" 
-              : "bg-white dark:bg-white/5 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-brand-primary/20 hover:bg-slate-50 dark:hover:bg-brand-primary/5"
+              ? "bg-[#004a61] text-white shadow-lg shadow-[#004a61]/20" 
+              : "bg-white dark:bg-[#231d0f]/40 text-slate-500 border border-slate-200 dark:border-slate-800 hover:bg-slate-50"
           )}
         >
-          <div className={cn(
-            "size-14 rounded-2xl flex items-center justify-center transition-all shadow-lg",
-            activeSubView === 'list' ? "bg-white/10" : "bg-brand-primary/10 text-brand-primary group-hover:scale-110"
-          )}>
-            <Box className="w-7 h-7" />
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-sm font-black">Inventário</span>
-            <span className={cn("text-[9px] font-bold opacity-60", activeSubView === 'list' ? "text-white" : "text-slate-400")}>Modelos disponíveis</span>
-          </div>
+          <Box className="w-6 h-6" />
+          <span>Meus Kits</span>
         </button>
 
         <button 
@@ -489,43 +487,27 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
             setIsModalOpen(true);
           }}
           className={cn(
-            "flex items-center gap-5 p-8 rounded-[2rem] transition-all font-black uppercase tracking-widest text-[10px] group border-2",
+            "flex items-center gap-4 p-6 rounded-xl transition-all font-black uppercase tracking-widest text-sm",
             isModalOpen && !selectedKit
-              ? "bg-brand-primary text-white border-brand-primary shadow-2xl shadow-brand-primary/20" 
-              : "bg-white dark:bg-white/5 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-brand-primary/20 hover:bg-slate-50 dark:hover:bg-brand-primary/5"
+              ? "bg-[#004a61] text-white shadow-lg shadow-[#004a61]/20" 
+              : "bg-white dark:bg-[#231d0f]/40 text-slate-500 border border-slate-200 dark:border-slate-800 hover:bg-slate-50"
           )}
         >
-          <div className={cn(
-            "size-14 rounded-2xl flex items-center justify-center transition-all shadow-lg",
-            isModalOpen && !selectedKit ? "bg-white/10" : "bg-brand-primary/10 text-brand-primary group-hover:scale-110"
-          )}>
-            <Plus className="w-7 h-7" />
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-sm font-black">Registrar</span>
-            <span className={cn("text-[9px] font-bold opacity-60", isModalOpen && !selectedKit ? "text-white" : "text-slate-400")}>Cadastrar novo kit</span>
-          </div>
+          <Plus className="w-6 h-6" />
+          <span>Registrar Kit</span>
         </button>
 
         <button 
           onClick={() => setActiveSubView('upload')}
           className={cn(
-            "flex items-center gap-5 p-8 rounded-[2rem] transition-all font-black uppercase tracking-widest text-[10px] group border-2",
+            "flex items-center gap-4 p-6 rounded-xl transition-all font-black uppercase tracking-widest text-sm",
             activeSubView === 'upload' 
-              ? "bg-brand-primary text-white border-brand-primary shadow-2xl shadow-brand-primary/20" 
-              : "bg-white dark:bg-white/5 text-slate-500 border-slate-100 dark:border-slate-800 hover:border-brand-primary/20 hover:bg-slate-50 dark:hover:bg-brand-primary/5"
+              ? "bg-[#004a61] text-white shadow-lg shadow-[#004a61]/20" 
+              : "bg-white dark:bg-[#231d0f]/40 text-slate-500 border border-slate-200 dark:border-slate-800 hover:bg-slate-50"
           )}
         >
-          <div className={cn(
-            "size-14 rounded-2xl flex items-center justify-center transition-all shadow-lg",
-            activeSubView === 'upload' ? "bg-white/10" : "bg-brand-primary/10 text-brand-primary group-hover:scale-110"
-          )}>
-            <Upload className="w-7 h-7" />
-          </div>
-          <div className="flex flex-col items-start gap-1">
-            <span className="text-sm font-black">Importar</span>
-            <span className={cn("text-[9px] font-bold opacity-60", activeSubView === 'upload' ? "text-white" : "text-slate-400")}>Sincronizar planilha</span>
-          </div>
+          <Upload className="w-6 h-6" />
+          <span>Upload de Kits</span>
         </button>
       </div>
 

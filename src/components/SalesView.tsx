@@ -137,39 +137,35 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
         </div>
       )}
       
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <TrendingUp className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Performance de Vendas
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Monitoramento comercial e metas Vieira's Solar</p>
-          </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3">
+            <TrendingUp className="w-8 h-8 text-[#fdb612]" />
+            Gestão de Vendas
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1">Acompanhe o desempenho comercial e alcance suas metas.</p>
         </div>
         
-        <div className="bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-inner flex items-center gap-6 group hover:border-brand-primary transition-all">
-          <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl bg-brand-secondary text-brand-primary flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-lg shadow-brand-secondary/20">
-              <Trophy className="w-6 h-6" />
+        <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta do Mês</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta Mensal</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-xl font-black text-slate-900 dark:text-slate-100">
+                <span className="font-black text-slate-900 dark:text-slate-100">
                   R$ {currentGoal.targetValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
                 </span>
-                <span className="text-xs text-slate-400 font-black uppercase tracking-widest">/ {currentGoal.targetCount} un</span>
+                <span className="text-xs text-slate-400 font-bold">({currentGoal.targetCount} vendas)</span>
               </div>
             </div>
           </div>
           <button 
             onClick={() => setIsEditingGoal(!isEditingGoal)}
-            className="size-10 flex items-center justify-center bg-white dark:bg-slate-800 rounded-xl text-slate-400 hover:text-brand-primary shadow-sm hover:shadow-md transition-all active:scale-90"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-slate-400 hover:text-[#fdb612] transition-colors"
           >
-            {isEditingGoal ? <X className="w-5 h-5 text-rose-500" /> : <Edit2 className="w-5 h-5" />}
+            {isEditingGoal ? <X className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
           </button>
         </div>
       </div>

@@ -586,71 +586,57 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-brand-primary transition-all"
-        >
-          <div className="size-14 bg-brand-primary/10 text-brand-primary rounded-2xl flex items-center justify-center transform group-hover:scale-110 transition-transform">
-            <Users className="w-7 h-7" />
-          </div>
-          <div>
-            <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Clientes</span>
-            <span className="text-3xl font-black text-slate-900 dark:text-slate-100">{stats.total}</span>
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-emerald-500 transition-all"
-        >
-          <div className="size-14 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center transform group-hover:scale-110 transition-transform">
-            <CheckCircle2 className="w-7 h-7" />
-          </div>
-          <div>
-            <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Contas Ativas</span>
-            <span className="text-3xl font-black text-slate-900 dark:text-slate-100">{stats.active}</span>
-          </div>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-amber-500 transition-all"
-        >
-          <div className="size-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center transform group-hover:scale-110 transition-transform">
-            <Clock className="w-7 h-7" />
-          </div>
-          <div>
-            <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Em Prospecção</span>
-            <span className="text-3xl font-black text-slate-900 dark:text-slate-100">{stats.inactive}</span>
-          </div>
-        </motion.div>
-      </div>
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <Users className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Central de Clientes
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão de relacionamento e inteligência geográfica</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Clientes</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.total}</span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-inner">
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Ativos</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.active}</span>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-[#231d0f] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-12 bg-slate-500/10 text-slate-500 rounded-2xl flex items-center justify-center">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Inativos</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.inactive}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-3">
+            <Users className="w-8 h-8 text-[#fdb612]" />
+            Gestão de Clientes
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Visualize e gerencie sua base de clientes e histórico de projetos.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-1">
             <button 
               onClick={() => setViewMode('list')}
               className={cn(
-                "px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                viewMode === 'list' ? "bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-xl" : "text-slate-400 hover:text-slate-600"
+                "px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                viewMode === 'list' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
               )}
             >
               Lista
@@ -658,8 +644,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             <button 
               onClick={() => setViewMode('map')}
               className={cn(
-                "px-8 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                viewMode === 'map' ? "bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-xl" : "text-slate-400 hover:text-slate-600"
+                "px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                viewMode === 'map' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
               )}
             >
               Mapa
@@ -670,10 +656,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               setEditingClient(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-3 px-10 py-4 bg-brand-secondary text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20"
+            className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
           >
             <Plus className="w-5 h-5" />
-            Cadastrar Cliente
+            Novo Cliente
           </button>
         </div>
       </div>
@@ -772,87 +758,87 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             className="grid grid-cols-1 gap-6"
           >
             {/* Clients List */}
-          <div className="space-y-6">
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none group-focus-within:text-brand-primary transition-colors text-slate-400">
-                <Search className="w-5 h-5" />
-              </div>
-              <input
-                type="text"
-                placeholder="Busca por nome, e-mail, telefone ou documento (CPF/CNPJ)..."
-                value={searchTerm || ''}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                className="w-full pl-14 pr-14 py-4 bg-white dark:bg-white/5 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all font-bold text-slate-700 dark:text-white shadow-sm"
-              />
-              
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className={cn(
-                  "absolute right-3 top-1.5 bottom-1.5 px-4 rounded-xl transition-all flex items-center gap-2",
-                  showFilters ? "bg-brand-primary text-white" : "bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-slate-600"
-                )}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Filtros</span>
-              </button>
-              
-              <AnimatePresence>
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowSuggestions(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full left-0 right-0 mt-3 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-2xl z-50 overflow-hidden"
-                    >
-                      <div className="p-3 space-y-1">
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-4 py-3 border-b border-slate-50 dark:border-white/5 mb-2">Sugestões de Busca</p>
-                        {searchSuggestions.map((suggestion, idx) => (
-                          <button
-                            key={`${suggestion.client.id}-${idx}`}
-                            onClick={() => {
-                              setSearchTerm(suggestion.client.name);
-                              setShowSuggestions(false);
-                              setSelectedClient(suggestion.client);
-                            }}
-                            className="w-full flex items-center justify-between p-4 hover:bg-brand-primary/5 rounded-2xl transition-all text-left group"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="size-10 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center font-black">
-                                {suggestion.client.name.charAt(0)}
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  {isAdminOrStaff && (
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome, email, tel, CPF/CNPJ..."
+                        value={searchTerm || ''}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb612]/50 transition-all font-medium"
+                      />
+                      
+                      {/* Autocomplete Suggestions */}
+                      <AnimatePresence>
+                        {showSuggestions && searchSuggestions.length > 0 && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-40" 
+                              onClick={() => setShowSuggestions(false)}
+                            />
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 10 }}
+                              className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden"
+                            >
+                              <div className="p-2 space-y-1">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-3 py-2">Sugestões</p>
+                                {searchSuggestions.map((suggestion, idx) => (
+                                  <button
+                                    key={`${suggestion.client.id}-${idx}`}
+                                    onClick={() => {
+                                      setSearchTerm(suggestion.client.name);
+                                      setShowSuggestions(false);
+                                      setSelectedClient(suggestion.client);
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 hover:bg-[#fdb612]/10 rounded-xl transition-colors text-left group"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <div className="size-8 rounded-lg bg-[#fdb612]/20 flex items-center justify-center text-[#fdb612] font-black text-xs">
+                                        {suggestion.client.name.charAt(0)}
+                                      </div>
+                                      <div>
+                                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{suggestion.client.name}</p>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-[10px] text-slate-500 font-medium">
+                                            {suggestion.type === 'name' ? suggestion.client.email : suggestion.match}
+                                          </span>
+                                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 font-black uppercase">
+                                            {suggestion.type === 'id' ? 'DOCUMENTO' : suggestion.type === 'email' ? 'E-MAIL' : 'NOME'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <ExternalLink className="w-3 h-3 text-[#fdb612] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </button>
+                                ))}
                               </div>
-                              <div>
-                                <p className="font-bold text-sm text-slate-900 dark:text-white capitalize group-hover:text-brand-primary transition-colors">
-                                  {suggestion.client.name}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] text-slate-500 font-medium">
-                                    {suggestion.type === 'name' ? suggestion.client.email : suggestion.match}
-                                  </span>
-                                  <span className="text-[8px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-400 font-black uppercase tracking-tighter">
-                                    {suggestion.type === 'id' ? 'CPF/CNPJ' : suggestion.type === 'email' ? 'CONTATO' : 'CLIENTE'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <ExternalLink className="w-4 h-4 text-brand-primary opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0" />
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={cn(
+                      "p-2 rounded-xl border transition-all",
+                      showFilters ? "bg-[#fdb612] text-[#231d0f] border-[#fdb612]" : "bg-white dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 shadow-sm"
+                    )}
+                  >
+                    <Filter className="w-4 h-4" />
+                  </button>
+                </div>
 
                 {showFilters && (
                   <motion.div 

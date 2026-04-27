@@ -394,25 +394,27 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm mb-8">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <Users className="w-8 h-8" />
-          </div>
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onLogout}
+            className="p-2 text-slate-400 hover:text-rose-500 transition-colors bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg lg:hidden"
+            title="Sair"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
           <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Gestão de Leads
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Pipeline estratégico e funil de vendas unificado</p>
+            <h2 className="text-3xl font-black tracking-tight">Gestão de Leads</h2>
+            <p className="text-slate-500 font-medium">Visão Geral do Pipeline e Funil de Vendas</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-inner">
+        <div className="flex gap-3">
+          <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#231d0f] overflow-hidden">
             <button 
               onClick={() => setViewMode('grid')}
               className={cn(
-                "px-5 py-2.5 rounded-xl transition-all",
-                viewMode === 'grid' ? "bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-xl" : "text-slate-400 hover:text-slate-600"
+                "px-3 py-1.5 transition-colors",
+                viewMode === 'grid' ? "bg-[#fdb612]/10 text-[#fdb612]" : "text-slate-400 hover:text-slate-600"
               )}
             >
               <LayoutGrid className="w-5 h-5" />
@@ -420,46 +422,270 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
             <button 
               onClick={() => setViewMode('list')}
               className={cn(
-                "px-5 py-2.5 rounded-xl transition-all",
-                viewMode === 'list' ? "bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-xl" : "text-slate-400 hover:text-slate-600"
+                "px-3 py-1.5 transition-colors",
+                viewMode === 'list' ? "bg-[#fdb612]/10 text-[#fdb612]" : "text-slate-400 hover:text-slate-600"
               )}
             >
               <List className="w-5 h-5" />
             </button>
           </div>
-          
-          <div className="flex items-center gap-2">
+          <div className="relative flex items-center gap-2">
+            {(selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentatives.length > 0) && (
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed']);
+                  setOnlyUrgent(false);
+                  setStartDate('');
+                  setEndDate('');
+                  setDateFilterType('created');
+                  setSelectedRepresentatives([]);
+                }}
+                className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors flex items-center gap-1 px-2 py-1"
+              >
+                <X className="w-3 h-3" />
+                Limpar
+              </button>
+            )}
             <button 
               onClick={() => setShowFilters(!showFilters)}
               className={cn(
-                "flex items-center gap-2.5 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border",
-                showFilters 
-                  ? "bg-brand-primary text-white border-brand-primary" 
-                  : "bg-slate-100 dark:bg-white/5 text-slate-500 border-transparent hover:border-brand-primary/20"
+                "px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors",
+                (showFilters || selectedStatuses.length < 5 || onlyUrgent || searchTerm || startDate || endDate || selectedRepresentatives.length > 0) && "border-[#fdb612] text-[#fdb612]"
               )}
             >
               <Filter className="w-4 h-4" />
-              Filtrar
+              <span className="hidden sm:inline">Filtrar</span>
+              {(selectedStatuses.length < 5 || onlyUrgent || startDate || endDate || selectedRepresentatives.length > 0) && (
+                <span className="size-2 bg-[#fdb612] rounded-full" />
+              )}
             </button>
-            <button 
-              onClick={exportToCSV}
-              className="px-6 py-4 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all border border-transparent hover:border-brand-primary/20"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          </div>
+            <AnimatePresence>
+              {showFilters && (
+                <>
+                  {/* Backdrop for mobile */}
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowFilters(false)}
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+                  />
+                  
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                    className={cn(
+                      "fixed inset-x-4 bottom-4 top-20 lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 w-auto lg:w-80 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl lg:rounded-xl shadow-2xl p-6 lg:p-4 z-[101] lg:z-20 space-y-6 lg:space-y-4 overflow-y-auto custom-scrollbar",
+                    )}
+                  >
+                    <div className="flex items-center justify-between lg:hidden mb-2">
+                      <h3 className="text-lg font-black uppercase tracking-tight">Filtros Avançados</h3>
+                      <button 
+                        onClick={() => setShowFilters(false)}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
+                      >
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
 
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Busca Rápida</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="text"
+                          placeholder="Pesquisar por nome, e-mail, telefone ou data..."
+                          className="w-full pl-10 pr-4 py-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                          value={searchTerm || ''}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
+                      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl lg:rounded-lg">
+                        <button 
+                          onClick={() => setDateFilterType('created')}
+                          className={cn(
+                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
+                            dateFilterType === 'created' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                          )}
+                        >
+                          Criação
+                        </button>
+                        <button 
+                          onClick={() => setDateFilterType('scheduled')}
+                          className={cn(
+                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
+                            dateFilterType === 'scheduled' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                          )}
+                        >
+                          Agendamento
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Início</span>
+                          <input 
+                            type="date" 
+                            value={startDate || ''}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Fim</span>
+                          <input 
+                            type="date" 
+                            value={endDate || ''}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                          />
+                        </div>
+                      </div>
+                      {(startDate || endDate) && (
+                        <button 
+                          onClick={() => {
+                            setStartDate('');
+                            setEndDate('');
+                          }}
+                          className="w-full py-1 text-[9px] font-bold text-[#fdb612] hover:underline text-right"
+                        >
+                          Limpar datas
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representantes</label>
+                      <div className="flex gap-4">
+                        <button 
+                          onClick={() => setSelectedRepresentatives(representatives)}
+                          className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                        >
+                          Todos
+                        </button>
+                        <button 
+                          onClick={() => setSelectedRepresentatives([])}
+                          className="text-[10px] font-bold text-slate-400 hover:underline"
+                        >
+                          Nenhum
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
+                        {representatives.map(rep => (
+                          <label key={rep} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                            <input 
+                              type="checkbox" 
+                              className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                              checked={selectedRepresentatives.includes(rep)}
+                              onChange={() => {
+                                setSelectedRepresentatives(prev => 
+                                  prev.includes(rep) ? prev.filter(r => r !== rep) : [...prev, rep]
+                                );
+                              }}
+                            />
+                            <span className="text-xs font-bold truncate">{rep}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status do Funil</label>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed'])}
+                            className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                          >
+                            Todos
+                          </button>
+                          <button 
+                            onClick={() => setSelectedStatuses([])}
+                            className="text-[10px] font-bold text-slate-400 hover:underline"
+                          >
+                            Nenhum
+                          </button>
+                        </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {columns.map(col => (
+                          <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                            <input 
+                              type="checkbox" 
+                              className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                              checked={selectedStatuses.includes(col.id)}
+                              onChange={() => toggleStatus(col.id)}
+                            />
+                            <span className="text-xs font-bold">{col.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                      <label className="flex items-center justify-between p-3 lg:p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                        <div className="flex items-center gap-3">
+                          <Zap className="w-5 h-5 text-[#fdb612]" />
+                          <span className="text-sm font-bold">Apenas Urgentes</span>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          className="size-5 lg:size-4 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
+                          checked={onlyUrgent || false}
+                          onChange={(e) => setOnlyUrgent(e.target.checked)}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button 
+                        onClick={() => {
+                          setSearchTerm('');
+                          setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed']);
+                          setOnlyUrgent(false);
+                          setStartDate('');
+                          setEndDate('');
+                          setDateFilterType('created');
+                          setSelectedRepresentatives([]);
+                        }}
+                        className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-[#fdb612] transition-colors"
+                      >
+                        Limpar Filtros
+                      </button>
+                      <button 
+                        onClick={() => setShowFilters(false)}
+                        className="flex-1 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#fdb612]/10"
+                      >
+                        Aplicar Filtros
+                      </button>
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+          <button 
+            onClick={exportToCSV}
+            className="px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+          >
+            <Download className="w-4 h-4" />
+            Exportar CSV
+          </button>
           <button 
             onClick={onOpenNewLead}
-            className="flex items-center gap-3 px-10 py-4 bg-brand-secondary text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20"
+            className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all active:scale-95"
           >
-            <Plus className="w-5 h-5" />
-            Novo Lead
+            <Plus className="w-4 h-4" />
+            Adicionar Novo Lead
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {stats.map((stat, i) => {
           const Icon = stat.icon;
           return (
@@ -468,19 +694,14 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-brand-primary transition-all hover:shadow-lg hover:shadow-brand-primary/5"
+              className="bg-white dark:bg-[#231d0f]/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 group hover:border-[#fdb612] transition-colors"
             >
-              <div className={cn("size-12 rounded-2xl flex items-center justify-center shrink-0", 
-                i === 0 ? "bg-blue-500/10 text-blue-600" : 
-                i === 1 ? "bg-brand-secondary/10 text-brand-secondary" : 
-                i === 2 ? "bg-indigo-500/10 text-indigo-600" : 
-                "bg-emerald-500/10 text-emerald-600"
-              )}>
-                <Icon className="w-6 h-6" />
+              <div className={cn("size-10 rounded-xl flex items-center justify-center shrink-0", stat.bg)}>
+                <Icon className={cn("w-5 h-5", stat.color)} />
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{stat.label}</p>
-                <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{stat.value}</p>
+                <p className="text-xl font-black text-slate-900 dark:text-slate-100">{stat.value}</p>
               </div>
             </motion.div>
           );

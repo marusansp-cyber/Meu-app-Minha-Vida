@@ -262,20 +262,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
         onChange={handleFileChange}
       />
 
-      <header className="flex items-center gap-4 mb-2">
-        <div className="size-14 rounded-2xl bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-          <Shield className="w-7 h-7" />
-        </div>
-        <div>
-          <h2 className="text-3xl font-black text-brand-primary dark:text-slate-100 tracking-tight">Centro de Configurações</h2>
-          <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Personalize sua experiência e governe sua infraestrutura</p>
-        </div>
+      <header>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100">Configurações</h2>
+        <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie sua conta e as preferências do sistema</p>
       </header>
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar Tabs */}
         <aside className="lg:w-72 space-y-6">
-          <div className="space-y-1 bg-slate-50 dark:bg-white/5 p-2 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+          <div className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -283,17 +278,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={cn(
-                    "w-full flex items-center justify-between px-5 py-4 rounded-2xl transition-all font-black text-xs uppercase tracking-widest leading-none",
+                    "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm",
                     activeTab === tab.id 
-                      ? "bg-brand-primary text-white shadow-xl shadow-brand-primary/20" 
-                      : "text-slate-500 hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm"
+                      ? "bg-[#fdb612] text-[#231d0f] shadow-lg shadow-[#fdb612]/20" 
+                      : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5"
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={cn("w-5 h-5", activeTab === tab.id ? "text-brand-secondary" : "text-slate-400")} />
+                    <Icon className="w-5 h-5" />
                     <span>{tab.label}</span>
                   </div>
-                  {activeTab === tab.id && <ChevronRight className="w-4 h-4 text-brand-secondary/50" />}
+                  {activeTab === tab.id && <ChevronRight className="w-4 h-4" />}
                 </button>
               );
             })}
@@ -311,115 +306,138 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
         </aside>
 
         {/* Content Area */}
-          <div className="flex-1 bg-white dark:bg-white/5 border border-slate-100 dark:border-slate-800 rounded-[3rem] p-10 shadow-xl backdrop-blur-sm">
-            {activeTab === 'profile' && (
-              <div className="space-y-10">
-                <div className="flex items-center gap-8">
-                  <div className="relative group">
-                    <div className="size-28 rounded-[2.5rem] bg-brand-primary text-white flex items-center justify-center text-5xl font-black shadow-2xl shadow-brand-primary/30 overflow-hidden group-hover:scale-105 transition-transform duration-500">
-                      {profile.photo ? (
-                        <img 
-                          src={profile.photo} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover" 
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        profile.name.charAt(0)
-                      )}
-                    </div>
+        <div className="flex-1 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl backdrop-blur-sm">
+          {activeTab === 'profile' && (
+            <div className="space-y-8">
+              <div className="flex items-center gap-6">
+                <div className="size-24 rounded-3xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] text-4xl font-black border-2 border-dashed border-[#fdb612]/30 overflow-hidden">
+                  {profile.photo ? (
+                    <img 
+                      src={profile.photo} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover" 
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    profile.name.charAt(0)
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">Foto de Perfil</h3>
+                  <p className="text-sm text-slate-500 mb-4">JPG, GIF ou PNG. Máximo de 2MB.</p>
+                  <div className="flex gap-3">
                     <button 
                       onClick={handleUploadClick}
-                      className="absolute -bottom-2 -right-2 size-10 bg-brand-secondary text-brand-primary rounded-2xl flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+                      className="px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2 hover:bg-[#fdb612]/80 transition-all"
                     >
-                      <Camera className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-brand-primary dark:text-slate-100 tracking-tighter">Avatar Profissional</h3>
-                    <p className="text-sm text-slate-500 font-medium mb-4">Atualize sua identidade visual no sistema.</p>
-                    <div className="flex gap-4">
-                      <button 
-                        onClick={handleUploadClick}
-                        className="px-6 py-2.5 bg-brand-primary/5 text-brand-primary rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-primary hover:text-white transition-all shadow-sm"
-                      >
-                        Carregar Nova
-                      </button>
-                      <button 
-                        onClick={handleRemovePhoto}
-                        className="px-6 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all"
-                      >
-                        Remover
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Nome Completo</label>
-                    <input 
-                      type="text" 
-                      value={profile.name || ''}
-                      onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all font-bold text-slate-700 dark:text-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">E-mail Corporativo</label>
-                    <input 
-                      type="email" 
-                      value={profile.email || ''}
-                      onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all font-bold text-slate-700 dark:text-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">WhatsApp</label>
-                    <input 
-                      type="text" 
-                      value={profile.phone || ''}
-                      onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold text-slate-700 dark:text-slate-200"
-                    />
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Setor / Cargo</label>
-                    <input 
-                      type="text" 
-                      value={profile.occupation || ''}
-                      onChange={(e) => setProfile(prev => ({ ...prev, occupation: e.target.value }))}
-                      className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all font-bold text-slate-700 dark:text-slate-200"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
-                  <button 
-                    onClick={handleExportData}
-                    className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-brand-primary transition-all"
-                  >
-                    <Download className="w-4 h-4" />
-                    Fazer backup dos meus dados (CSV)
-                  </button>
-                  <div className="flex gap-4 w-full md:w-auto">
-                    <button 
-                      onClick={handleCancel}
-                      className="flex-1 md:flex-none px-10 py-4 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-slate-600 transition-all"
-                    >
-                      Descartar
+                      <Camera className="w-3 h-3" />
+                      Upload
                     </button>
                     <button 
-                      onClick={handleSave}
-                      className="flex-1 md:flex-none px-10 py-4 bg-brand-secondary text-brand-primary font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl shadow-brand-secondary/20 hover:scale-105 active:scale-95 transition-all"
+                      onClick={handleRemovePhoto}
+                      className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2 hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-all"
                     >
-                      Salvar Alterações
+                      <Trash2 className="w-3 h-3" />
+                      Remover
                     </button>
                   </div>
                 </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Completo</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Seu nome completo para exibição em documentos" />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={profile.name || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="E-mail principal para login e notificações" />
+                  </div>
+                  <input 
+                    type="email" 
+                    value={profile.email || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Telefone</label>
+                  <input 
+                    type="text" 
+                    value={profile.phone || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço Físico</label>
+                  <input 
+                    type="text" 
+                    value={profile.address || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Rua, Número, Bairro, Cidade - UF"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</label>
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Sua função na empresa (ex: Vendedor, Adm)" />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={profile.occupation || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, occupation: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nova Senha</label>
+                    <Shield className="w-3 h-3 text-[#fdb612]" />
+                  </div>
+                  <input 
+                    type="password" 
+                    placeholder="Min. 8 chars + num + especial"
+                    value={securityData.newPassword}
+                    onChange={(e) => setSecurityData(prev => ({ ...prev, newPassword: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2 group">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirmar Senha</label>
+                  </div>
+                  <input 
+                    type="password" 
+                    placeholder="Repita a nova senha"
+                    value={securityData.confirmPassword}
+                    onChange={(e) => setSecurityData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                  />
+                </div>
+                <div className="md:col-span-2 pt-4">
+                  <button 
+                    onClick={handleExportData}
+                    className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-[#fdb612] transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exportar meus dados em CSV
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'system' && (
             <div className="space-y-8">

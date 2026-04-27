@@ -18,7 +18,6 @@ import {
 import { cn } from '../lib/utils';
 import { View, User as UserType } from '../types';
 import { Logo } from './Logo';
-import { motion } from 'motion/react';
 
 interface SidebarProps {
   currentView: View;
@@ -51,12 +50,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
   );
 
   return (
-    <aside className="w-64 border-r border-[#fdb612]/20 bg-slate-50 dark:bg-[#0c0c0c] flex flex-col h-screen sticky top-0">
-      <div className="p-8">
-        <Logo className="scale-100" variant="dark" src={companyLogo} />
+    <aside className="w-64 border-r border-[#fdb612]/20 bg-white dark:bg-[#231d0f] flex flex-col h-screen">
+      <div className="p-6">
+        <Logo className="scale-90 -ml-2" variant="dark" src={companyLogo} />
       </div>
 
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
         {filteredNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
@@ -68,47 +67,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
                 onViewChange(item.id as View);
               }}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-bold text-sm group relative",
+                "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium",
                 isActive 
-                  ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20" 
-                  : "text-slate-500 dark:text-slate-400 hover:bg-brand-primary/5 hover:text-brand-primary dark:hover:text-slate-100"
+                  ? "bg-[#fdb612] text-[#231d0f]" 
+                  : "text-slate-600 dark:text-slate-400 hover:bg-[#fdb612]/10"
               )}
             >
-              <Icon className={cn(
-                "w-5 h-5 transition-transform group-hover:scale-110",
-                isActive ? "text-brand-secondary" : "group-hover:text-brand-primary"
-              )} />
+              <Icon className="w-5 h-5" />
               <span>{item.label}</span>
-              {isActive && (
-                <motion.div 
-                  layoutId="sidebar-active"
-                  className="absolute left-0 w-1 h-6 bg-brand-secondary rounded-full"
-                />
-              )}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 mt-auto">
-        <div className="p-4 rounded-3xl bg-white dark:bg-white/5 border border-slate-100 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-              <User className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-black truncate text-slate-900 dark:text-slate-100">{user?.name}</p>
-              <span className="inline-block text-[8px] px-1.5 py-0.5 bg-brand-secondary/20 text-brand-secondary rounded-full uppercase font-black tracking-tighter">
+      <div className="p-4 border-t border-[#fdb612]/10">
+        <div className="flex items-center gap-3 p-2 rounded-lg bg-slate-100 dark:bg-white/5">
+          <div className="h-8 w-8 rounded-full bg-[#fdb612]/20 flex items-center justify-center">
+            <User className="text-[#fdb612] w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <div className="flex items-center gap-1">
+              <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
+              <span className="text-[8px] px-1 bg-[#fdb612]/20 text-[#fdb612] rounded uppercase font-black">
                 {user?.role}
               </span>
             </div>
           </div>
           <button 
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all font-black text-[10px] uppercase tracking-widest border border-dashed border-slate-200 dark:border-slate-800"
+            className="flex items-center gap-2 text-slate-400 hover:text-rose-500 transition-colors group"
+            title="Sair"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            Sair do Sistema
+            <LogOut className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-widest">Sair</span>
           </button>
         </div>
       </div>

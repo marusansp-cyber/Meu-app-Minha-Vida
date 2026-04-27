@@ -347,42 +347,35 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
   return (
     <div className="space-y-8 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl backdrop-blur-sm">
-        <div className="flex items-center gap-6">
-          <div className="size-16 rounded-[1.5rem] bg-brand-primary text-white flex items-center justify-center shadow-xl shadow-brand-primary/20">
-            <DollarSign className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-brand-primary dark:text-white tracking-tight">
-              Controladoria & Finanças
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Gestão de faturamento e comissões Vieira's Solar</p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black font-display tracking-tight">Gestão Financeira</h2>
+          <p className="text-slate-500 font-medium">Controle de faturamento e comissões de vendas</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportReport}
             disabled={isGeneratingReport}
-            className="flex items-center gap-3 px-10 py-4 bg-brand-secondary text-brand-primary rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-secondary/20 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
           >
             {isGeneratingReport ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <FileText className="w-5 h-5" />
+              <Download className="w-4 h-4" />
             )}
-            Gerar Relatório [PDF]
+            Gerar Relatório PDF
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex p-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-2xl w-fit shadow-sm">
+      <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit">
         <button
           onClick={() => setActiveMainTab('overview')}
           className={cn(
-            "px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
             activeMainTab === 'overview'
-              ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20"
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
               : "text-slate-500 hover:text-slate-700"
           )}
         >
@@ -391,13 +384,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         <button
           onClick={() => setActiveMainTab('proposals')}
           className={cn(
-            "px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
             activeMainTab === 'proposals'
-              ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20"
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
               : "text-slate-500 hover:text-slate-700"
           )}
         >
-          Conciliação
+          Propostas
         </button>
       </div>
 
@@ -405,76 +398,57 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-primary transition-all"
-        >
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-2xl bg-brand-primary/10 text-brand-primary flex items-center justify-center transform group-hover:scale-110 transition-transform">
-              <TrendingUp className="w-6 h-6" />
+            <div className="size-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-indigo-600" />
             </div>
-            <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full uppercase tracking-wider">
+            <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full">
               <ArrowUpRight className="w-3 h-3" />
               12%
             </span>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faturamento Bruto</p>
-          <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Faturamento Total</p>
+          <h3 className="text-2xl font-black font-display">
             R$ {stats.totalRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
-        </motion.div>
+        </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-brand-primary transition-all"
-        >
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-2xl bg-brand-secondary/10 text-brand-secondary flex items-center justify-center transform group-hover:scale-110 transition-transform">
-              <Wallet className="w-6 h-6" />
+            <div className="size-12 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-[#fdb612]" />
             </div>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Provisão Comissões</p>
-          <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total em Comissões</p>
+          <h3 className="text-2xl font-black font-display">
             R$ {stats.totalCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
-        </motion.div>
+        </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-emerald-500 transition-all"
-        >
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center transform group-hover:scale-110 transition-transform">
-              <CheckCircle2 className="w-6 h-6" />
+            <div className="size-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600" />
             </div>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Liquidado</p>
-          <h3 className="text-2xl font-black text-emerald-600 tracking-tight">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Comissões Pagas</p>
+          <h3 className="text-2xl font-black font-display text-emerald-600">
             R$ {stats.paidCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
-        </motion.div>
+        </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-amber-500 transition-all"
-        >
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="size-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center transform group-hover:scale-110 transition-transform">
-              <Clock className="w-6 h-6" />
+            <div className="size-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+              <Clock className="w-6 h-6 text-amber-600" />
             </div>
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">A Pagar</p>
-          <h3 className="text-2xl font-black text-amber-600 tracking-tight">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Comissões Pendentes</p>
+          <h3 className="text-2xl font-black font-display text-amber-600">
             R$ {stats.pendingCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
           </h3>
-        </motion.div>
+        </div>
       </div>
 
       {/* Charts Section */}
