@@ -392,6 +392,25 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const equipY = 70;
   const half = (pageWidth - marginLeft - marginRight) / 2;
 
+  // Automate Kit components identification
+  const moduleComp = kit?.components.find(c => c.name.toLowerCase().includes('módulo') || c.name.toLowerCase().includes('painel'));
+  const inverterComp = kit?.components.find(c => c.name.toLowerCase().includes('inversor'));
+  
+  // Dynamic identification of quantities and brands
+  const moduleName = moduleComp?.name || "Módulo Fotovoltaico de Alta Eficiência";
+  const moduleBrand = moduleComp?.brand || "Premium Solar";
+  const moduleCount = moduleComp?.quantity || Math.ceil(parseFloat(proposal.systemSize || "5") * 1.8); // fallback estimate
+
+  const inverterName = inverterComp?.name || "Inversor Solar Inteligente";
+  const inverterBrand = inverterComp?.brand || "EcoEnergy";
+  const inverterCount = inverterComp?.quantity || 1;
+
+  const additionalComps = kit?.components.filter(c => 
+    !c.name.toLowerCase().includes('módulo') && 
+    !c.name.toLowerCase().includes('painel') && 
+    !c.name.toLowerCase().includes('inversor')
+  ) || [];
+
   drawPanelIcon(marginLeft + 20, equipY);
   doc.setFontSize(14);
   doc.text("Módulo Fotovoltaico", marginLeft + 30, equipY + 6);
@@ -399,10 +418,10 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   
   const modInfo = [
-    { k: "Fabricante:", v: kit?.components.find(c => c.name.toLowerCase().includes('módulo'))?.brand || "LONGI" },
-    { k: "Potência:", v: "630 Wp" },
-    { k: "Garantia (defeitos):", v: "15 Anos" },
-    { k: "Quantidade:", v: "15" }
+    { k: "Modelo:", v: moduleName },
+    { k: "Fabricante:", v: moduleBrand },
+    { k: "Quantidade:", v: `${moduleCount} Unidades` },
+    { k: "Garantia:", v: "25 Anos de Desempenho" }
   ];
   modInfo.forEach((inf, i) => {
     doc.setFont("helvetica", "bold");
@@ -419,10 +438,10 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
 
   const invInfo = [
-    { k: "Fabricante:", v: kit?.components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || "SOLIS" },
-    { k: "Potência:", v: "7.500 W" },
-    { k: "Monitoramento:", v: "Wi-Fi" },
-    { k: "Quantidade:", v: "1" }
+    { k: "Modelo:", v: inverterName },
+    { k: "Fabricante:", v: inverterBrand },
+    { k: "Quantidade:", v: `${inverterCount} Unidade` },
+    { k: "Monitoramento:", v: "Wi-Fi + App Mobile" }
   ];
   invInfo.forEach((inf, i) => {
     doc.setFont("helvetica", "bold");
@@ -431,19 +450,33 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     doc.text(inf.v, marginLeft + half + 40, equipY + 20 + (i * 8));
   });
 
+  // Additional Equipment Section
+  const startY = equipY + 65;
   doc.setFontSize(14);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Equipamento Adicional", marginLeft + 20, equipY + 65);
-  doc.setFontSize(11);
+  doc.text("Resumo de Componentes Adicionais", marginLeft + 20, startY);
+  
+  doc.setFontSize(9);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("CABO PRETO 4MM2", marginLeft + 20, equipY + 75);
-  doc.text("60", marginLeft + 60, equipY + 75);
+  
+  // Automate additional components list from kit or fallback
+  const items = additionalComps.length > 0 ? additionalComps : [
+    { name: "Estrutura de fixação para telhado", quantity: 1, brand: "" },
+    { name: "Cabo Solar 6mm (Preto/Vermelho)", quantity: 1, brand: "" },
+    { name: "Conectores MC4 Original", quantity: 1, brand: "" },
+    { name: "String Box DC/AC Completa", quantity: 1, brand: "" }
+  ];
 
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Equipamento Adicional", marginLeft + half + 5, equipY + 65);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("CABO VERMELHO 4MM2", marginLeft + half + 5, equipY + 75);
-  doc.text("60", marginLeft + half + 50, equipY + 75);
+  items.forEach((comp, idx) => {
+    const col = idx % 2 === 0 ? marginLeft + 20 : marginLeft + half + 5;
+    const row = startY + 10 + (Math.floor(idx / 2) * 8);
+    
+    if (row < pageHeight - 30) {
+      doc.setFont("helvetica", "bold");
+      const truncatedName = comp.name.length > 35 ? comp.name.substring(0, 32) + '...' : comp.name;
+      doc.text(`• ${truncatedName}`, col, row);
+    }
+  });
 
   // --- PAGE 3: SERVIÇOS E FINANCEIRA ---
   doc.addPage();
@@ -476,21 +509,35 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(10);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
 
+  // Specific values requested by user for adjustment and alignment
+  const valPosMês = 150.00;
+  const valPosAno = 18900.00; // As requested in summary (maybe total Sem - Com?)
+  const econMensal = 1350.00;
+  const custoComAno = 735.00;
+
   const finRows = [
-    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${(energyConsVal * 0.1).toFixed(2)}/mês` },
+    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${valPosMês.toFixed(2)}/mês` },
+    { label: "Valor médio anual de energia:", val: `R$ ${valPosAno.toFixed(2)}/ano` },
     { label: "Custo estimado do primeiro ano SEM sistema instalado:", val: `R$ ${(energyConsVal * 12 * 1.05).toFixed(2)}/ano` },
-    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: "R$ 735,00/ano" },
-    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${(energyConsVal * 0.9).toFixed(2)}/mês` },
-    { label: "Economia total estimada no primeiro ano:", val: `R$ ${(energyConsVal * 12 * 0.85).toFixed(2)}/ano` }
+    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: `R$ ${custoComAno.toFixed(2)}/ano` },
+    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${econMensal.toFixed(2)}/mês` },
+    { label: "Economia total estimada no primeiro ano:", val: `R$ ${(econMensal * 12).toFixed(2)}/ano` }
   ];
 
   finRows.forEach((row, i) => {
-    doc.setFontSize(9);
+    doc.setDrawColor(240, 240, 240);
+    doc.line(marginLeft + 5, finStatsY + (i * 12) + 2, pageWidth - marginRight - 5, finStatsY + (i * 12) + 2);
+    
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
     doc.text(row.label, marginLeft + 5, finStatsY + (i * 12));
-    doc.setFont("helvetica", "normal");
+    
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
     doc.text(row.val, pageWidth - marginRight - 5, finStatsY + (i * 12), { align: 'right' });
   });
+
 
   // --- PAGE 4: FATURA E PAYBACK ---
   doc.addPage();

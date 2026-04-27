@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Box, 
   Plus, 
@@ -343,7 +343,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   }, [kits, searchTerm, filterInverterBrand, filterPanelBrand, filterComponentBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
 
   // Reset to page 1 when filters change
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterInverterBrand, filterPanelBrand, filterComponentBrand, prioritizeTargetPower, targetPower, minPower, maxPower]);
 

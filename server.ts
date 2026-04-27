@@ -19,10 +19,12 @@ async function startServer() {
 
   // Helper to get transporter with latest env vars
   const getTransporter = () => {
-    const user = (process.env.SMTP_USER || "").trim();
-    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim();
-    const host = process.env.SMTP_HOST || "smtp.gmail.com";
-    const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+    // Sanitize credentials: remove spaces, trim, and remove accidental quotes if any
+    const user = (process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
+    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+    const host = (process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+    
+    const isGmail = host.toLowerCase().includes("gmail.com") || host.toLowerCase().includes("googlemail.com");
 
     const config: any = {
       auth: {
@@ -108,10 +110,13 @@ async function startServer() {
 
   // SMTP Test API
   app.get("/api/smtp/test", async (req, res) => {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    const user = (process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
+    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+
+    if (!user || !pass) {
       return res.status(500).json({ 
         success: false, 
-        message: "SMTP não configurado. Defina SMTP_USER e SMTP_PASS." 
+        message: "SMTP não configurado. Defina SMTP_USER e SMTP_PASS nas variáveis de ambiente do AI Studio." 
       });
     }
 
@@ -146,6 +151,22 @@ async function startServer() {
       }
       res.status(500).json({ success: false, message: errorMessage, error: errorStr });
     }
+  });
+
+
+  // SMTP Status API (Safe check)
+  app.get("/api/smtp/status", (req, res) => {
+    const user = (process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
+    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+    const host = (process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+
+    res.json({
+      success: true,
+      configured: !!(user && pass),
+      user: user ? `${user.substring(0, 3)}***@***` : null,
+      host: host,
+      passLength: pass.length
+    });
   });
 
 

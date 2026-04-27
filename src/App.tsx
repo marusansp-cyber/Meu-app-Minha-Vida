@@ -564,6 +564,7 @@ export default function App() {
                     onOpenNewLead={() => setIsLeadModalOpen(true)} 
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
+                    onAddLead={addLead}
                     onLogout={handleLogout}
                     onConvertToClient={handleConvertToClient}
                     onCreateProposal={(lead) => {

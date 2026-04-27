@@ -11,6 +11,7 @@ import {
   Calendar,
   CreditCard,
   Mail,
+  ShieldCheck,
   Phone,
   MapPin,
   Camera,
@@ -44,6 +45,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const [showSMTPHelp, setShowSMTPHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [smtpStatus, setSmtpStatus] = useState<{
+    configured: boolean;
+    user: string | null;
+    host: string;
+    passLength: number;
+  } | null>(null);
+
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -169,13 +177,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
   const handleSendTestEmail = async () => {
     try {
+      showToast('Enviando e-mail de teste...');
       const res = await fetch('/api/smtp/test');
       const data = await res.json();
       if (data.success) {
         showToast(`✅ Conexão SMTP verificada com sucesso!`);
+        // Refresh status
+        const statusRes = await fetch('/api/smtp/status');
+        const statusData = await statusRes.json();
+        if (statusData.success) setSmtpStatus(statusData);
       } else {
         showToast(`❌ Erro SMTP: ${data.message || 'Verifique as variáveis'}`);
-        if (data.message?.includes('Autenticação') || data.message?.includes('Senha Rejeitada')) {
+        if (data.error?.includes('535') || data.error?.includes('Invalid login')) {
           setShowSMTPHelp(true);
         }
       }
@@ -218,6 +231,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     };
     fetchCompanySettings();
   }, []);
+
+  React.useEffect(() => {
+    const fetchSMTPStatus = async () => {
+      try {
+        const res = await fetch('/api/smtp/status');
+        const data = await res.json();
+        if (data.success) {
+          setSmtpStatus(data);
+        }
+      } catch (e) {
+        console.error('Error fetching SMTP status:', e);
+      }
+    };
+    if (activeTab === 'integrations') {
+      fetchSMTPStatus();
+    }
+  }, [activeTab]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -712,16 +742,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
           {activeTab === 'integrations' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right duration-500">
-              <div className="p-6 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-800">
+              <div className={cn(
+                "p-6 rounded-2xl border flex items-center justify-between",
+                smtpStatus?.configured 
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-800" 
+                  : "bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-800"
+              )}>
                 <div className="flex gap-4">
-                  <div className="size-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
+                  <div className={cn(
+                    "size-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg",
+                    smtpStatus?.configured ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-amber-500 text-white shadow-amber-500/20"
+                  )}>
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Configuração de E-mail (Gmail)</h4>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">
+                      Status da Integração: {smtpStatus?.configured ? 'ATIVO' : 'PENDENTE'}
+                    </h4>
                     <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Para enviar propostas diretamente do sistema, você deve configurar as variáveis de ambiente no painel do AI Studio. 
-                      Como você está usando Gmail, é <strong>obrigatório</strong> o uso de uma Senha de App.
+                      {smtpStatus?.configured 
+                        ? `Configurado com o e-mail: ${smtpStatus.user}` 
+                        : 'Você precisa configurar as variáveis no AI Studio para enviar e-mails.'}
+                    </p>
+                  </div>
+                </div>
+                {smtpStatus?.configured && (
+                  <div className="px-3 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                    Verificado
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-800">
+                <div className="flex gap-4">
+                  <div className="size-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Configuração de E-mail (Segurança)</h4>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                      Para sua segurança, as senhas SMTP NÃO são armazenadas no banco de dados. 
+                      Elas devem ser definidas como <strong>Environment Variables</strong> no menu de Configurações (ícone de engrenagem) do AI Studio.
                     </p>
                   </div>
                 </div>
@@ -729,34 +790,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
               <div className="space-y-6">
                 <div>
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Passo a Passo</h5>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Como Configurar</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">01</span>
-                      <p className="text-xs font-bold mt-1">Gere a Senha de App no Google (16 dígitos)</p>
+                      <span className="text-[10px] font-black text-[#fdb612]">Passo 1</span>
+                      <p className="text-xs font-bold mt-1">Gere a "Senha de App" na sua Conta Google.</p>
                     </div>
                     <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">02</span>
-                      <p className="text-xs font-bold mt-1">No AI Studio, clique na Engrenagem no TOPO DIREITO (ao lado do botão 'Publish')</p>
-                    </div>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">03</span>
-                      <p className="text-xs font-bold mt-1">Vá na aba "Environment Variables" ou "Secrets"</p>
-                    </div>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">04</span>
-                      <p className="text-xs font-bold mt-1">Adicione EXATAMENTE as nomes SMTP_USER e SMTP_PASS (Maiúsculas)</p>
+                      <span className="text-[10px] font-black text-[#fdb612]">Passo 2</span>
+                      <p className="text-xs font-bold mt-1">No AI Studio (Topo Direito), abra a Engrenagem.</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Variáveis Necessárias</h5>
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Variáveis Esperadas (Exemplos)</h5>
                   <div className="space-y-2">
                     {[
                       { key: 'SMTP_USER', value: 'marusansp@gmail.com', desc: 'Seu e-mail do Gmail' },
-                      { key: 'SMTP_PASS', value: 'nbphuvclyuynrqvr', desc: 'Sua Senha de App (sem espaços)' },
-                      { key: 'SMTP_HOST', value: 'smtp.gmail.com', desc: 'Host do servidor' },
+                      { key: 'SMTP_PASS', value: 'xxxx xxxx xxxx xxxx', desc: 'Sua Senha de App de 16 dígitos' },
+                      { key: 'SMTP_HOST', value: 'smtp.gmail.com', desc: 'Host (Google default)' },
                       { key: 'SMTP_PORT', value: '587', desc: 'Porta padrão' },
                     ].map((item) => (
                       <div key={item.key} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-xl group hover:border-[#fdb612]/30 transition-all">

@@ -32,7 +32,9 @@ import {
   History as HistoryIcon,
   Paperclip,
   MapPin,
-  Building2
+  Building2,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -49,6 +51,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { LEADS } from '../constants';
 import { cn, formatDate } from '../lib/utils';
 import { Lead } from '../types';
+import { extractLeadFromPdf } from '../services/geminiService';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -56,19 +59,22 @@ interface LeadsViewProps {
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
   onLogout: () => void;
+  onAddLead?: (lead: Lead) => Promise<void>;
   onCreateProposal?: (lead: Lead) => void;
   onConvertToClient?: (lead: Lead) => void;
 }
 
-export const LeadsView: React.FC<LeadsViewProps> = ({ 
-  leads, 
-  onOpenNewLead, 
-  onDeleteLead, 
-  onUpdateLead, 
-  onLogout, 
-  onCreateProposal,
-  onConvertToClient 
-}) => {
+export const LeadsView: React.FC<LeadsViewProps> = (props) => {
+  const { 
+    leads, 
+    onOpenNewLead, 
+    onDeleteLead, 
+    onUpdateLead, 
+    onLogout, 
+    onCreateProposal,
+    onConvertToClient 
+  } = props;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<Lead['status'][]>(['new', 'survey', 'proposal', 'negotiation', 'closed']);
@@ -153,6 +159,72 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handlePdfImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('pdf')) {
+      showToast('Por favor, selecione um arquivo PDF.');
+      return;
+    }
+
+    try {
+      setIsUploading(true); // Using existing isUploading state for simplicity
+      showToast('Analisando documento com IA...');
+
+      // Convert to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+      });
+      reader.readAsDataURL(file);
+      const base64 = await base64Promise;
+
+      const extractedData = await extractLeadFromPdf(base64);
+      
+      const newLead: any = {
+        name: extractedData.name || 'Novo Lead (IA)',
+        email: extractedData.email || '',
+        phone: extractedData.phone || '',
+        cpfCnpj: extractedData.cpfCnpj || '',
+        address: extractedData.address || '',
+        cep: extractedData.cep || '',
+        systemSize: extractedData.averageConsumption ? `${(extractedData.averageConsumption / 100).toFixed(2)} kWp` : 'A definir',
+        value: extractedData.averageBillValue ? `R$ ${(extractedData.averageBillValue * 50).toLocaleString('pt-BR')}` : 'Sob consulta',
+        status: 'new',
+        urgent: false,
+        createdAt: new Date().toISOString(),
+        history: [{
+          date: new Date().toLocaleString('pt-BR'),
+          action: `Lead criado via importação de PDF: ${file.name}`,
+          user: 'IA Watson'
+        }],
+        files: [{
+          name: file.name,
+          size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+          date: new Date().toLocaleDateString('pt-BR')
+        }]
+      };
+
+      if ((window as any).confirm(`IA detectou dados de ${newLead.name}. Deseja criar este lead automaticamente?`)) {
+        if ((props as any).onAddLead) {
+          await (props as any).onAddLead(newLead);
+          showToast('Lead criado com sucesso!');
+        } else {
+          showToast('Erro: Função de criação não disponível.');
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Erro ao extrair dados do PDF.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const representatives = Array.from(new Set((leads || []).map(l => l.representative).filter(Boolean))) as string[];
@@ -675,12 +747,27 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
             <Download className="w-4 h-4" />
             Exportar CSV
           </button>
+          <label className={cn(
+            "px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer",
+            isUploading && "opacity-50 cursor-not-allowed"
+          )}>
+            {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-[#fdb612]" /> : <Sparkles className="w-4 h-4 text-[#fdb612]" />}
+            <span className="hidden sm:inline">{isUploading ? 'Lendo...' : 'Importar PDF'}</span>
+            <input 
+              type="file" 
+              accept=".pdf" 
+              className="hidden" 
+              onChange={handlePdfImport}
+              disabled={isUploading}
+            />
+          </label>
           <button 
             onClick={onOpenNewLead}
-            className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all active:scale-95"
+            className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
           >
             <Plus className="w-4 h-4" />
-            Adicionar Novo Lead
+            <span className="hidden sm:inline">Novo Lead</span>
+            <span className="sm:hidden">Novo</span>
           </button>
         </div>
       </header>

@@ -22,6 +22,7 @@ import { syncCollection, updateDocument, deleteDocument } from '../firestoreUtil
 export const UsersView: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'pending'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: keyof User; direction: 'asc' | 'desc' } | null>({ key: 'createdAt', direction: 'desc' });
@@ -79,17 +80,22 @@ export const UsersView: React.FC = () => {
       admin_staff: 'Staff Adm'
     };
 
-    let result = users.filter(u => 
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (rolesMap[u.role] || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let result = users.filter(u => {
+      const matchesSearch = 
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (rolesMap[u.role] || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
 
     if (sortConfig) {
       result.sort((a, b) => {
-        const aValue = a[sortConfig.key] || '';
-        const bValue = b[sortConfig.key] || '';
+        const aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+        const bValue = (b[sortConfig.key] || '').toString().toLowerCase();
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -97,7 +103,7 @@ export const UsersView: React.FC = () => {
     }
 
     return result;
-  }, [users, searchTerm, sortConfig]);
+  }, [users, searchTerm, statusFilter, sortConfig]);
 
   const handleSort = (key: keyof User) => {
     setSortConfig(current => ({
@@ -157,15 +163,28 @@ export const UsersView: React.FC = () => {
           <p className="text-slate-500 font-medium">Controle quem pode acessar o sistema e quais suas permissões.</p>
         </div>
         
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Buscar por nome, email ou role..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
-          />
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Nome, e-mail ou cargo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="px-4 py-3 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+          >
+            <option value="all">Todos Status</option>
+            <option value="active">Ativos</option>
+            <option value="pending">Pendentes</option>
+            <option value="inactive">Inativos</option>
+          </select>
         </div>
       </div>
 
@@ -175,15 +194,26 @@ export const UsersView: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-white/5">
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Usuário</th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Permissão (Role)</th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-[#fdb612] transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    Nome {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-[#fdb612] transition-colors"
+                    onClick={() => handleSort('email')}
+                  >
+                    E-mail {sortConfig?.key === 'email' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</th>
                   <th 
                     className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 cursor-pointer hover:text-[#fdb612] transition-colors"
                     onClick={() => handleSort('createdAt')}
                   >
-                    Criado Em
+                    Criação {sortConfig?.key === 'createdAt' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Status</th>
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ações</th>
                 </tr>
               </thead>
@@ -191,25 +221,25 @@ export const UsersView: React.FC = () => {
                 {filteredUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="size-10 rounded-full bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] font-black shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="size-8 rounded-full bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] font-black shrink-0 text-[10px]">
                           {u.avatar ? (
                             <img src={u.avatar} alt={u.name} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
                             u.name.charAt(0).toUpperCase()
                           )}
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100">{u.name}</p>
-                          <p className="text-xs text-slate-500 font-medium">{u.email}</p>
-                        </div>
+                        <p className="font-bold text-slate-900 dark:text-slate-100 text-sm whitespace-nowrap">{u.name}</p>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-xs text-slate-500 font-medium">{u.email}</p>
                     </td>
                     <td className="px-6 py-4">
                       <select 
                         value={u.role}
                         onChange={(e) => changeRole(u, e.target.value as UserRole)}
-                        className="bg-slate-100 dark:bg-slate-800 border-none text-xs font-black px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none"
+                        className="bg-slate-100 dark:bg-slate-800 border-none text-[10px] font-black uppercase px-2 py-1 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none"
                       >
                         {roles.map(r => (
                           <option key={r.value} value={r.value}>{r.label}</option>
@@ -217,23 +247,25 @@ export const UsersView: React.FC = () => {
                       </select>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">
                         {u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
                       </p>
                     </td>
-                    <td className="px-6 py-4">
-                      <select 
-                        value={u.status || 'pending'}
-                        onChange={(e) => updateStatus(u, e.target.value as any)}
-                        className={cn(
-                          "bg-slate-100 dark:bg-slate-800 border-none text-[10px] font-black uppercase px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none",
-                          u.status === 'active' ? "text-emerald-500" : u.status === 'inactive' ? "text-slate-500" : "text-amber-500"
-                        )}
-                      >
-                        <option value="active">Ativo</option>
-                        <option value="inactive">Inativo</option>
-                        <option value="pending">Pendente</option>
-                      </select>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex justify-center">
+                        <select 
+                          value={u.status || 'pending'}
+                          onChange={(e) => updateStatus(u, e.target.value as any)}
+                          className={cn(
+                            "bg-slate-100 dark:bg-slate-800 border-none text-[10px] font-black uppercase px-2 py-1 rounded-lg focus:ring-2 focus:ring-[#fdb612]/30 transition-all outline-none",
+                            u.status === 'active' ? "text-emerald-500" : u.status === 'inactive' ? "text-slate-500" : "text-amber-500"
+                          )}
+                        >
+                          <option value="active">Ativo</option>
+                          <option value="inactive">Inativo</option>
+                          <option value="pending">Pendente</option>
+                        </select>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -343,16 +375,37 @@ export const UsersView: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Cargo / Role</label>
                   <select 
-                    value={editingUser.status || 'pending'}
-                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as any })}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
+                    value={editingUser.role}
+                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as UserRole })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
                   >
-                    <option value="active">Ativo</option>
-                    <option value="inactive">Inativo</option>
-                    <option value="pending">Pendente</option>
+                    {roles.map(r => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status da Conta</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {['active', 'pending', 'inactive'].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setEditingUser({ ...editingUser, status: s as any })}
+                      className={cn(
+                        "py-3 rounded-xl border-2 transition-all font-black text-[10px] uppercase tracking-widest",
+                        editingUser.status === s 
+                          ? "bg-[#fdb612]/10 border-[#fdb612] text-[#fdb612]" 
+                          : "bg-slate-50 dark:bg-slate-900 border-transparent text-slate-400"
+                      )}
+                    >
+                      {s === 'active' ? 'Ativo' : s === 'pending' ? 'Pendente' : 'Inativo'}
+                    </button>
+                  ))}
                 </div>
               </div>
 
