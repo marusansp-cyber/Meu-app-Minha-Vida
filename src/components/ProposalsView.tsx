@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat } from 'lucide-react';
+import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, User as UserType, Lead, Client } from '../types';
@@ -329,6 +329,32 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     } catch (error) {
       console.error('Erro ao enviar proposta:', error);
       showToast('Erro ao processar envio.', 'info');
+    }
+  };
+
+  const handlePreview = async (id: string) => {
+    const proposal = proposals.find(p => p.id === id);
+    if (!proposal) return;
+
+    try {
+      showToast('Gerando Visualização...', 'info');
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      
+      // Convert base64 to Blob for more reliable preview
+      const byteCharacters = atob(pdfBase64.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Erro ao visualizar:', error);
+      showToast('Erro ao gerar visualização.', 'info');
     }
   };
 
@@ -1382,6 +1408,16 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
+                          handlePreview(prop.id!);
+                        }}
+                        className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
+                        title="Visualizar Proposta na Tela"
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
                           handleViewDetails(prop);
                         }}
                         className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
@@ -1474,11 +1510,18 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                         </button>
                         <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-2 z-50 hidden group-hover/actions:block animate-in fade-in slide-in-from-top-2 duration-200">
                           <button 
+                            onClick={() => handlePreview(prop.id!)}
+                            className="w-full px-4 py-2 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                          >
+                            <LayoutGrid className="w-4 h-4 text-slate-400" />
+                            Visualizar na Tela
+                          </button>
+                          <button 
                             onClick={() => handleViewDetails(prop)}
                             className="w-full px-4 py-2 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
                           >
                             <Eye className="w-4 h-4 text-slate-400" />
-                            Visualizar
+                            Detalhes
                           </button>
                           <button 
                             onClick={() => handleSend(prop.id)}

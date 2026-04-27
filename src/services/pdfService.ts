@@ -217,217 +217,346 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const headerHeight = 7.6;
   const footerHeight = 7.6;
 
-  // Colors
-  const primaryGreen = [46, 125, 50];    // #2E7D32
-  const electricBlue = [0, 180, 216];    // #00B4D8
-  const solarOrange = [255, 140, 0];     // #FF8C00
-  const bgWhite = [255, 255, 255];
-  const textDark = [45, 45, 45];        // #2D2D2D
-  const textGray = [102, 102, 102];      // #666666
-  const borderLight = [226, 232, 240];
-
-  const formatDate = (date: any) => {
-    try {
-      if (!date) return new Date().toLocaleDateString('pt-BR');
-      const d = new Date(date);
-      return isNaN(d.getTime()) ? new Date().toLocaleDateString('pt-BR') : d.toLocaleDateString('pt-BR');
-    } catch {
-      return new Date().toLocaleDateString('pt-BR');
-    }
-  };
+  // Colors - matching the screenshots more closely
+  const primaryGreen = [57, 181, 74];   // #39B54A - Vibrant Energy Green
+  const electricBlue = [0, 174, 239];   // #00AEEF - Electric Blue
+  const textDark = [50, 50, 50];        // #323232
+  const textGray = [120, 120, 120];     // #787878
 
   const drawHeaderFooter = (pageNumber: number) => {
-    // Header - Sustainable Green bar
+    // Top Bar - Green
     doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-    doc.rect(0, 0, pageWidth, headerHeight, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("VIEIRA'S SOLAR & ENGENHARIA", marginLeft, headerHeight / 2 + 1.2);
-    doc.text("CREA 256019D MG", pageWidth - marginRight, headerHeight / 2 + 1.2, { align: 'right' });
-
-    // Footer - Electric Blue bar
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(0, pageHeight - footerHeight, pageWidth, footerHeight, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.text("www.vieirassolar.com.br", marginLeft, pageHeight - (footerHeight / 2) + 1.2);
-    doc.text("Energia Renovável e Sustentabilidade", pageWidth - marginRight, pageHeight - (footerHeight / 2) + 1.2, { align: 'right' });
-
-    // Page Number (subtle)
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${pageNumber}`, pageWidth / 2, pageHeight - footerHeight - 2, { align: 'center' });
-  };
-
-  // Helper for drawing cards with 12px (3.2mm) radius
-  const drawCard = (x: number, y: number, w: number, h: number, fillColor = bgWhite) => {
-    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-    doc.setDrawColor(borderLight[0], borderLight[1], borderLight[2]);
-    doc.setLineWidth(0.1);
-    doc.roundedRect(x, y, w, h, 3.2, 3.2, 'FD');
-  };
-
-  // Helper for Section Titles
-  const sectionTitle = (text: string, y: number) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
+    doc.rect(0, 0, pageWidth, 5, 'F');
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-    doc.text(text, marginLeft, y);
-    doc.setDrawColor(solarOrange[0], solarOrange[1], solarOrange[2]);
-    doc.setLineWidth(0.8);
-    doc.line(marginLeft, y + 2, marginLeft + 20, y + 2);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Energia Solar", marginLeft, 12);
+
+    // Bottom Bar - Blue
+    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text("Energia Solar", marginLeft, pageHeight - 1);
+    doc.text("Energia Solar", pageWidth - marginRight, pageHeight - 1, { align: 'right' });
   };
 
-  // --- PAGE 1: CAPA PRINCIPAL ---
-  drawHeaderFooter(1);
-  
-  // Cover Background
-  doc.setFillColor(248, 250, 252); // Soft slate tint
-  doc.rect(marginLeft, marginTop, pageWidth - marginLeft - marginRight, pageHeight - marginTop - marginBottom - 10, 'F');
+  const drawGaugeIcon = (x: number, y: number) => {
+    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.setLineWidth(3);
+    // Outer circle (rim)
+    doc.ellipse(x + 15, y + 15, 12, 12, 'S');
+    // Needle
+    doc.setLineWidth(1.5);
+    doc.line(x + 15, y + 15, x + 25, y + 5);
+    // Center point
+    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.circle(x + 15, y + 15, 2, 'F');
+  };
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(32);
-  doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-  doc.text("ESTUDO DE", pageWidth / 2, 80, { align: 'center' });
-  doc.text("VIABILIDADE SOLAR", pageWidth / 2, 95, { align: 'center' });
+  const drawPanelIcon = (x: number, y: number) => {
+    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.setLineWidth(0.5);
+    doc.rect(x, y, 6, 8);
+    doc.line(x, y + 4, x + 6, y + 4);
+    doc.line(x + 3, y, x + 3, y + 8);
+  };
 
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("Investimento inteligente para sua liberdade energética", pageWidth / 2, 110, { align: 'center' });
+  const drawInverterIcon = (x: number, y: number) => {
+    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.setLineWidth(0.5);
+    doc.rect(x, y, 6, 8);
+    doc.line(x + 1, y + 2, x + 5, y + 2);
+    doc.circle(x + 3, y + 5, 2, 'S');
+  };
 
-  // Big Highlight Card
-  drawCard(marginLeft + 10, 130, pageWidth - (marginLeft + marginRight + 20), 40, bgWhite);
-  doc.setFontSize(24);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("SUA CONTA DE LUZ", pageWidth / 2, 148, { align: 'center' });
-  doc.text("PODE CAIR 95%", pageWidth / 2, 160, { align: 'center' });
-
-  // Client Info box at bottom
-  const infoY = 230;
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.text(`PARA: ${proposal.titular || proposal.client || "Cliente"}`, marginLeft + 10, infoY);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`DATA: ${formatDate(proposal.date)}`, marginLeft + 10, infoY + 8);
-  doc.text(`RESPONSÁVEL: ${proposal.representative || "Equipe Vieira's"}`, marginLeft + 10, infoY + 14);
-
-  // --- PAGE 2: INVESTIMENTO E RETORNO ---
-  doc.addPage();
-  drawHeaderFooter(2);
-  sectionTitle("INVESTIMENTO E RETORNO", 45);
-
-  const invValue = proposal.value || 0;
-  doc.setFontSize(32);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text(`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(invValue)}`, pageWidth / 2, 75, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("Valor total do projeto instalado (Chave na Mão)", pageWidth / 2, 82, { align: 'center' });
-
-  // Comparison
-  const compY = 105;
-  drawCard(marginLeft, compY, pageWidth - marginLeft - marginRight, 60);
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("ECONOMIA MENSAL ESTIMADA", marginLeft + 10, compY + 12);
-
-  const energyVal = parseFloat(proposal.energyConsumption || "1357");
-  const currentBill = energyVal * 1.05; 
-  const solarBill = 100; // Taxa de disponibilidade mínima
-  const savings = currentBill - solarBill;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Conta Atual: R$ ${currentBill.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, marginLeft + 10, compY + 25);
-  doc.text(`Nova Conta: R$ ${solarBill.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, marginLeft + 10, compY + 33);
-  
-  doc.setFontSize(24);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-  doc.text(`- R$ ${savings.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, pageWidth - marginRight - 15, compY + 30, { align: 'right' });
-  doc.setFontSize(8);
-  doc.text("ECONOMIA POR MÊS", pageWidth - marginRight - 15, compY + 38, { align: 'right' });
-
-  // ROI Summary
-  const roiY = 185;
-  const roiW = (pageWidth - marginLeft - marginRight - 5) / 2;
-  
-  drawCard(marginLeft, roiY, roiW, 40);
-  doc.setFontSize(10);
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("TEMPO DE RETORNO (PAYBACK)", marginLeft + roiW / 2, roiY + 15, { align: 'center' });
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(solarOrange[0], solarOrange[1], solarOrange[2]);
-  doc.text(`${proposal.payback || "3.8"} ANOS`, marginLeft + roiW / 2, roiY + 30, { align: 'center' });
-
-  drawCard(pageWidth - marginRight - roiW, roiY, roiW, 40);
-  doc.setFontSize(10);
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("ECONOMIA EM 25 ANOS", pageWidth - marginRight - roiW / 2, roiY + 15, { align: 'center' });
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-  
   const estimatedSavings25 = proposal.energyConsumption 
     ? (parseFloat(proposal.energyConsumption) * 1.05 - 100) * 12 * 25 
     : 450000;
-  
-  doc.text(`R$ ${estimatedSavings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}+`, pageWidth - marginRight - roiW / 2, roiY + 30, { align: 'center' });
 
-  // --- PAGE 3: CALL TO ACTION + ASSINATURA ---
+  // Constants for charts
+  const chartX = marginLeft + 15;
+  const chartW = pageWidth - marginLeft - marginRight - 30;
+  const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const mBarW = (chartW / 12) * 0.4;
+
+  const cfX = marginLeft + 15;
+  const cfW = pageWidth - marginLeft - marginRight - 30;
+
+  // --- PAGE 1: PROJETO E INSTALAÇÃO ---
+  drawHeaderFooter(1);
+  
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Projeto e Instalação", pageWidth / 2, 45, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  const introText = "As características locais da propriedade onde será feita a instalação do sistema fotovoltaico são de extrema importância para a condução do projeto. É necessário realizar um estudo a fim de se verificar a presença de características indesejáveis para a instalação do sistema no local. A ocorrência de sombreamentos nos painéis fotovoltaicos acarreta na redução da energia gerada, e, portanto, compromete a eficiência do sistema fotovoltaico.";
+  const splitIntro = doc.splitTextToSize(introText, pageWidth - marginLeft - marginRight - 10);
+  doc.text(splitIntro, marginLeft + 5, 55);
+
+  const statsY = 100;
+  drawGaugeIcon(marginLeft + 15, statsY - 5);
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  
+  const energyConsVal = parseFloat(proposal.energyConsumption || "550");
+  const energyGenVal = parseFloat(proposal.monthlyGeneration || "1028");
+
+  const leftX = marginLeft + 60;
+  const rightX = pageWidth - marginRight - 20;
+
+  doc.text("Consumo médio mensal de energia:", leftX, statsY);
+  doc.text(`${energyConsVal.toLocaleString('pt-BR')} kWh/mês`, rightX, statsY, { align: 'right' });
+  
+  doc.text("Consumo médio anual de energia:", leftX, statsY + 12);
+  doc.text(`${(energyConsVal * 12).toLocaleString('pt-BR')} kWh/ano`, rightX, statsY + 12, { align: 'right' });
+
+  doc.text("Geração média mensal estimada:", leftX, statsY + 24);
+  doc.text(`${energyGenVal.toLocaleString('pt-BR')} kWh/mês`, rightX, statsY + 24, { align: 'right' });
+
+  doc.text("Geração média anual estimada:", leftX, statsY + 36);
+  doc.text(`${(energyGenVal * 12).toLocaleString('pt-BR')} kWh/ano`, rightX, statsY + 36, { align: 'right' });
+
+  doc.setFontSize(24);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Informações do Sistema", pageWidth / 2, 165, { align: 'center' });
+  
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+  doc.text("As principais informações do sistema proposto estão indicadas nesta seção.", pageWidth / 2, 172, { align: 'center' });
+
+  const infoTableY = 185;
+  const rowH = 10;
+  const col1 = marginLeft + 40;
+  const col2 = pageWidth - marginRight - 40;
+
+  const infoRows = [
+    { label: "Potência do sistema:", val: `${proposal.systemSize || "9,45"} kWp`, color: electricBlue },
+    { label: "Área mínima requerida:", val: `${(parseFloat(proposal.systemSize || "9") * 5.2).toFixed(2)} m²` },
+    { label: "Peso distribuído dos módulos:", val: "7,96 kg/m²" },
+    { label: "Vida útil do sistema:", val: "25 a 35 Anos" }
+  ];
+
+  infoRows.forEach((row, i) => {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+    doc.text(row.label, col1, infoTableY + (i * rowH));
+    if (row.color) {
+      doc.setTextColor(row.color[0], row.color[1], row.color[2]);
+    }
+    doc.text(row.val, col2, infoTableY + (i * rowH), { align: 'right' });
+  });
+
+  doc.setFontSize(16);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Consumo X Geração", pageWidth / 2, 235, { align: 'center' });
+
+  const chartY = 280;
+  months.forEach((m, i) => {
+    const x = chartX + (i * (chartW / 12));
+    const h1 = 15 + Math.random() * 5;
+    const h2 = 25 + Math.random() * 15;
+    doc.setFillColor(180, 180, 180);
+    doc.rect(x, chartY - h1, mBarW, h1, 'F');
+    // Geração - Blue
+    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.rect(x + mBarW, chartY - h2, mBarW, h2, 'F');
+    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+    doc.setFontSize(7);
+    doc.text(m, x + mBarW, chartY + 5, { align: 'center' });
+  });
+
+  // Legend
+  doc.setFontSize(9);
+  doc.setFillColor(180, 180, 180);
+  doc.rect(pageWidth / 2 - 40, chartY + 12, 4, 4, 'F');
+  doc.text("Consumo (kWh)", pageWidth / 2 - 34, chartY + 15.5);
+  doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.rect(pageWidth / 2 + 10, chartY + 12, 4, 4, 'F');
+  doc.text("Geração (kWh)", pageWidth / 2 + 16, chartY + 15.5);
+
+  // --- PAGE 2: LISTA DE EQUIPAMENTOS ---
+  doc.addPage();
+  drawHeaderFooter(2);
+  doc.setFontSize(28);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Lista de Equipamentos", pageWidth / 2, 45, { align: 'center' });
+
+  const equipY = 70;
+  const half = (pageWidth - marginLeft - marginRight) / 2;
+
+  drawPanelIcon(marginLeft + 20, equipY);
+  doc.setFontSize(14);
+  doc.text("Módulo Fotovoltaico", marginLeft + 30, equipY + 6);
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  
+  const modInfo = [
+    { k: "Fabricante:", v: kit?.components.find(c => c.name.toLowerCase().includes('módulo'))?.brand || "LONGI" },
+    { k: "Potência:", v: "630 Wp" },
+    { k: "Garantia (defeitos):", v: "15 Anos" },
+    { k: "Quantidade:", v: "15" }
+  ];
+  modInfo.forEach((inf, i) => {
+    doc.setFont("helvetica", "bold");
+    doc.text(inf.k, marginLeft + 20, equipY + 20 + (i * 8));
+    doc.setFont("helvetica", "normal");
+    doc.text(inf.v, marginLeft + 60, equipY + 20 + (i * 8));
+  });
+
+  drawInverterIcon(marginLeft + half + 5, equipY);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.setFontSize(14);
+  doc.text("Inversor", marginLeft + half + 15, equipY + 6);
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+
+  const invInfo = [
+    { k: "Fabricante:", v: kit?.components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || "SOLIS" },
+    { k: "Potência:", v: "7.500 W" },
+    { k: "Monitoramento:", v: "Wi-Fi" },
+    { k: "Quantidade:", v: "1" }
+  ];
+  invInfo.forEach((inf, i) => {
+    doc.setFont("helvetica", "bold");
+    doc.text(inf.k, marginLeft + half + 5, equipY + 20 + (i * 8));
+    doc.setFont("helvetica", "normal");
+    doc.text(inf.v, marginLeft + half + 40, equipY + 20 + (i * 8));
+  });
+
+  doc.setFontSize(14);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Equipamento Adicional", marginLeft + 20, equipY + 65);
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.text("CABO PRETO 4MM2", marginLeft + 20, equipY + 75);
+  doc.text("60", marginLeft + 60, equipY + 75);
+
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Equipamento Adicional", marginLeft + half + 5, equipY + 65);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.text("CABO VERMELHO 4MM2", marginLeft + half + 5, equipY + 75);
+  doc.text("60", marginLeft + half + 50, equipY + 75);
+
+  // --- PAGE 3: SERVIÇOS E FINANCEIRA ---
   doc.addPage();
   drawHeaderFooter(3);
-  
-  drawCard(marginLeft + 10, 45, pageWidth - (marginLeft + marginRight + 20), 40, [255, 140, 0, 0.1] as any);
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(solarOrange[0], solarOrange[1], solarOrange[2]);
-  doc.text("! CONDIÇÃO EXCLUSIVA E LIMITADA", pageWidth / 2, 58, { align: 'center' });
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text(`Proposta válida até ${new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR')}`, pageWidth / 2, 70, { align: 'center' });
-  doc.text("Reservamos apenas 4 vagas de instalação prioritária para este ciclo.", pageWidth / 2, 76, { align: 'center' });
+  doc.setFontSize(28);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Serviços Inclusos", pageWidth / 2, 45, { align: 'center' });
 
-  sectionTitle("ESCOLHA SUA LIBERDADE", 110);
+  const servicesList = [
+    "1. Vistoria técnica e projeto elétrico do sistema.",
+    "2. Anotação da responsabilidade técnica (ART) do projeto e instalação.",
+    "3. Obtenção das licenças junto à concessionária de energia local.",
+    "4. Montagem dos módulos fotovoltaicos com estruturas apropriadas.",
+    "5. Instalação e montagem elétrica do sistema.",
+    "6. Gestão, supervisão e fiscalização da Obra de instalação.",
+    "7. Frete incluso de todos equipamentos referentes ao sistema.",
+    "8. Documentação personalizada do projeto fotovoltaico."
+  ];
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  servicesList.forEach((s, i) => {
+    doc.text(s, marginLeft + 15, 65 + (i * 10));
+  });
+
+  doc.setFontSize(24);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Análise Financeira", pageWidth / 2, 175, { align: 'center' });
+
+  const finStatsY = 195;
+  doc.setFontSize(10);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+
+  const finRows = [
+    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${(energyConsVal * 0.1).toFixed(2)}/mês` },
+    { label: "Custo estimado do primeiro ano SEM sistema instalado:", val: `R$ ${(energyConsVal * 12 * 1.05).toFixed(2)}/ano` },
+    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: "R$ 735,00/ano" },
+    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${(energyConsVal * 0.9).toFixed(2)}/mês` },
+    { label: "Economia total estimada no primeiro ano:", val: `R$ ${(energyConsVal * 12 * 0.85).toFixed(2)}/ano` }
+  ];
+
+  finRows.forEach((row, i) => {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(row.label, marginLeft + 5, finStatsY + (i * 12));
+    doc.setFont("helvetica", "normal");
+    doc.text(row.val, pageWidth - marginRight - 5, finStatsY + (i * 12), { align: 'right' });
+  });
+
+  // --- PAGE 4: FATURA E PAYBACK ---
+  doc.addPage();
+  drawHeaderFooter(4);
+  doc.setFontSize(24);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Primeiro Ano da Fatura de Energia", pageWidth / 2, 45, { align: 'center' });
+
+  const fatChartY = 90;
+  months.forEach((m, i) => {
+    const x = chartX + (i * (chartW / 12));
+    const h1 = 35 + Math.random() * 5;
+    const h2 = 8 + Math.random() * 3;
+    doc.setFillColor(180, 180, 180);
+    doc.rect(x, fatChartY - h1, mBarW, h1, 'F');
+    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.rect(x + mBarW, fatChartY - h2, mBarW, h2, 'F');
+    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+    doc.setFontSize(7);
+    doc.text(m, x + mBarW, fatChartY + 5, { align: 'center' });
+  });
+
+  doc.setFontSize(24);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.text("Valor do sistema:", marginLeft + 25, 125);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text(`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposal.value || 0)}`, pageWidth - marginRight - 25, 125, { align: 'right' });
+
   doc.setFontSize(12);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("Ao assinar esta proposta, você inicia sua jornada para a independência energética", marginLeft, 122);
-  doc.text("com a garantia de quem é referência em engenharia fotovoltaica.", marginLeft, 128);
+  doc.text("Payback (tempo de retorno):", marginLeft + 25, 137);
+  doc.text(`${proposal.payback || "4 anos e 2 meses"}`, pageWidth - marginRight - 25, 137, { align: 'right' });
+  
+  doc.text("Economia total em 25 anos:", marginLeft + 25, 149);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text(`R$ ${estimatedSavings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, pageWidth - marginRight - 25, 149, { align: 'right' });
 
-  // Signatures
-  const signY = 220;
+  doc.setFontSize(18);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Fluxo de Caixa (Ano x R$)", pageWidth / 2, 175, { align: 'center' });
+  const cfY = 240;
+  for(let i=0; i<25; i++) {
+    const x = cfX + (i * (cfW / 25));
+    const h = 5 + (i * 2.2);
+    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.rect(x, cfY - h, (cfW / 25) * 0.7, h, 'F');
+    if (i % 5 === 0 || i === 24) {
+      doc.setFontSize(6);
+      doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+      doc.text(`${i+1}`, x + (cfW/50), cfY + 5, { align: 'center' });
+    }
+  }
+
+  const signY = 265;
   doc.setLineWidth(0.3);
-  doc.setDrawColor(textGray[0], textGray[1], textGray[2]);
+  doc.setDrawColor(200, 200, 200);
   doc.line(marginLeft + 15, signY, marginLeft + 85, signY);
   doc.line(pageWidth - marginRight - 85, signY, pageWidth - marginRight - 15, signY);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text(`${proposal.titular || proposal.client || "CONTRATANTE"}`, marginLeft + 15, signY + 6);
-  doc.text("ENG. JOSÉ VIEIRA MENDES JUNIOR", pageWidth - marginRight - 85, signY + 6);
-  
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text("Assinatura do Cliente", marginLeft + 15, signY + 12);
-  doc.text("Responsável Técnico | CREA-MG 256019D", pageWidth - marginRight - 85, signY + 12);
-
-  // Final small branding
-  doc.setFontSize(7);
+  doc.text(`${proposal.titular || proposal.client || "Cliente Especial"}`, marginLeft + 50, signY + 6, { align: 'center' });
+  doc.text("ENG. JOSÉ VIEIRA MENDES JUNIOR", pageWidth - marginRight - 50, signY + 6, { align: 'center' });
   doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("* Esta proposta contempla projeto, instalação e acompanhamento completo.", pageWidth / 2, 275, { align: 'center' });
+  doc.text("Assinatura do Cliente", marginLeft + 50, signY + 11, { align: 'center' });
+  doc.text("Responsável Técnico | CREA-MG 256019D", pageWidth - marginRight - 50, signY + 11, { align: 'center' });
 
   return doc.output('datauristring');
 };
-

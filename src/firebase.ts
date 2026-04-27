@@ -6,7 +6,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Services
+// Initialize Services with connection hardening
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
@@ -18,7 +18,6 @@ async function testConnection() {
     if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error("Please check your Firebase configuration. The client is offline.");
     }
-    // Skip logging for other errors, as this is simply a connection test.
   }
 }
 

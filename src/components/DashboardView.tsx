@@ -8,6 +8,9 @@ import {
   Tooltip, 
   ResponsiveContainer,
   Cell,
+  LineChart,
+  Line,
+  Legend,
   AreaChart,
   Area,
   PieChart,
@@ -133,6 +136,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       { name: 'Fechados', value: acceptedProposals || 12, fill: '#fdb61233' },
     ];
   }, [leads, proposals]);
+
+  const consultantData = useMemo(() => {
+    const reps: Record<string, { name: string, totalValue: number, wonCount: number }> = {};
+    
+    proposals.filter(p => p.status === 'accepted').forEach(p => {
+      if (!reps[p.representative]) {
+        reps[p.representative] = { name: p.representative, totalValue: 0, wonCount: 0 };
+      }
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      reps[p.representative].totalValue += val;
+      reps[p.representative].wonCount += 1;
+    });
+
+    return Object.values(reps)
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 5);
+  }, [proposals]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -455,39 +475,82 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm mb-8">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Performance de Vendas (6 Meses)</h4>
-                <p className="text-xs text-slate-400">Comparativo de receita aceita (kR$) entre o ano atual e anterior</p>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Ranking de Consultores</h4>
+                <p className="text-xs text-slate-400">Total em vendas e volume de contratos fechados por representante</p>
               </div>
             </div>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}
-                  />
+                <BarChart data={consultantData} layout="vertical" margin={{ left: 40, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                  <XAxis type="number" hide />
                   <YAxis 
+                    dataKey="name" 
+                    type="category" 
                     axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }}
-                    label={{ value: 'Receita (kR$)', angle: -90, position: 'insideLeft', style: { fontSize: 10, fontWeight: 700, fill: '#94a3b8' } }}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}
+                    width={100}
                   />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
                     contentStyle={{ 
-                      borderRadius: '12px', 
+                      borderRadius: '16px', 
                       border: 'none', 
                       boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                       backgroundColor: '#231d0f',
                       color: '#fff'
                     }}
+                    formatter={(value: any, name: string) => [
+                      name === 'totalValue' ? `R$ ${value.toLocaleString('pt-BR')}` : value,
+                      name === 'totalValue' ? 'Valor Total' : 'Contratos Ganhos'
+                    ]}
                   />
-                  <Bar dataKey="atual" name="Ano Atual" fill="#fdb612" radius={[4, 4, 0, 0]} barSize={24} />
-                  <Bar dataKey="anterior" name="Ano Anterior" fill="#fdb61244" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }} />
+                  <Bar dataKey="totalValue" name="Valor das Vendas" fill="#fdb612" radius={[0, 4, 4, 0]} barSize={12} />
+                  <Bar dataKey="wonCount" name="Contratos Ganhos" fill="#10b981" radius={[0, 4, 4, 0]} barSize={12} />
                 </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Vendas Históricas (6 Meses)</h4>
+                <p className="text-xs text-slate-400">Comparativo mensal de propostas aceitas com o ano anterior</p>
+              </div>
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}
+                    tickFormatter={(val) => `R$ ${val}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: '#231d0f',
+                      color: '#fff'
+                    }}
+                    formatter={(val: any) => [`R$ ${val}k`, 'Receita']}
+                  />
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }} />
+                  <Line type="monotone" dataKey="atual" name="Ano Atual" stroke="#fdb612" strokeWidth={4} dot={{ r: 6, fill: '#fdb612', strokeWidth: 3, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                  <Line type="monotone" dataKey="anterior" name="Ano Anterior" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </div>

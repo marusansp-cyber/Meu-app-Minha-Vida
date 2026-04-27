@@ -52,6 +52,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   const [editForm, setEditForm] = useState<Partial<Proposal>>({});
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   useEffect(() => {
     if (proposal) {
@@ -84,6 +85,29 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
       alert('Erro ao gerar PDF');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    try {
+      setIsPreviewing(true);
+      const pdfBase64 = await generateProposalPDF(proposal);
+      
+      const byteCharacters = atob(pdfBase64.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Erro ao gerar visualização');
+    } finally {
+      setIsPreviewing(false);
     }
   };
 
@@ -936,6 +960,21 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 >
                   <Printer className="w-4 h-4 text-slate-400 group-hover:text-[#fdb612]" />
                   <span>Imprimir</span>
+                </button>
+                <button 
+                  onClick={handlePreview}
+                  disabled={isPreviewing}
+                  className={cn(
+                    "flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-sm hover:bg-white transition-all group",
+                    isPreviewing && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {isPreviewing ? (
+                    <RefreshCw className="w-4 h-4 text-emerald-500 animate-spin" />
+                  ) : (
+                    <LayoutGrid className="w-4 h-4 text-slate-400 group-hover:text-emerald-500" />
+                  )}
+                  <span>{isPreviewing ? 'Gerando...' : 'Visualizar'}</span>
                 </button>
                 <button 
                   onClick={handleDownload}

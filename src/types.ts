@@ -12,7 +12,18 @@ export interface User {
   createdAt?: string;
 }
 
-export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports';
+export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports' | 'gallery';
+
+export interface GalleryItem {
+  id: string;
+  url: string;
+  thumbnailUrl?: string;
+  name: string;
+  description?: string;
+  category?: 'installation' | 'product' | 'blueprint' | 'other';
+  uploadedAt: string;
+  uploadedBy: string;
+}
 
 export interface Interaction {
   id: string;
@@ -183,6 +194,7 @@ export interface Proposal {
   commissionStatus?: 'pending' | 'paid';
   ucNumber?: string | null;
   energyConsumption?: string | null;
+  monthlyGeneration?: string | null;
   kitId?: string | null;
   discount?: number | null;
   financingBank?: string | null;

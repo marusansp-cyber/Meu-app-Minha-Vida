@@ -73,27 +73,24 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700 print:p-0 print:m-0 print:max-w-none">
       {/* Header / Hero */}
-      <header className="bg-white dark:bg-[#231d0f] rounded-[3rem] p-10 border border-slate-200 dark:border-slate-800 shadow-xl relative overflow-hidden print:rounded-none print:shadow-none print:border-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#fdb612]/5 rounded-full -mr-48 -mt-48 blur-3xl print:hidden" />
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 relative z-10">
-          <div className="space-y-4">
+      <header className="bg-white dark:bg-[#1a160d] rounded-[4rem] p-12 border border-slate-200 dark:border-white/5 shadow-2xl relative overflow-hidden print:rounded-none print:shadow-none print:border-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-br from-[#fdb612]/10 to-transparent rounded-full -mr-48 -mt-48 blur-[100px] print:hidden" />
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10 relative z-10">
+          <div className="space-y-6 flex-1">
             <div className="flex items-center justify-between w-full md:w-auto">
-              <div className="flex items-center gap-4">
-                <div className="size-16 bg-[#fdb612] rounded-2xl flex items-center justify-center text-[#231d0f] font-black text-2xl shadow-lg shadow-[#fdb612]/20">
+              <div className="flex items-center gap-5">
+                <div className="size-20 bg-gradient-to-br from-[#fdb612] to-[#ff9f00] rounded-3xl flex items-center justify-center text-[#231d0f] font-black text-3xl shadow-[0_20px_50px_rgba(253,182,18,0.3)] transform -rotate-3">
                   VS
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Vieira's Solar</h1>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Engenharia & Energia</p>
+                  <h1 className="text-3xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter">Vieira's Solar</h1>
+                  <p className="text-[10px] font-black text-[#fdb612] uppercase tracking-[0.4em] leading-none">Engineering Excellence</p>
                 </div>
               </div>
-              <div className="flex gap-2 print:hidden ml-4">
+              <div className="flex gap-3 print:hidden ml-6 lg:fixed lg:top-8 lg:right-32 lg:z-50 bg-white/80 dark:bg-[#1a160d]/80 backdrop-blur-xl p-2 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl">
                 <button 
                   onClick={async () => {
                     const { generateProposalPDF } = await import('../services/pdfService');
-                    // We need a dummy proposal object or better, we should pass the full proposal data to ProposalView
-                    // For now, let's trigger a toast or handle it if we have the data
-                    // Since ProposalView is a presentation component, I will add a loading state
                     const link = document.createElement('a');
                     link.href = await generateProposalPDF({
                       client: clientName,
@@ -107,41 +104,42 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
                     link.download = `Proposta_${clientName.replace(/\s+/g, '_')}.pdf`;
                     link.click();
                   }}
-                  className="p-3 bg-emerald-500 text-white rounded-xl hover:scale-110 transition-all shadow-lg flex items-center gap-2"
-                  title="Baixar Dossiê PDF"
+                  className="px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg flex items-center gap-2 font-black text-xs uppercase tracking-widest"
                 >
-                  <Download className="w-5 h-5" />
-                  <span className="hidden lg:inline text-xs font-black uppercase">Dossiê Completo</span>
+                  <Download className="w-4 h-4" />
+                  Dossiê PDF
                 </button>
                 <button 
                   onClick={() => window.print()}
-                  className="p-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:scale-110 transition-all shadow-lg"
-                  title="Versão para Impressão"
+                  className="p-3 bg-slate-900 dark:bg-white/10 text-white dark:text-slate-100 rounded-xl hover:bg-slate-800 dark:hover:bg-white/20 transition-all border border-transparent dark:border-white/5"
                 >
                   <FileText className="w-5 h-5" />
                 </button>
                 <button 
                   onClick={onBack}
-                  className="p-3 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-white rounded-xl hover:scale-110 transition-all border border-slate-200 dark:border-white/10"
-                  title="Voltar"
+                  className="p-3 bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
                 >
                   <ArrowRight className="w-5 h-5 rotate-180" />
                 </button>
               </div>
             </div>
-            <div className="space-y-1">
-              <h2 className="text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tighter uppercase">Proposta Técnica</h2>
-              <p className="text-slate-500 font-medium">Preparada exclusivamente para <span className="text-[#fdb612] font-black">{clientName}</span></p>
+            <div className="space-y-2">
+              <span className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+                <CheckCircle2 className="w-3 h-3" />
+                Estudo de Viabilidade Técnica Concluído
+              </span>
+              <h2 className="text-5xl lg:text-7xl font-black text-slate-900 dark:text-slate-50 tracking-tighter uppercase leading-[0.9]">Proposta <br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fdb612] to-[#ff9f00]">Premium</span></h2>
+              <p className="text-slate-500 dark:text-slate-400 text-lg font-medium">Arquitetura solar personalizada para <span className="text-slate-900 dark:text-white font-black underline decoration-[#fdb612] underline-offset-8">{clientName}</span></p>
             </div>
           </div>
-          <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 text-right space-y-2 min-w-[200px]">
-            <div className="flex justify-between items-center gap-4">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Proposta Nº</span>
-              <span className="font-black text-slate-900 dark:text-slate-100">{proposalNumber}</span>
+          <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-[3rem] border border-slate-100 dark:border-white/5 text-right space-y-3 min-w-[240px] shadow-inner">
+            <div className="flex flex-col gap-1 items-end">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Referência do Projeto</span>
+              <span className="text-xl font-black text-slate-900 dark:text-slate-100">{proposalNumber}</span>
             </div>
-            <div className="flex justify-between items-center gap-4">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Validade</span>
-              <span className="font-black text-emerald-500">{validUntil}</span>
+            <div className="flex flex-col gap-1 items-end">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Condição Válida Até</span>
+              <span className="text-xl font-black text-emerald-500">{validUntil}</span>
             </div>
           </div>
         </div>

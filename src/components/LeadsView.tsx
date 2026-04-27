@@ -477,7 +477,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 20, scale: 0.95 }}
                     className={cn(
-                      "fixed inset-x-4 bottom-4 top-20 lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 w-auto lg:w-80 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl lg:rounded-xl shadow-2xl p-6 lg:p-4 z-[101] lg:z-20 space-y-6 lg:space-y-4 overflow-y-auto custom-scrollbar",
+                      "fixed inset-x-4 bottom-4 top-20 lg:absolute lg:inset-auto lg:right-0 lg:top-full lg:mt-2 w-auto lg:w-96 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl lg:rounded-xl shadow-2xl p-6 lg:p-5 z-[101] lg:z-20 space-y-6 lg:space-y-4 overflow-y-auto custom-scrollbar",
                     )}
                   >
                     <div className="flex items-center justify-between lg:hidden mb-2">
@@ -496,7 +496,7 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input 
                           type="text"
-                          placeholder="Pesquisar por nome, e-mail, telefone ou data..."
+                          placeholder="Pesquisar por nome, e-mail, telefone..."
                           className="w-full pl-10 pr-4 py-3 lg:py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl lg:rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
                           value={searchTerm || ''}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -506,79 +506,72 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
                     </div>
 
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
-                      <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl lg:rounded-lg">
-                        <button 
-                          onClick={() => setDateFilterType('created')}
-                          className={cn(
-                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
-                            dateFilterType === 'created' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
-                          )}
-                        >
-                          Criação
-                        </button>
-                        <button 
-                          onClick={() => setDateFilterType('scheduled')}
-                          className={cn(
-                            "flex-1 py-2 lg:py-1 text-[10px] font-bold rounded-lg lg:rounded-md transition-all",
-                            dateFilterType === 'scheduled' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
-                          )}
-                        >
-                          Agendamento
-                        </button>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
+                        <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
+                          <button 
+                            onClick={() => setDateFilterType('created')}
+                            className={cn(
+                              "px-2 py-0.5 text-[9px] font-bold rounded transition-all",
+                              dateFilterType === 'created' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                            )}
+                          >
+                            Criação
+                          </button>
+                          <button 
+                            onClick={() => setDateFilterType('scheduled')}
+                            className={cn(
+                              "px-2 py-0.5 text-[9px] font-bold rounded transition-all",
+                              dateFilterType === 'scheduled' ? "bg-white dark:bg-slate-800 shadow-sm text-[#fdb612]" : "text-slate-500"
+                            )}
+                          >
+                            Agendamento
+                          </button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">Início</span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">De</span>
                           <input 
                             type="date" 
                             value={startDate || ''}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                            className="w-full p-3 lg:p-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
                           />
                         </div>
                         <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">Fim</span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase">Até</span>
                           <input 
                             type="date" 
                             value={endDate || ''}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full p-3 lg:p-1.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
+                            className="w-full p-3 lg:p-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
                           />
                         </div>
                       </div>
-                      {(startDate || endDate) && (
-                        <button 
-                          onClick={() => {
-                            setStartDate('');
-                            setEndDate('');
-                          }}
-                          className="w-full py-1 text-[9px] font-bold text-[#fdb612] hover:underline text-right"
-                        >
-                          Limpar datas
-                        </button>
-                      )}
                     </div>
 
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representantes</label>
-                      <div className="flex gap-4">
-                        <button 
-                          onClick={() => setSelectedRepresentatives(representatives)}
-                          className="text-[10px] font-bold text-[#fdb612] hover:underline"
-                        >
-                          Todos
-                        </button>
-                        <button 
-                          onClick={() => setSelectedRepresentatives([])}
-                          className="text-[10px] font-bold text-slate-400 hover:underline"
-                        >
-                          Nenhum
-                        </button>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representantes</label>
+                        <div className="flex gap-4">
+                          <button 
+                            onClick={() => setSelectedRepresentatives(representatives)}
+                            className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                          >
+                            Todos
+                          </button>
+                          <button 
+                            onClick={() => setSelectedRepresentatives([])}
+                            className="text-[10px] font-bold text-slate-400 hover:underline"
+                          >
+                            Nenhum
+                          </button>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
+                      <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto custom-scrollbar p-1">
                         {representatives.map(rep => (
-                          <label key={rep} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                          <label key={rep} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
                             <input 
                               type="checkbox" 
                               className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"
@@ -589,31 +582,38 @@ export const LeadsView: React.FC<LeadsViewProps> = ({
                                 );
                               }}
                             />
-                            <span className="text-xs font-bold truncate">{rep}</span>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold truncate">{rep}</span>
+                              <span className="text-[9px] text-slate-400 italic">
+                                {(leads || []).filter(l => l.representative === rep).length} leads
+                              </span>
+                            </div>
                           </label>
                         ))}
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status do Funil</label>
-                        <div className="flex gap-4">
-                          <button 
-                            onClick={() => setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed'])}
-                            className="text-[10px] font-bold text-[#fdb612] hover:underline"
-                          >
-                            Todos
-                          </button>
-                          <button 
-                            onClick={() => setSelectedStatuses([])}
-                            className="text-[10px] font-bold text-slate-400 hover:underline"
-                          >
-                            Nenhum
-                          </button>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status do Funil</label>
+                          <div className="flex gap-4">
+                            <button 
+                              onClick={() => setSelectedStatuses(['new', 'survey', 'proposal', 'negotiation', 'closed'])}
+                              className="text-[10px] font-bold text-[#fdb612] hover:underline"
+                            >
+                              Todos
+                            </button>
+                            <button 
+                              onClick={() => setSelectedStatuses([])}
+                              className="text-[10px] font-bold text-slate-400 hover:underline"
+                            >
+                              Nenhum
+                            </button>
+                          </div>
                         </div>
                       <div className="grid grid-cols-2 gap-2">
                         {columns.map(col => (
-                          <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
+                          <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-[#fdb612]/20">
                             <input 
                               type="checkbox" 
                               className="size-4 lg:size-3.5 rounded border-slate-300 text-[#fdb612] focus:ring-[#fdb612]"

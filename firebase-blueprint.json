@@ -192,6 +192,21 @@
         "createdAt": { "type": "string" }
       },
       "required": ["month", "targetValue", "targetCount"]
+    },
+    "GalleryItem": {
+      "title": "Gallery Item",
+      "description": "An image or media item in the gallery",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["installation", "product", "blueprint", "other"] },
+        "uploadedAt": { "type": "string" },
+        "uploadedBy": { "type": "string" }
+      },
+      "required": ["url", "name", "uploadedAt", "uploadedBy"]
     }
   },
   "firestore": {
@@ -234,6 +249,10 @@
     "/salesGoals": {
       "schema": "SalesGoal",
       "description": "Collection of monthly sales goals"
+    },
+    "/gallery": {
+      "schema": "GalleryItem",
+      "description": "Collection of gallery media"
     }
   }
 }

@@ -16,6 +16,7 @@ import { FinanceView } from './components/FinanceView';
 import { ClientsView } from './components/ClientsView';
 import { ReportsView } from './components/ReportsView';
 import { UsersView } from './components/UsersView';
+import { GalleryView } from './components/GalleryView';
 import { LoginView } from './components/LoginView';
 import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
 import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
@@ -79,7 +80,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Check if user profile exists in Firestore
+        // ...
         let userProfile = await getDocument<User>('users', firebaseUser.uid);
         const isOwner = firebaseUser.email === 'marusansp@gmail.com';
         
@@ -112,7 +113,15 @@ export default function App() {
       setIsAuthReady(true);
     });
 
-    return () => unsubscribe();
+    // Timeout safety fallback
+    const timer = setTimeout(() => {
+      setIsAuthReady(true);
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -639,6 +648,9 @@ export default function App() {
                       });
                     }}
                   />
+                )}
+                {currentView === 'gallery' && (
+                  <GalleryView user={user} />
                 )}
               </>
             )}

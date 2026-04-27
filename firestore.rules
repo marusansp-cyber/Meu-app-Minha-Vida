@@ -132,6 +132,13 @@ service cloud.firestore {
              data.targetValue is number && data.targetCount is number;
     }
 
+    function isValidGalleryItem(data) {
+      return hasRequiredFields(['url', 'name', 'uploadedAt', 'uploadedBy']) &&
+             data.url is string && data.url.size() > 0 &&
+             data.name is string && data.name.size() > 0 &&
+             (!('category' in data) || data.category in ['installation', 'product', 'blueprint', 'other']);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -204,6 +211,13 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidSalesGoal(request.resource.data);
       allow update: if isAuthenticated() && isValidSalesGoal(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /gallery/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidGalleryItem(request.resource.data);
+      allow update: if isAuthenticated() && isValidGalleryItem(request.resource.data);
       allow delete: if isAdmin();
     }
 
