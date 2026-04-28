@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, User as UserType, Lead, Client } from '../types';
 import { NewProposalModal } from './NewProposalModal';
@@ -105,7 +105,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
   const proposals = initialProposals;
 
-  // Auto-expire logic
+  // Auto-expire logic with stability guards
+  const lastNotifiedRef = React.useRef<string>('');
+  const processingRef = React.useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!proposals || proposals.length === 0) return;
     
@@ -114,7 +117,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     sevenDaysFromNow.setDate(now.getDate() + 7);
 
     const expiredProposals = (proposals || []).filter(p => {
-      if (!p.id || !p.expiryDate) return false;
+      if (!p.id || !p.expiryDate || processingRef.current.has(p.id)) return false;
       if (p.status !== 'pending' && p.status !== 'sent') return false;
       const expiry = new Date(p.expiryDate);
       return expiry < now;
@@ -129,13 +132,21 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
     if (expiredProposals.length > 0) {
       expiredProposals.forEach(p => {
-        updateDocument('proposals', p.id, { status: 'expired' });
+        processingRef.current.add(p.id);
+        updateDocument('proposals', p.id, { status: 'expired' })
+          .finally(() => {
+            // Note: we don't necessarily need to remove from processingRef 
+            // since the next render will have status === 'expired'
+          });
       });
     }
 
     if (nearExpiration.length > 0) {
-      const names = nearExpiration.map(p => p.client).join(', ');
-      showToast(`Atenção: Propostas de ${names} vencem em menos de 7 dias!`, 'info', true);
+      const names = nearExpiration.map(p => p.client).sort().join(', ');
+      if (names !== lastNotifiedRef.current) {
+        lastNotifiedRef.current = names;
+        showToast(`Atenção: Propostas de ${names} vencem em menos de 7 dias!`, 'info', true);
+      }
     }
   }, [proposals]);
 
@@ -207,7 +218,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       await createDocument('proposals', {
         ...proposalData,
         proposalNumber,
-        date: new Date().toLocaleDateString('pt-BR')
+        date: new Date().toISOString()
       });
       showToast('Proposta criada com sucesso!');
     }
@@ -224,7 +235,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     const duplicated = {
       ...rest,
       client: `${proposal.client} (Cópia)`,
-      date: new Date().toLocaleDateString('pt-BR'),
+      date: new Date().toISOString(),
       status: 'pending' as const
     };
     await createDocument('proposals', duplicated);
@@ -257,7 +268,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         p.status,
         p.systemSize,
         p.representative,
-        p.expiryDate ? new Date(p.expiryDate).toLocaleDateString('pt-BR') : 'N/A',
+        p.expiryDate ? formatDate(p.expiryDate) : 'N/A',
         p.commission || 5
       ]);
 
@@ -431,7 +442,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 50);
+      doc.text(`Gerado em: ${formatDate(new Date())}`, 20, 50);
       doc.text(`Consultor: ${representativeFilter === 'all' ? 'Todos' : representativeFilter}`, 20, 57);
       doc.text(`Status: ${statusFilters.length === 0 ? 'Todos' : statusFilters.join(', ')}`, 20, 64);
       
@@ -446,7 +457,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           p.proposalNumber || p.id,
           p.client,
           `R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`,
-          p.date,
+          formatDate(p.date),
           p.status.toUpperCase(),
           p.systemSize,
           `R$ ${commissionValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
@@ -815,13 +826,15 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
             <span className="text-[8px] font-black uppercase text-blue-400 group-hover:text-blue-600 transition-colors">Ajuda E-mail</span>
           </button>
         </div>
-        <button 
+        <motion.button 
           onClick={() => setIsModalOpen(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
         >
           <Plus className="w-4 h-4" />
           Nova Proposta
-        </button>
+        </motion.button>
       </header>
 
       <NewProposalModal 
@@ -1390,7 +1403,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           "text-[9px] font-bold uppercase tracking-tighter ml-1",
                           new Date(prop.expiryDate) < new Date() ? "text-rose-500" : "text-slate-400"
                         )}>
-                          Validade: {new Date(prop.expiryDate).toLocaleDateString('pt-BR')}
+                          Validade: {formatDate(prop.expiryDate)}
                         </span>
                       )}
                     </div>

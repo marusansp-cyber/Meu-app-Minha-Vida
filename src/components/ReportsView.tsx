@@ -31,7 +31,7 @@ import {
   ArrowUpRight,
   Printer
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { Proposal, Installation, Lead, Client } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -189,7 +189,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Relatorio_Performance_${new Date().toLocaleDateString('pt-BR')}.pdf`);
+      pdf.save(`Relatorio_Performance_${formatDate(new Date()).replace(/\//g, '-')}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
     }
@@ -467,7 +467,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
                       </span>
                     </td>
                     <td className="px-8 py-4 text-xs text-slate-400 font-bold">
-                      {new Date(proposal.date).toLocaleDateString('pt-BR')}
+                      {formatDate(proposal.date)}
                     </td>
                   </tr>
                 ))}

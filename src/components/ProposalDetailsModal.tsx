@@ -26,7 +26,7 @@ import {
   ArrowRight,
   Rocket
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
 
 import { generateProposalPDF } from '../services/pdfService';
@@ -552,7 +552,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Data de Criação</label>
-                      <p className="font-bold text-xl">{new Date(proposal.date || proposal.createdAt || '').toLocaleDateString('pt-BR')}</p>
+                      <p className="font-bold text-xl">{formatDate(proposal.date || proposal.createdAt)}</p>
                     </div>
                   </div>
 
@@ -563,7 +563,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       </div>
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Validade da Proposta</label>
-                        <p className="font-bold text-xl">{new Date(proposal.expiryDate).toLocaleDateString('pt-BR')}</p>
+                        <p className="font-bold text-xl">{formatDate(proposal.expiryDate)}</p>
                       </div>
                     </div>
                   )}
@@ -858,15 +858,13 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Inversor String</p>
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.invertersQuantity || 1}x {proposal.inverterBrandModel || "AUXSOL 7.5"} (Wifi Monitoramento)</p>
                     </div>
-                    {proposal.installationStartDate && (
                       <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/20">
                         <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1">📅 Cronograma de Instalação</p>
                         <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                          Início: {new Date(proposal.installationStartDate).toLocaleDateString('pt-BR')}
-                          {proposal.estimatedCompletionDate && ` | Fim: ${new Date(proposal.estimatedCompletionDate).toLocaleDateString('pt-BR')}`}
+                          Início: {formatDate(proposal.installationStartDate)}
+                          {proposal.estimatedCompletionDate && ` | Fim: ${formatDate(proposal.estimatedCompletionDate)}`}
                         </p>
                       </div>
-                    )}
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Estrutura & Proteção</p>
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Alumínio Anodizado VITALÍCIO</p>

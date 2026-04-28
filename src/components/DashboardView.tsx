@@ -34,7 +34,8 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { RECENT_ACTIVITIES } from '../constants';
-import { cn } from '../lib/utils';
+import { cn, parseDate, formatDate } from '../lib/utils';
+import { motion } from 'motion/react';
 
 import { Lead, Proposal, Installation, User as UserType } from '../types';
 
@@ -76,12 +77,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     
     return months.map((month, index) => {
       const monthProposals = (proposals || []).filter(p => {
-        const pDate = new Date(p.date);
+        const pDate = parseDate(p.date);
         return pDate.getMonth() === index && pDate.getFullYear() === currentYear && p.status === 'accepted';
       });
       
       const previousYearProposals = (proposals || []).filter(p => {
-        const pDate = new Date(p.date);
+        const pDate = parseDate(p.date);
         return pDate.getMonth() === index && pDate.getFullYear() === currentYear - 1 && p.status === 'accepted';
       });
 
@@ -110,7 +111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const projectStatusData = useMemo(() => {
     const onTime = (installations || []).filter(i => i.status === 'on-time' || i.status === 'concluded' || !i.status).length;
-    const planning = (installations || []).filter(i => i.stage.toLowerCase().includes('engenharia') || i.stage.toLowerCase().includes('projeto')).length;
+    const planning = (installations || []).filter(i => (i.stage || '').toLowerCase().includes('engenharia') || (i.stage || '').toLowerCase().includes('projeto')).length;
     const delayed = (installations || []).filter(i => i.status === 'delayed').length;
     
     const hasData = (installations || []).length > 0;
@@ -141,12 +142,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const reps: Record<string, { name: string, totalValue: number, wonCount: number }> = {};
     
     proposals.filter(p => p.status === 'accepted').forEach(p => {
-      if (!reps[p.representative]) {
-        reps[p.representative] = { name: p.representative, totalValue: 0, wonCount: 0 };
+      const repName = p.representative || 'Vendedor';
+      if (!reps[repName]) {
+        reps[repName] = { name: repName, totalValue: 0, wonCount: 0 };
       }
       const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-      reps[p.representative].totalValue += val;
-      reps[p.representative].wonCount += 1;
+      reps[repName].totalValue += val;
+      reps[repName].wonCount += 1;
     });
 
     return Object.values(reps)
@@ -163,7 +165,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     // Current Month Totals
     const currentMonthAcceptedProposals = (proposals || []).filter(p => {
-      const pDate = new Date(p.date.split('/').reverse().join('-'));
+      const pDate = parseDate(p.date);
       return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.status === 'accepted';
     });
 
@@ -173,13 +175,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }, 0);
 
     const currentMonthLeads = (leads || []).filter(l => {
-      const lDate = new Date(l.history?.[0]?.date.split('/').reverse().join('-') || Date.now());
+      const lDate = parseDate(l.history?.[0]?.date);
       return lDate.getMonth() === currentMonth && lDate.getFullYear() === currentYear;
     }).length;
 
     // Last Month Totals for Variation
     const lastMonthAcceptedProposals = (proposals || []).filter(p => {
-      const pDate = new Date(p.date.split('/').reverse().join('-'));
+      const pDate = parseDate(p.date);
       return pDate.getMonth() === lastMonth && pDate.getFullYear() === lastMonthYear && p.status === 'accepted';
     });
 
@@ -189,7 +191,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }, 0);
 
     const lastMonthLeads = (leads || []).filter(l => {
-      const lDate = new Date(l.history?.[0]?.date.split('/').reverse().join('-') || Date.now());
+      const lDate = parseDate(l.history?.[0]?.date);
       return lDate.getMonth() === lastMonth && lDate.getFullYear() === lastMonthYear;
     }).length;
 
@@ -269,14 +271,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return last6Months.map(({ m, y, name }) => {
       const currentYearRevenue = (proposals || [])
         .filter(p => {
-          const pDate = new Date(p.date.split('/').reverse().join('-'));
+          const pDate = parseDate(p.date);
           return pDate.getMonth() === m && pDate.getFullYear() === y && p.status === 'accepted';
         })
         .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
 
       const previousYearRevenue = (proposals || [])
         .filter(p => {
-          const pDate = new Date(p.date.split('/').reverse().join('-'));
+          const pDate = parseDate(p.date);
           return pDate.getMonth() === m && pDate.getFullYear() === y - 1 && p.status === 'accepted';
         })
         .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
@@ -297,20 +299,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const recentActivities = useMemo(() => {
     const activities: any[] = [];
     
-    const parseDateBr = (dateStr: string) => {
-      if (!dateStr) return new Date();
-      // Handle "DD/MM/YYYY, HH:mm:ss" or "DD/MM/YYYY HH:mm:ss"
-      const cleanDate = dateStr.split(',')[0].split(' ')[0];
-      const parts = cleanDate.split('/');
-      if (parts.length === 3) {
-        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      }
-      return new Date(dateStr);
-    };
-
     leads.forEach(lead => {
       (lead.history || []).slice(0, 2).forEach(h => {
-        const activityDate = parseDateBr(h.date);
+        const activityDate = parseDate(h.date);
         activities.push({
           id: `lead-${lead.id}-${h.date}`,
           type: 'proposal', 
@@ -328,8 +319,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         type: 'installation',
         title: inst.name,
         description: `Projeto em fase de ${inst.stage}`,
-        time: inst.lastUpdated || 'Recente',
-        timestamp: inst.lastUpdated ? new Date(inst.lastUpdated).getTime() : Date.now()
+        time: inst.lastUpdated ? formatDate(inst.lastUpdated) : 'Recente',
+        timestamp: inst.lastUpdated ? parseDate(inst.lastUpdated).getTime() : Date.now()
       });
     });
 
@@ -418,7 +409,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Novo Colaborador</span>
         </button>
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.02, translateY: -2 }}
+          whileTap={{ scale: 0.98 }}
           onClick={onGoToLeads}
           className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
         >
@@ -426,7 +419,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <FileText className="w-5 h-5" />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nova Proposta</span>
-        </button>
+        </motion.button>
         <button 
           onClick={() => showToast('Histórico de interações atualizado')}
           className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"

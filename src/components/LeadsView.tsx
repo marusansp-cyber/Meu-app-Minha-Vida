@@ -200,14 +200,14 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
         urgent: false,
         createdAt: new Date().toISOString(),
         history: [{
-          date: new Date().toLocaleString('pt-BR'),
+          date: new Date().toISOString(),
           action: `Lead criado via importação de PDF: ${file.name}`,
           user: 'IA Watson'
         }],
         files: [{
           name: file.name,
           size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-          date: new Date().toLocaleDateString('pt-BR')
+          date: new Date().toISOString()
         }]
       };
 
@@ -255,7 +255,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
       const newStatus = columns.find(c => c.id === destination.droppableId)?.label;
       
       const historyItem = {
-        date: new Date().toLocaleString('pt-BR'),
+        date: new Date().toISOString(),
         action: `Status alterado de "${oldStatus}" para "${newStatus}"`,
         user: 'Sistema'
       };
@@ -380,7 +380,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     if (!selectedLead || !newNote?.trim()) return;
 
     const newHistoryItem = {
-      date: new Date().toLocaleString('pt-BR'),
+      date: new Date().toISOString(),
       action: newNote,
       user: 'Marusan Pinto' // Should come from auth
     };
@@ -407,7 +407,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
       const newFile = {
         name: file.name,
         size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        date: new Date().toLocaleDateString('pt-BR')
+        date: new Date().toISOString()
       };
 
       const updatedLead: Lead = {
@@ -761,14 +761,16 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
               disabled={isUploading}
             />
           </label>
-          <button 
+          <motion.button 
             onClick={onOpenNewLead}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Novo Lead</span>
             <span className="sm:hidden">Novo</span>
-          </button>
+          </motion.button>
         </div>
       </header>
 
@@ -879,7 +881,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                 
                 const columnLeads = filteredLeads.filter(l => l.status === column.id);
                 const columnTotalValue = columnLeads.reduce((acc, l) => {
-                  const val = parseFloat(l.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+                  const val = typeof l.value === 'number' ? l.value : (parseFloat(String(l.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
                   return acc + val;
                 }, 0);
                 
@@ -1434,7 +1436,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Data de Criação</label>
                             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
                               <Calendar className="w-4 h-4 text-slate-400" />
-                              {selectedLead.createdAt || 'N/A'}
+                              {formatDate(selectedLead.createdAt)}
                             </div>
                           </div>
                           <div className="space-y-1">
@@ -1513,7 +1515,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                           <div className="flex gap-2">
                             <button 
                               onClick={() => {
-                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'Chamada telefônica realizada', user: 'Marusan Pinto' };
+                                const item = { date: new Date().toISOString(), action: 'Chamada telefônica realizada', user: 'Marusan Pinto' };
                                 onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 showToast('Chamada registrada!');
@@ -1525,7 +1527,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             </button>
                             <button 
                               onClick={() => {
-                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'E-mail enviado ao cliente', user: 'Marusan Pinto' };
+                                const item = { date: new Date().toISOString(), action: 'E-mail enviado ao cliente', user: 'Marusan Pinto' };
                                 onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 showToast('E-mail registrado!');
@@ -1537,7 +1539,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             </button>
                             <button 
                               onClick={() => {
-                                const item = { date: new Date().toLocaleString('pt-BR'), action: 'Mensagem enviada via WhatsApp', user: 'Marusan Pinto' };
+                                const item = { date: new Date().toISOString(), action: 'Mensagem enviada via WhatsApp', user: 'Marusan Pinto' };
                                 onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 setSelectedLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
                                 showToast('WhatsApp registrado!');
@@ -1596,7 +1598,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                                   <HistoryIcon className="w-4 h-4 text-slate-300" />
                                 </div>
                                 <div className="flex justify-between items-start mb-2">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.date}</span>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatDate(item.date)}</span>
                                   <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded-full">{item.user}</span>
                                 </div>
                                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed">{item.action}</p>

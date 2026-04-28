@@ -20,7 +20,7 @@ import { GalleryView } from './components/GalleryView';
 import { LoginView } from './components/LoginView';
 import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
 import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
-import { cn } from './lib/utils';
+import { cn, parseDate } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
 import { GlobalSearch } from './components/GlobalSearch';
 import { auth, db } from './firebase';
@@ -125,33 +125,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const isSales = user.role === 'sales';
-      
-      const unsubscribeLeads = syncCollection<Lead>('leads', setLeads, 'createdAt');
-      const unsubscribeProposals = syncCollection<Proposal>(
-        'proposals', 
-        setProposals, 
-        'date',
-        isSales ? [{ field: 'representativeEmail', operator: '==', value: user.email }] : undefined
-      );
-      const unsubscribeInstallations = syncCollection<any>('installations', setInstallations, 'lastUpdated');
-      const unsubscribePartners = syncCollection<Partner>('partners', setPartners, 'createdAt');
-      const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
-      const unsubscribeKits = syncCollection<Kit>('kits', setKits, 'createdAt');
-      const unsubscribeClients = syncCollection<Client>('clients', setClients, 'createdAt');
-      
-      return () => {
-        unsubscribeLeads();
-        unsubscribeProposals();
-        unsubscribeInstallations();
-        unsubscribePartners();
-        unsubscribeCollaborators();
-        unsubscribeKits();
-        unsubscribeClients();
-      };
-    }
-  }, [isAuthenticated, user]);
+    if (!isAuthenticated || !user) return;
+
+    const isSales = user.role === 'sales';
+    // Use stable values for sync dependencies
+    const userEmail = user.email;
+    
+    const unsubscribeLeads = syncCollection<Lead>('leads', setLeads, 'createdAt');
+    const unsubscribeProposals = syncCollection<Proposal>(
+      'proposals', 
+      setProposals, 
+      'date',
+      isSales ? [{ field: 'representativeEmail', operator: '==', value: userEmail }] : undefined
+    );
+    const unsubscribeInstallations = syncCollection<any>('installations', setInstallations, 'lastUpdated');
+    const unsubscribePartners = syncCollection<Partner>('partners', setPartners, 'createdAt');
+    const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
+    const unsubscribeKits = syncCollection<Kit>('kits', setKits, 'createdAt');
+    const unsubscribeClients = syncCollection<Client>('clients', setClients, 'createdAt');
+    
+    return () => {
+      unsubscribeLeads();
+      unsubscribeProposals();
+      unsubscribeInstallations();
+      unsubscribePartners();
+      unsubscribeCollaborators();
+      unsubscribeKits();
+      unsubscribeClients();
+    };
+  }, [isAuthenticated, user?.id, user?.role, user?.email]);
 
   const handleLogin = async (email: string) => {
     if (email === 'convidado@exemplo.com') {
@@ -200,7 +202,7 @@ export default function App() {
           type: 'proposal',
           title: 'Lead Convertido em Cliente',
           description: 'Este cliente foi criado a partir da conversão de um lead.',
-          date: new Date().toLocaleDateString('pt-BR'),
+          date: new Date().toISOString(),
           timestamp: Date.now(),
           status: 'Convertido'
         },
@@ -209,7 +211,7 @@ export default function App() {
           type: 'proposal' as const,
           title: `Histórico do Lead: ${h.action}`,
           description: h.action,
-          date: h.date?.split(',')[0] || new Date().toLocaleDateString('pt-BR'),
+          date: h.date ? parseDate(h.date).toISOString() : new Date().toISOString(),
           timestamp: Date.now(),
           status: 'Histórico'
         }))
@@ -325,13 +327,14 @@ export default function App() {
       type: type,
       progress: 0,
       address: proposal.endereco || '',
-      lastUpdated: new Date().toLocaleDateString('pt-BR'),
+      lastUpdated: new Date().toISOString(),
       stages: [
         { name: 'Projeto / Engenharia', status: 'in-progress' },
         { name: 'Vistoria Técnica', status: 'pending' },
         { name: 'Homologação', status: 'pending' },
         { name: 'Instalação', status: 'pending' },
-        { name: 'Conectorização', status: 'pending' }
+        { name: 'Conectorização', status: 'pending' },
+        { name: 'Entrega / Finalização', status: 'pending' }
       ]
     };
     
@@ -456,6 +459,8 @@ export default function App() {
             onLogout={handleLogout}
             user={user}
             companyLogo={companyLogo}
+            isDarkMode={isDarkMode}
+            toggleTheme={() => setIsDarkMode(!isDarkMode)}
           />
         </div>
         

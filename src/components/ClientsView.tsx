@@ -22,7 +22,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { Client, Proposal, Installation, History as HistoryType, Lead, User as UserType } from '../types';
-import { cn } from '../lib/utils';
+import { cn, formatDate, parseDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClientModal } from './ClientModal';
 import { ClientsMap } from './ClientsMap';
@@ -66,6 +66,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [sortBy, setSortBy] = useState<'name' | 'recent' | 'projects'>('recent');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [history, setHistory] = useState<HistoryType[]>([]);
@@ -107,7 +108,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         title: `Proposta Gerada: ${p.systemSize}`,
         description: `Valor: ${typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : p.value}`,
         status: p.status,
-        timestamp: new Date(p.date.split('/').reverse().join('-')).getTime() || 0,
+        timestamp: parseDate(p.date).getTime() || 0,
         userName: p.representative
       }));
     
@@ -120,13 +121,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         title: `Projeto de Instalação: ${i.stage}`,
         description: `Progresso atual: ${i.progress}%`,
         status: i.progress + '%',
-        timestamp: new Date(i.startDate ? i.startDate.split('/').reverse().join('-') : i.lastUpdated.split('/').reverse().join('-')).getTime() || 0,
-        userName: i.technician.name
+        timestamp: parseDate(i.startDate || i.lastUpdated).getTime() || 0,
+        userName: i.technician?.name || 'Técnico'
       }));
 
     const clientManualInteractions = (selectedClient.interactions || []).map(i => ({
       ...i,
-      timestamp: i.timestamp || new Date(i.date.split('/').reverse().join('-')).getTime() || 0
+      timestamp: i.timestamp || parseDate(i.date).getTime() || 0
     }));
 
     return [...clientProposals, ...clientInstallations, ...clientManualInteractions]
@@ -188,15 +189,19 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     }
   };
 
-  const handleDeleteClient = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
-      try {
-        await onDeleteClient(id);
-        showToast('Cliente excluído com sucesso.');
-        if (selectedClient?.id === id) setSelectedClient(null);
-      } catch (error) {
-        showToast('Erro ao excluir cliente.');
-      }
+  const handleDeleteClient = async (client: Client) => {
+    setClientToDelete(client);
+  };
+
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete) return;
+    try {
+      await onDeleteClient(clientToDelete.id);
+      showToast('Cliente excluído com sucesso.');
+      if (selectedClient?.id === clientToDelete.id) setSelectedClient(null);
+      setClientToDelete(null);
+    } catch (error) {
+      showToast('Erro ao excluir cliente.');
     }
   };
 
@@ -290,7 +295,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             if (description) {
               const newInteraction = {
                 id: Math.random().toString(36).substr(2, 9),
-                date: new Date().toLocaleDateString('pt-BR'),
+                date: new Date().toISOString(),
                 type: 'Manual',
                 title: 'Nota Manual',
                 description,
@@ -423,7 +428,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <Edit className="w-5 h-5" />
             </button>
             <button 
-              onClick={() => handleDeleteClient(client.id)}
+              onClick={() => handleDeleteClient(client)}
               className="p-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
             >
               <Trash2 className="w-5 h-5" />
@@ -515,7 +520,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       loading="lazy"
                       referrerPolicy="no-referrer"
                     />
-                    <span className="text-[10px] text-slate-500 font-medium">{installation.technician.name}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{installation.technician?.name || 'Técnico'}</span>
                   </div>
                   <button className="text-[#fdb612] hover:underline text-[10px] font-black flex items-center gap-1">
                     ACOMPANHAR <ExternalLink className="w-3 h-3" />
@@ -559,7 +564,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   Realizado por: <span className="font-bold">{item.user?.displayName || item.user?.email || 'Sistema'}</span>
                 </p>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2 block">
-                  {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleString('pt-BR') : 'Agora'}
+                  {item.timestamp?.seconds ? formatDate(item.timestamp.seconds * 1000) : 'Agora'}
                 </span>
                 {item.action && (
                   <p className="text-[10px] text-slate-400 mt-1 font-medium italic">{item.action}</p>
@@ -1140,6 +1145,42 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         clients={clients}
         user={user}
       />
+
+      {/* Client Deletion Confirmation Modal */}
+      {clientToDelete && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#231d0f] rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                Confirmar Exclusão
+              </h3>
+              <p className="text-slate-500 dark:text-slate-400">
+                Tem certeza que deseja excluir o cliente <span className="font-bold text-slate-900 dark:text-slate-100">"{clientToDelete.name}"</span>? 
+                Esta ação não pode ser desfeita e removerá todos os dados vinculados.
+              </p>
+            </div>
+            
+            <div className="p-6 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
+              <button 
+                onClick={() => setClientToDelete(null)}
+                className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDeleteClient}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors"
+              >
+                Excluir Cliente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

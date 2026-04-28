@@ -31,7 +31,7 @@ import {
   X
 } from 'lucide-react';
 import Papa from 'papaparse';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { Kit } from '../types';
 import { createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { generateKitsReportPDF } from '../services/pdfService';
@@ -383,28 +383,29 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     }
   };
 
-  const handleUpdateComponent = async (kitId: string, components: any[]) => {
+  const handleUpdateComponent = React.useCallback(async (kitId: string, components: any[]) => {
     try {
       await updateDocument('kits', kitId, { components, updatedAt: new Date().toISOString() });
-      // Successful save - indicator will be cleared by the debounced caller
     } catch (error) {
       showToast('Erro ao atualizar componentes.');
     }
-  };
+  }, []);
+
+  const timeoutRef = React.useRef<any>(null);
 
   const debouncedUpdateComponent = useMemo(
     () => {
-      let timeout: any;
       return (kitId: string, components: any[], compIdx: number) => {
         setIsSavingComponent(`${kitId}-${compIdx}`);
-        if (timeout) clearTimeout(timeout);
-        timeout = setTimeout(async () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(async () => {
           await handleUpdateComponent(kitId, components);
           setIsSavingComponent(null);
+          timeoutRef.current = null;
         }, 1000);
       };
     },
-    [kits]
+    [handleUpdateComponent]
   );
 
   const handleExportPdf = async () => {
@@ -875,7 +876,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                             <div className="space-y-1">
                               <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Data de Criação</span>
                               <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">
-                                {new Date(kit.createdAt).toLocaleDateString('pt-BR')}
+                                {formatDate(kit.createdAt)}
                               </p>
                             </div>
                             <div className="space-y-1">

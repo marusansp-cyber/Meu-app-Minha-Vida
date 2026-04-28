@@ -7,6 +7,7 @@ import {
   TrendingUp, 
   FileText, 
   Sun,
+  Moon,
   User,
   LogOut,
   ShieldCheck,
@@ -25,9 +26,19 @@ interface SidebarProps {
   onLogout: () => void;
   user: UserType | null;
   companyLogo?: string | null;
+  isDarkMode: boolean;
+  toggleTheme: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onLogout, user, companyLogo }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  currentView, 
+  onViewChange, 
+  onLogout, 
+  user, 
+  companyLogo,
+  isDarkMode,
+  toggleTheme
+}) => {
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard, roles: ['admin', 'sales', 'engineer', 'installer'] },
     { id: 'leads', label: 'Leads', icon: Users, roles: ['admin', 'sales'] },
@@ -95,14 +106,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onL
               </span>
             </div>
           </div>
-          <button 
-            onClick={onLogout}
-            className="flex items-center gap-2 text-slate-400 hover:text-rose-500 transition-colors group"
-            title="Sair"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="text-xs font-bold uppercase tracking-widest">Sair</span>
-          </button>
+          <div className="flex gap-1">
+            <button 
+              onClick={toggleTheme}
+              className="flex items-center justify-center p-2 text-slate-400 hover:text-[#fdb612] bg-slate-200 dark:bg-white/5 rounded-lg transition-colors group"
+              title={isDarkMode ? "Ligar modo claro" : "Ligar modo escuro"}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button 
+              onClick={onLogout}
+              className="flex items-center gap-2 p-2 text-slate-400 hover:text-rose-500 bg-slate-200 dark:bg-white/5 rounded-lg transition-colors group"
+              title="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
+            </button>
+          </div>
         </div>
       </div>
     </aside>

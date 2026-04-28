@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Bell, X, CheckCircle2, AlertTriangle, Info, Clock, Calendar } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { Proposal } from '../types';
 
 interface Notification {
@@ -52,7 +52,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ proposal
           alerts.push({
             id: `expiry-${p.id}`,
             title: 'Proposta Próxima do Vencimento',
-            message: `A proposta para ${p.client} vence em ${expiry.toLocaleDateString('pt-BR')}.`,
+            message: `A proposta para ${p.client} vence em ${formatDate(expiry)}.`,
             type: 'warning',
             time: 'Alerta',
             read: false

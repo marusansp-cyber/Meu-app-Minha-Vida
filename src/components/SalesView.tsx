@@ -83,7 +83,7 @@ export const SalesView: React.FC<SalesViewProps> = ({ proposals }) => {
   }, [proposals]);
 
   const stats = useMemo(() => {
-    const totalValue = currentMonthSales.reduce((acc, p) => acc + (parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
+    const totalValue = currentMonthSales.reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
     const count = currentMonthSales.length;
     const avgValue = count > 0 ? totalValue / count : 0;
     

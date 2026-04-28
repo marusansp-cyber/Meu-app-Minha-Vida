@@ -113,7 +113,7 @@ export const generateInstallationReportPDF = async (installation: Installation):
   doc.setFontSize(12);
   doc.text("Técnico Responsável:", 30, 145);
   doc.setFont("helvetica", "normal");
-  doc.text(installation.technician.name, 80, 145);
+  doc.text(installation.technician?.name || "Técnico Responsável", 80, 145);
 
   doc.setFont("helvetica", "bold");
   doc.text("Data de Início:", 30, 155);
@@ -473,7 +473,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     
     if (row < pageHeight - 30) {
       doc.setFont("helvetica", "bold");
-      const truncatedName = comp.name.length > 35 ? comp.name.substring(0, 32) + '...' : comp.name;
+      const name = comp.name || "Componente";
+      const truncatedName = name.length > 35 ? name.substring(0, 32) + '...' : name;
       doc.text(`• ${truncatedName}`, col, row);
     }
   });

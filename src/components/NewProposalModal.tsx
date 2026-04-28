@@ -543,7 +543,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         id: initialData?.id || '',
         client: formData.titular || formData.client,
         value: totalVal,
-        date: initialData?.date || new Date().toLocaleDateString('pt-BR'),
+        date: initialData?.date || new Date().toISOString(),
         status: initialData?.status || 'pending',
         systemSize: `${formData.systemSize} kWp`,
         representative: formData.representative || user?.name || 'Vendedor',
@@ -1470,13 +1470,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                         >
                           {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => {
-                            const equipmentCost = parseFloat(formData.equipmentCost || '0');
-                            const installationCost = parseFloat(formData.installationCost || '0');
-                            const projectCost = parseFloat(formData.projectCost || '0');
-                            const licensingCost = parseFloat(formData.licensingCost || '0');
-                            const logisticCost = parseFloat(formData.logisticCost || '0');
-                            const discount = parseFloat(formData.discount || '0');
-                            const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                            const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                         parseFloat(formData.installationCost || '0') + 
+                                         parseFloat(formData.projectCost || '0') + 
+                                         parseFloat(formData.licensingCost || '0') + 
+                                         parseFloat(formData.logisticCost || '0') +
+                                         parseFloat(formData.additionalCost || '0'));
+                            const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                            const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                             
                             const r = parseFloat(formData.financingRate) || 1.2;
                             const i = r / 100;
@@ -1531,14 +1533,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Simulação de Parcela</p>
                           <p className="text-lg font-black text-slate-900 dark:text-slate-100">
                             {(() => {
-                              const equipmentCost = parseFloat(formData.equipmentCost || '0');
-                              const installationCost = parseFloat(formData.installationCost || '0');
-                              const projectCost = parseFloat(formData.projectCost || '0');
-                              const licensingCost = parseFloat(formData.licensingCost || '0');
-                              const logisticCost = parseFloat(formData.logisticCost || '0');
-                              const discount = parseFloat(formData.discount || '0');
-                              
-                              const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
+                              const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                           parseFloat(formData.installationCost || '0') + 
+                                           parseFloat(formData.projectCost || '0') + 
+                                           parseFloat(formData.licensingCost || '0') + 
+                                           parseFloat(formData.logisticCost || '0') +
+                                           parseFloat(formData.additionalCost || '0'));
+                              const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                              const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                               const n = parseInt(formData.financingInstallments) || 60;
                               const r = parseFloat(formData.financingRate) || 1.2;
                               const i = r / 100;
@@ -1616,15 +1619,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Calculo das Parcelas</p>
                           <p className="text-lg font-black text-slate-900 dark:text-slate-100">
                             {(() => {
-                              const equipmentCost = parseFloat(formData.equipmentCost || '0');
-                              const installationCost = parseFloat(formData.installationCost || '0');
-                              const projectCost = parseFloat(formData.projectCost || '0');
-                              const licensingCost = parseFloat(formData.licensingCost || '0');
-                              const logisticCost = parseFloat(formData.logisticCost || '0');
-                              const discount = parseFloat(formData.discount || '0');
+                              const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                           parseFloat(formData.installationCost || '0') + 
+                                           parseFloat(formData.projectCost || '0') + 
+                                           parseFloat(formData.licensingCost || '0') + 
+                                           parseFloat(formData.logisticCost || '0') +
+                                           parseFloat(formData.additionalCost || '0'));
+                              const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                              const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                               const down = parseFloat(formData.downPayment || '0');
-                              
-                              const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
                               const remaining = Math.max(0, total - down);
                               const installment = remaining / 10;
                               
@@ -1637,14 +1641,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Saldo a parcelar</p>
                         <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
                           {(() => {
-                            const equipmentCost = parseFloat(formData.equipmentCost || '0');
-                            const installationCost = parseFloat(formData.installationCost || '0');
-                            const projectCost = parseFloat(formData.projectCost || '0');
-                            const licensingCost = parseFloat(formData.licensingCost || '0');
-                            const logisticCost = parseFloat(formData.logisticCost || '0');
-                            const discount = parseFloat(formData.discount || '0');
+                            const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                         parseFloat(formData.installationCost || '0') + 
+                                         parseFloat(formData.projectCost || '0') + 
+                                         parseFloat(formData.licensingCost || '0') + 
+                                         parseFloat(formData.logisticCost || '0') +
+                                         parseFloat(formData.additionalCost || '0'));
+                            const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                            const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
                             const down = parseFloat(formData.downPayment || '0');
-                            const total = (equipmentCost + installationCost + projectCost + licensingCost + logisticCost) - discount;
                             return (total - down).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
@@ -1768,7 +1774,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                                          parseFloat(formData.installationCost || '0') + 
                                          parseFloat(formData.projectCost || '0') + 
                                          parseFloat(formData.licensingCost || '0') + 
-                                         parseFloat(formData.logisticCost || '0'));
+                                         parseFloat(formData.logisticCost || '0') +
+                                         parseFloat(formData.additionalCost || '0'));
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                             const total = (sub * multiplier) - parseFloat(formData.discount || '0');

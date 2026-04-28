@@ -12,7 +12,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { GalleryItem, User } from '../types';
 import { syncCollection, createDocument, deleteDocument } from '../firestoreUtils';
 
@@ -249,7 +249,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
                           </div>
                           <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Data de Upload</p>
-                            <p className="text-sm font-black text-slate-900 dark:text-slate-100">{new Date(selectedItem.uploadedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-slate-100">{formatDate(selectedItem.uploadedAt)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400">

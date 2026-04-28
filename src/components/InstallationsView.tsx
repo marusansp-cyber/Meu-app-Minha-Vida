@@ -33,7 +33,7 @@ import {
   Zap as ZapIcon
 } from 'lucide-react';
 import { INSTALLATIONS } from '../constants';
-import { cn } from '../lib/utils';
+import { cn, formatDate, parseDate } from '../lib/utils';
 import { Installation, InstallationStage } from '../types';
 import { MapView } from './MapView';
 import { generateInstallationReportPDF } from '../services/pdfService';
@@ -298,7 +298,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         stages,
         progress,
         stage: stageName,
-        lastUpdated: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+        lastUpdated: new Date().toISOString()
       });
       showToast('Status do projeto atualizado com sucesso!');
     } catch (error) {
@@ -322,7 +322,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     try {
       await onUpdateInstallation(reportModal.installationId, {
         stages,
-        lastUpdated: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+        lastUpdated: new Date().toISOString()
       });
       showToast('Relatório da etapa salvo com sucesso!');
       setReportModal({ isOpen: false, stageIndex: null, installationId: null });
@@ -388,7 +388,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
       const matchesDeadline = !projectDeadlineFilter || item.projectDeadline === projectDeadlineFilter;
 
       // Technician Filter
-      const matchesTechnician = technicianFilter === 'all' || item.technician.name === technicianFilter;
+      const matchesTechnician = technicianFilter === 'all' || item.technician?.name === technicianFilter;
 
       // Type Filter
       const matchesType = typeFilter === 'all' || (item.type && item.type.toLowerCase() === typeFilter.toLowerCase());
@@ -398,18 +398,6 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
 
     // Sorting by lastUpdated
     result.sort((a, b) => {
-      const parseDate = (dateStr: string) => {
-        const months: Record<string, number> = {
-          'jan': 0, 'fev': 1, 'mar': 2, 'abr': 3, 'mai': 4, 'jun': 5,
-          'jul': 6, 'ago': 7, 'set': 8, 'out': 9, 'nov': 10, 'dez': 11
-        };
-        const parts = dateStr.replace('.', '').split(' de ');
-        if (parts.length === 3) {
-          return new Date(parseInt(parts[2]), months[parts[1].toLowerCase()] || 0, parseInt(parts[0]));
-        }
-        return new Date(0);
-      };
-
       const dateA = parseDate(a.lastUpdated).getTime();
       const dateB = parseDate(b.lastUpdated).getTime();
 
@@ -420,7 +408,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   }, [activeTab, installations, projectDeadlineFilter, technicianFilter, sortOrder]);
 
   const technicians = React.useMemo(() => {
-    const names = new Set(installations.map(i => i.technician.name));
+    const names = new Set(installations.map(i => i.technician?.name).filter(Boolean));
     return Array.from(names);
   }, [installations]);
 
@@ -686,7 +674,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                           {expandedId === item.id ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">
-                          Prazo: {item.projectDeadline ? new Date(item.projectDeadline).toLocaleDateString('pt-BR') : 'Sem prazo'}
+                          Prazo: {formatDate(item.projectDeadline)}
                         </p>
                         <p className="text-xs text-slate-500">Project #{item.projectId}</p>
                       </div>
@@ -706,14 +694,14 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-slate-200 overflow-hidden">
                           <img 
-                            src={item.technician.avatar} 
-                            alt={item.technician.name} 
+                            src={item.technician?.avatar || ''} 
+                            alt={item.technician?.name || 'Técnico'} 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                             loading="lazy"
                           />
                         </div>
-                        <p className="text-sm font-medium">{item.technician.name}</p>
+                        <p className="text-sm font-medium">{item.technician?.name || 'Técnico'}</p>
                       </div>
                     </td>
                     <td className="px-6 py-5">
@@ -724,7 +712,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                         <span className="text-sm font-bold w-10">{item.progress}%</span>
                       </div>
                     </td>
-                    <td className="px-6 py-5 text-sm text-slate-500">{item.lastUpdated}</td>
+                    <td className="px-6 py-5 text-sm text-slate-500">{formatDate(item.lastUpdated)}</td>
                     <td className="px-6 py-5 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button 

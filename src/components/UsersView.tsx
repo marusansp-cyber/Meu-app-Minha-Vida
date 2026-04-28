@@ -15,7 +15,7 @@ import {
   ShieldAlert,
   Loader2
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { User, UserRole } from '../types';
 import { syncCollection, updateDocument, deleteDocument } from '../firestoreUtils';
 
@@ -248,7 +248,7 @@ export const UsersView: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-[10px] font-bold text-slate-500 uppercase">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
+                        {formatDate(u.createdAt)}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-center">

@@ -312,7 +312,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           doc.setFont("helvetica", "normal");
         }
 
-        const projectValue = parseFloat(p.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        const projectValue = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
         const commissionRate = p.commission || 5;
         const commissionValue = projectValue * (commissionRate / 100);
 
@@ -739,7 +739,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {tableProposals.map((prop) => {
-                    const projectValue = parseFloat(prop.value.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+                    const projectValue = typeof prop.value === 'number' ? prop.value : (parseFloat(String(prop.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
                     const commissionRate = prop.commission || 5;
                     const commissionValue = projectValue * (commissionRate / 100);
                     const isPaid = prop.commissionStatus === 'paid';

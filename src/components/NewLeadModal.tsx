@@ -82,9 +82,9 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
   };
 
   const validateValue = (value: string) => {
-    if (!value) return "Valor é obrigatório";
+    if (!value || value === 'R$ 0,00' || value === 'R$ 0') return "Valor é obrigatório";
     const numbers = value.replace(/\D/g, '');
-    if (!numbers || parseInt(numbers) <= 0) return "Deve ser maior que zero";
+    if (!numbers || parseInt(numbers) === 0) return "Deve ser maior que zero";
     return null;
   };
 
@@ -104,12 +104,11 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
   const maskCurrency = (value: string) => {
     const numbers = value.replace(/\D/g, '');
-    if (!numbers) return '';
-    const amount = Math.floor(parseInt(numbers) / 100);
+    if (!numbers) return 'R$ 0,00';
+    const amount = parseInt(numbers) / 100;
     return amount.toLocaleString('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-      maximumFractionDigits: 0,
     });
   };
 
@@ -141,7 +140,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     const { id, ...leadData } = {
       ...formData,
       time: 'Agora',
-      createdAt: new Date().toLocaleDateString('pt-BR')
+      createdAt: new Date().toISOString()
     } as any;
     
     onAdd(leadData);
