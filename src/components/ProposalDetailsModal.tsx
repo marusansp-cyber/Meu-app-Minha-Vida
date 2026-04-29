@@ -642,12 +642,23 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <span className="text-[10px] font-black uppercase tracking-widest">Estudo de Viabilidade</span>
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
-                    {proposal.feasibilityStudy || `O sistema dimensionado para ${proposal.client} apresenta viabilidade técnica e financeira excelente. Com uma geração estimada de 1.250 kWh/mês, a economia anual será de aproximadamente R$ 14.400,00.`}
+                    {(() => {
+                      if (proposal.feasibilityStudy) return proposal.feasibilityStudy;
+                      const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                      const annualSavings = gen * 0.96 * 12;
+                      return `O sistema dimensionado para ${proposal.client} apresenta viabilidade técnica e financeira excelente. Com uma geração estimada de ${gen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/mês, a economia anual será de aproximadamente R$ ${annualSavings.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`;
+                    })()}
                   </p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                       <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Economia 25 anos</p>
-                      <p className="text-xl font-black text-emerald-600">R$ {((proposal.value || 0) * 8).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                      <p className="text-xl font-black text-emerald-600">
+                        {(() => {
+                          const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                          const savings25 = gen * 0.96 * 12 * 47.727; // Including 5% annual inflation
+                          return `R$ ${savings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+                        })()}
+                      </p>
                     </div>
                     <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
                       <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Redução de CO2</p>

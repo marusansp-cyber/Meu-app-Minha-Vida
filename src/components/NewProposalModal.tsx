@@ -152,6 +152,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     expiryDate: initialData?.expiryDate || '',
     ucNumber: initialData?.ucNumber || '',
     energyConsumption: initialData?.energyConsumption || '1357',
+    monthlyGeneration: initialData?.monthlyGeneration || '',
     kitId: initialData?.kitId || '',
     discount: initialData?.discount?.toString() || '0',
     margin: initialData?.margin?.toString() || '0',
@@ -211,10 +212,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     const val = parseFloat(value);
     const sz = parseFloat(size);
     if (!isNaN(val) && !isNaN(sz) && val > 0 && sz > 0) {
-      // Mock calculation for solar
-      const annualSavings = sz * 1200 * 0.95; // ~1200kWh per kWp per year
+      // Precise calculation for solar
+      const monthlyGen = sz * (efficiency || 108.34); 
+      const energyRate = 0.96; // Based on user reference
+      const annualSavings = monthlyGen * energyRate * 12;
       const pb = (val / annualSavings).toFixed(1);
-      const totalSavings = annualSavings * 25;
+      
+      // Total savings over 25 years with 5% annual inflation
+      // Multiplier for 25 years at 5% is approx 47.727
+      const totalSavings = annualSavings * 47.727; 
       const r = (((totalSavings - val) / val) * 100).toFixed(0);
       
       setFormData(prev => ({
@@ -247,7 +253,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   };
 
-  const estimatedGeneration = parseFloat(formData.systemSize) * efficiency;
+  const estimatedGeneration = parseFloat(formData.monthlyGeneration) || (parseFloat(formData.systemSize) * efficiency);
+
+  useEffect(() => {
+    if (formData.systemSize) {
+      const gen = parseFloat(formData.systemSize) * efficiency;
+      setFormData(prev => ({ ...prev, monthlyGeneration: gen.toFixed(0) }));
+    }
+  }, [formData.systemSize, efficiency]);
 
   const validateStep = (step: Step): boolean => {
     const errors: Record<string, string> = {};
@@ -551,6 +564,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         representativeEmail: initialData?.representativeEmail || user?.email || null,
         roi: formData.roi || null,
         payback: formData.payback ? `${formData.payback} Anos` : null,
+        monthlyGeneration: formData.monthlyGeneration || estimatedGeneration.toFixed(0),
         commission: parseFloat(formData.commission) || 0,
         commissionStatus: initialData?.commissionStatus || 'pending',
         expiryDate: formData.expiryDate || null,

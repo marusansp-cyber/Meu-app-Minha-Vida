@@ -270,9 +270,14 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     doc.circle(x + 3, y + 5, 2, 'S');
   };
 
-  const estimatedSavings25 = proposal.energyConsumption 
-    ? (parseFloat(proposal.energyConsumption) * 1.05 - 100) * 12 * 25 
-    : 450000;
+  const monthlyGen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+  const energyRate = 0.96; // Based on user's reference (1250 kWh -> R$ 14400/year)
+  const annualIncrease = 1.05; // 5% annual electricity inflation
+  
+  // Calculate total savings over 25 years with 5% annual inflation
+  // Sum = MonthlyGen * Rate * 12 * sum(1.05^n) for n=0 to 24
+  // sum(1.05^n) for n=0 to 24 is approximately 47.727
+  const estimatedSavings25 = monthlyGen * energyRate * 12 * 47.727;
 
   // Constants for charts
   const chartX = marginLeft + 15;

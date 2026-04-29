@@ -375,16 +375,29 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   <Mail className="w-4 h-4 text-[#fdb612]" />
                   {client.email}
                 </span>
-                <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                <a 
+                  href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
+                  className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium hover:text-[#00A86B] transition-colors"
+                >
                   <Phone className="w-4 h-4 text-[#fdb612]" />
                   {client.phone}
-                </span>
+                </a>
                 {(client.cnpj || client.cpf) && (
                   <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
                     <CreditCard className="w-4 h-4 text-[#fdb612]" />
                     {client.cnpj || client.cpf}
                   </span>
                 )}
+                <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium uppercase">
+                  <Maximize className="w-4 h-4 text-[#fdb612]" />
+                  {client.type || 'Residencial'}
+                </span>
+                <span className={cn(
+                  "px-2 py-1 rounded text-[10px] font-black uppercase",
+                  client.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-500/10 text-slate-500"
+                )}>
+                  {client.status === 'active' ? 'Ativo' : 'Inativo'}
+                </span>
                 {client.address && (
                   <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
                     <MapPin className="w-4 h-4 text-[#fdb612]" />
