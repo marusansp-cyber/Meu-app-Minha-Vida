@@ -44,6 +44,7 @@ interface DashboardViewProps {
   leads: Lead[];
   proposals: Proposal[];
   user: UserType | null;
+  isDarkMode?: boolean;
   onOpenNewProject: () => void;
   onManageProjects: () => void;
   onAddCollaborator?: () => void;
@@ -58,6 +59,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   leads, 
   proposals, 
   user, 
+  isDarkMode = false,
   onOpenNewProject, 
   onManageProjects,
   onAddCollaborator,
@@ -132,7 +134,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return [
       { name: 'Leads', value: totalLeads || 120, fill: '#fdb612' },
       { name: 'Vistorias', value: Math.round(totalLeads * 0.6) || 80, fill: '#fdb612cc' },
-      { name: 'Propostas', value: sentProposals || 45, fill: '#fdb61299' },
+      { name: 'Simulações', value: sentProposals || 45, fill: '#fdb61299' },
       { name: 'Negociação', value: negotiation || 25, fill: '#fdb61266' },
       { name: 'Fechados', value: acceptedProposals || 12, fill: '#fdb61233' },
     ];
@@ -418,7 +420,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="size-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
             <FileText className="w-5 h-5" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nova Proposta</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nova Simulação</span>
         </motion.button>
         <button 
           onClick={() => showToast('Histórico de interações atualizado')}
@@ -475,7 +477,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={consultantData} layout="vertical" margin={{ left: 40, right: 30 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis type="number" hide />
                   <YAxis 
                     dataKey="name" 
@@ -486,12 +488,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     width={100}
                   />
                   <Tooltip 
-                    cursor={{ fill: '#f8fafc' }}
+                    cursor={{ fill: isDarkMode ? '# white/5' : '#f8fafc' }}
                     contentStyle={{ 
                       borderRadius: '16px', 
                       border: 'none', 
                       boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      backgroundColor: '#231d0f',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#231d0f',
                       color: '#fff'
                     }}
                     formatter={(value: any, name: string) => [
@@ -517,7 +519,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
@@ -535,7 +537,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       borderRadius: '16px', 
                       border: 'none', 
                       boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      backgroundColor: '#231d0f',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#231d0f',
                       color: '#fff'
                     }}
                     formatter={(val: any) => [`R$ ${val}k`, 'Receita']}
@@ -551,7 +553,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Acompanhamento de Propostas</h4>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Simulações Recentes</h4>
                 <p className="text-xs text-slate-400">Distribuição de propostas aceitas ao longo do ano</p>
               </div>
               <div className="flex gap-4">
@@ -584,7 +586,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <stop offset="95%" stopColor="#fdb612" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
@@ -601,7 +603,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       borderRadius: '12px', 
                       border: 'none', 
                       boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      backgroundColor: '#231d0f',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#231d0f',
                       color: '#fff'
                     }}
                   />

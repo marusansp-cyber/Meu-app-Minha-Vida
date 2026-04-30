@@ -195,6 +195,8 @@ export default function App() {
       cpf: lead.cpfCnpj?.length <= 14 ? lead.cpfCnpj : undefined,
       status: 'active',
       type: 'residential', // Default or guess
+      ucNumber: lead.ucNumber,
+      cep: lead.cep,
       createdAt: new Date().toISOString(),
       interactions: [
         {
@@ -557,6 +559,7 @@ export default function App() {
                     leads={leads}
                     proposals={proposals}
                     user={user}
+                    isDarkMode={isDarkMode}
                     onOpenNewProject={() => setIsProjectModalOpen(true)} 
                     onManageProjects={() => setCurrentView('installations')}
                     onAddCollaborator={() => setCurrentView('collaborators')}
@@ -614,6 +617,7 @@ export default function App() {
                     leads={leads} 
                     clients={clients} 
                     preFill={proposalPreFill}
+                    isDarkMode={isDarkMode}
                     onPreFillComplete={() => setProposalPreFill(null)}
                     onConvertToInstallation={handleConvertToInstallation}
                   />
@@ -622,13 +626,14 @@ export default function App() {
                 {currentView === 'partners' && <PartnersView partners={partners} />}
                 {currentView === 'collaborators' && <CollaboratorsView collaborators={collaborators} />}
                 {currentView === 'kits' && <KitsView kits={kits} />}
-                {currentView === 'finance' && <FinanceView proposals={proposals} user={user} />}
+                {currentView === 'finance' && <FinanceView proposals={proposals} user={user} isDarkMode={isDarkMode} />}
                 {currentView === 'reports' && (
                   <ReportsView 
                     proposals={proposals} 
                     installations={installations}
                     leads={leads}
                     clients={clients}
+                    isDarkMode={isDarkMode}
                   />
                 )}
                 {currentView === 'clients' && (
@@ -650,6 +655,8 @@ export default function App() {
                         titular: client.name,
                         cpfCnpj: client.cnpj || client.cpf || '',
                         endereco: client.address,
+                        cep: client.cep,
+                        ucNumber: client.ucNumber,
                         telefone: client.phone
                       });
                     }}

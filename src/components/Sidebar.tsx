@@ -1,5 +1,6 @@
 import React from 'react';
 import { 
+  Calculator,
   LayoutDashboard, 
   Users, 
   Construction, 
@@ -46,7 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'installations', label: 'Instalações', icon: Construction, roles: ['admin', 'engineer', 'installer'] },
     { id: 'team', label: 'Corpo Técnico', icon: ShieldCheck, roles: ['admin'] },
     { id: 'sales', label: 'Vendas', icon: TrendingUp, roles: ['admin', 'sales'] },
-    { id: 'proposals', label: 'Propostas', icon: FileText, roles: ['admin', 'sales'] },
+    { id: 'proposals', label: 'Simulador', icon: Calculator, roles: ['admin', 'sales'] },
     { id: 'gallery', label: 'Galeria', icon: LayoutGrid, roles: ['admin', 'sales', 'engineer', 'installer'] },
     { id: 'finance', label: 'Financeiro', icon: Wallet, roles: ['admin', 'finance'] },
     { id: 'reports', label: 'Relatórios', icon: TrendingUp, roles: ['admin', 'finance', 'sales'] },

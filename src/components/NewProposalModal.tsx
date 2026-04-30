@@ -37,6 +37,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { motion } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
 
@@ -53,11 +54,11 @@ interface NewProposalModalProps {
 type Step = 'ucs' | 'kit' | 'pricing' | 'financing' | 'finalization';
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-  { id: 'ucs', label: 'Cadastro UCs', icon: User },
-  { id: 'kit', label: 'Kit FV', icon: Zap },
-  { id: 'pricing', label: 'Precificação', icon: DollarSign },
-  { id: 'financing', label: 'Financiamento', icon: CreditCard },
-  { id: 'finalization', label: 'Finalização', icon: CheckCircle2 },
+  { id: 'ucs', label: 'Unidade Consumidora', icon: Landmark },
+  { id: 'kit', label: 'Configuração do Kit', icon: Zap },
+  { id: 'pricing', label: 'Engenharia de Custos', icon: Calculator },
+  { id: 'financing', label: 'Plano Financeiro', icon: CreditCard },
+  { id: 'finalization', label: 'Status & Fechamento', icon: FileCheck },
 ];
 
 export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData, user, leads = [], clients = [] }) => {
@@ -208,76 +209,102 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   }, [isOpen]);
 
-  // 1. Sync Calculation Effect (Generation, Pricing, ROI, Payback)
+  // Unified Sync Effect for all Derived Data (Calculations, Panels, Sizes)
   useEffect(() => {
-    const sz = parseFloat(formData.systemSize);
-    const consumption = parseFloat(formData.energyConsumption);
-    
-    // Derived Generation
-    let monthlyGen = formData.monthlyGeneration;
-    if (!isNaN(sz) && sz > 0) {
-      monthlyGen = (sz * efficiency).toFixed(0);
-    }
-
-    // Derived Pricing
-    const equip = parseFloat(formData.equipmentCost || '0');
-    const inst = parseFloat(formData.installationCost || '0');
-    const proj = parseFloat(formData.projectCost || '0');
-    const lic = parseFloat(formData.licensingCost || '0');
-    const log = parseFloat(formData.logisticCost || '0');
-    const add = parseFloat(formData.additionalCost || '0');
-    const discountValue = parseFloat(formData.discount || '0');
-    const marginPerc = parseFloat(formData.margin || '0');
-    
-    const costs = equip + inst + proj + lic + log + add;
-    const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-    const valueWithMargin = costs * multiplier;
-    const finalVal = Math.max(0, valueWithMargin - discountValue);
-    const finalValueNum = parseFloat(finalVal.toFixed(2));
-
-    // Derived Financials (ROI / Payback)
-    let pb = formData.payback;
-    let r = formData.roi;
-
-    if (!isNaN(finalVal) && !isNaN(sz) && finalVal > 0 && sz > 0 && !isNaN(consumption)) {
-      const energyRate = 1.05; // R$ 1,05/kWh
-      const minFee = 100; // R$ 100,00
-
-      const billBefore = consumption * energyRate;
-      const genNum = parseFloat(monthlyGen);
-      const billAfter = Math.max(minFee, (consumption - genNum) * energyRate + minFee);
-      const monthlySavings = Math.max(0, billBefore - billAfter);
-      const annualSavings = monthlySavings * 12;
-
-      pb = annualSavings > 0 ? (finalVal / annualSavings).toFixed(1) : '0';
-      
-      // Total savings over 25 years with 5% annual inflation
-      const totalSavings25 = annualSavings * 47.727; 
-      r = `${(((totalSavings25 - finalVal) / finalVal) * 100).toFixed(0)}%`;
-    }
-
-    // Single Atomic Update with Change Detection
     setFormData(prev => {
+      // 1. Geometry Synchronization (Panels <-> Size)
+      const powerMatch = prev.panelBrandModel.match(/(\d+)\s*W/i);
+      const power = powerMatch ? parseInt(powerMatch[1]) : 550;
+      
+      let newSz = prev.systemSize;
+      let newQty = prev.panelQuantity;
+
+      const currentSzNum = parseFloat(prev.systemSize);
+      const currentQtyNum = parseInt(prev.panelQuantity);
+
+      // Check for mutual consistency
+      const expectedSz = (currentQtyNum * power) / 1000;
+      const expectedQty = Math.ceil((currentSzNum * 1000) / power);
+
+      // We need to decide which one to trust. 
+      // Rule: If current size doesn't match the quantity * power, one of them must move.
+      // We'll use a small tolerance for floating point issues.
+      const szIsConsistent = !isNaN(currentSzNum) && Math.abs(currentSzNum - expectedSz) < 0.01;
+      const qtyIsConsistent = !isNaN(currentQtyNum) && currentQtyNum === expectedQty;
+
+      if (!szIsConsistent) {
+        // If they aren't consistent, we update size to match quantity by default 
+        // (assuming quantity is the primary driver for "physical" systems)
+        newSz = expectedSz.toFixed(2);
+      } else if (!qtyIsConsistent) {
+        newQty = expectedQty.toString();
+      }
+
+      // 2. Financial & Technical Calculations
+      const szNum = parseFloat(newSz);
+      const consumption = parseFloat(prev.energyConsumption);
+      
+      const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * efficiency).toFixed(0) : prev.monthlyGeneration;
+
+      const equip = parseFloat(prev.equipmentCost || '0');
+      const inst = parseFloat(prev.installationCost || '0');
+      const proj = parseFloat(prev.projectCost || '0');
+      const lic = parseFloat(prev.licensingCost || '0');
+      const log = parseFloat(prev.logisticCost || '0');
+      const add = parseFloat(prev.additionalCost || '0');
+      const discountVal = parseFloat(prev.discount || '0');
+      const marginP = parseFloat(prev.margin || '0');
+      
+      const costs = equip + inst + proj + lic + log + add;
+      const multiplier = marginP >= 99 ? 100 : 1 / (1 - (marginP / 100));
+      const valWithMargin = costs * multiplier;
+      const totalVal = Math.max(0, valWithMargin - discountVal);
+      const valNum = parseFloat(totalVal.toFixed(2));
+
+      let pb = prev.payback;
+      let r = prev.roi;
+
+      if (!isNaN(valNum) && !isNaN(szNum) && valNum > 0 && szNum > 0 && !isNaN(consumption)) {
+        const energyRate = 1.05; 
+        const minFee = 100;
+        const billBefore = consumption * energyRate;
+        const genNum = parseFloat(monGen);
+        const billAfter = Math.max(minFee, (consumption - genNum) * energyRate + minFee);
+        const monthlySavings = Math.max(0, billBefore - billAfter);
+        const annualSavings = monthlySavings * 12;
+        pb = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : '0';
+        const totalSavings25 = annualSavings * 47.727; 
+        r = `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%`;
+      }
+
+      // Check if anything actually changed before returning a new object
       if (
-        prev.monthlyGeneration === monthlyGen &&
+        prev.systemSize === newSz &&
+        prev.panelQuantity === newQty &&
+        prev.monthlyGeneration === monGen &&
         prev.subtotal === costs.toString() &&
-        prev.value === finalValueNum &&
+        prev.value === valNum &&
         prev.payback === pb &&
         prev.roi === r
       ) {
         return prev;
       }
+
       return {
         ...prev,
-        monthlyGeneration: monthlyGen,
+        systemSize: newSz,
+        panelQuantity: newQty,
+        monthlyGeneration: monGen,
         subtotal: costs.toString(),
-        value: finalValueNum,
+        value: valNum,
         payback: pb,
         roi: r
       };
     });
   }, [
+    formData.panelQuantity,
     formData.systemSize,
+    formData.panelBrandModel,
     formData.energyConsumption,
     formData.equipmentCost,
     formData.installationCost,
@@ -290,35 +317,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     efficiency
   ]);
 
-  // 2. Sync panel quantity -> system size
-  useEffect(() => {
-    const qty = parseInt(formData.panelQuantity);
-    const powerMatch = formData.panelBrandModel.match(/(\d+)\s*W/i);
-    const power = powerMatch ? parseInt(powerMatch[1]) : 550;
-    
-    if (!isNaN(qty) && qty > 0) {
-      const sz = (qty * power) / 1000;
-      const szStr = sz.toFixed(2);
-      
-      if (formData.systemSize !== szStr) {
-        setFormData(prev => ({ ...prev, systemSize: szStr }));
-      }
-    }
-  }, [formData.panelQuantity, formData.panelBrandModel]);
-
-  // 3. Sync system size -> panel quantity
-  useEffect(() => {
-    const sz = parseFloat(formData.systemSize);
-    const powerMatch = formData.panelBrandModel.match(/(\d+)\s*W/i);
-    const power = powerMatch ? parseInt(powerMatch[1]) : 550;
-
-    if (!isNaN(sz) && sz > 0) {
-      const expectedQty = Math.ceil((sz * 1000) / power);
-      if (formData.panelQuantity !== expectedQty.toString()) {
-        setFormData(prev => ({ ...prev, panelQuantity: expectedQty.toString() }));
-      }
-    }
-  }, [formData.systemSize, formData.panelBrandModel]);
 
   const validateStep = (step: Step): boolean => {
     const errors: Record<string, string> = {};
@@ -539,42 +537,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   };
 
-  useEffect(() => {
-    const equip = parseFloat(formData.equipmentCost || '0');
-    const inst = parseFloat(formData.installationCost || '0');
-    const proj = parseFloat(formData.projectCost || '0');
-    const lic = parseFloat(formData.licensingCost || '0');
-    const log = parseFloat(formData.logisticCost || '0');
-    const add = parseFloat(formData.additionalCost || '0');
-    const discountValue = parseFloat(formData.discount || '0');
-    const marginPerc = parseFloat(formData.margin || '0');
-    
-    const costs = equip + inst + proj + lic + log + add;
-    const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-    const valueWithMargin = costs * multiplier;
-    const finalVal = Math.max(0, valueWithMargin - discountValue);
-    const finalValueNum = parseFloat(finalVal.toFixed(2));
-    
-    setFormData(prev => {
-      if (prev.subtotal === costs.toString() && prev.value === finalValueNum) {
-        return prev;
-      }
-      return {
-        ...prev,
-        subtotal: costs.toString(),
-        value: finalValueNum
-      };
-    });
-  }, [
-    formData.equipmentCost, 
-    formData.installationCost, 
-    formData.projectCost, 
-    formData.licensingCost, 
-    formData.logisticCost, 
-    formData.additionalCost,
-    formData.margin, 
-    formData.discount
-  ]);
+  // The derived calculations are now handled by the unified sync effect at the top.
+
 
   if (!isOpen) return null;
 
@@ -711,14 +675,24 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       )}
 
       <div className="bg-white dark:bg-[#231d0f] w-full max-w-4xl rounded-[40px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 shrink-0">
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 shrink-0 relative overflow-hidden">
+          {/* Progress Bar Background */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 dark:bg-slate-800" />
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
+            className="absolute top-0 left-0 h-1 bg-[#fdb612] shadow-[0_0_10px_#fdb612]"
+          />
+
           <div className="flex items-center gap-4">
             <div className="size-12 bg-[#fdb612]/20 rounded-2xl flex items-center justify-center text-[#fdb612]">
-              <FileText className="w-6 h-6" />
+              <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-2xl font-black tracking-tight">{initialData ? 'Editar Proposta' : 'Nova Proposta Solar'}</h3>
-              <p className="text-sm text-slate-500 font-medium">Configuração avançada de proposta</p>
+              <h3 className="text-2xl font-black tracking-tight uppercase">
+                {initialData ? 'Ajustar Simulação' : 'Nova Simulação Técnica'}
+              </h3>
+              <p className="text-sm text-slate-500 font-medium">Fluxo guiado de alta conversão</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -732,36 +706,47 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         </div>
 
         {/* Step Indicator */}
-        <div className="px-8 py-6 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="relative flex justify-between items-center max-w-3xl mx-auto">
+        <div className="px-8 py-8 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="relative flex justify-between items-center max-w-4xl mx-auto">
             <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0" />
             {STEPS.map((step, index) => {
-              const Icon = step.icon;
               const currentIndex = STEPS.findIndex(s => s.id === currentStep);
               const stepIndex = index;
               const isActive = currentStep === step.id;
               const isCompleted = currentIndex > stepIndex;
 
               return (
-                <div key={step.id} className="relative z-10 flex flex-col items-center gap-2">
-                  <button 
-                    onClick={() => setCurrentStep(step.id)}
-                    className={cn(
-                      "size-10 rounded-full flex items-center justify-center font-bold text-sm transition-all border-2",
-                      isActive 
-                        ? "bg-[#00A86B] border-[#00A86B] text-white shadow-lg shadow-[#00A86B]/20" 
-                        : isCompleted 
-                          ? "bg-[#00A86B] border-[#00A86B] text-white" 
-                          : "bg-white dark:bg-[#231d0f] border-slate-200 dark:border-slate-800 text-slate-400"
-                    )}
-                  >
-                    {isCompleted ? <Check className="w-5 h-5" /> : index + 1}
-                  </button>
+                <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
+                  <div className="group relative">
+                    <button 
+                      onClick={() => {
+                        if (isCompleted || isActive) setCurrentStep(step.id);
+                      }}
+                      className={cn(
+                        "size-12 rounded-2xl flex items-center justify-center font-black text-xs transition-all border-2",
+                        isActive 
+                          ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f] shadow-xl shadow-[#fdb612]/20 scale-110" 
+                          : isCompleted 
+                            ? "bg-slate-900 border-slate-900 text-white" 
+                            : "bg-white dark:bg-[#201b10] border-slate-200 dark:border-slate-800 text-slate-400"
+                      )}
+                    >
+                      {isCompleted ? <Check className="w-6 h-6" /> : index + 1}
+                    </button>
+                    
+                    {/* Tooltip for step label */}
+                    <div className={cn(
+                      "absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 rounded-lg bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
+                      isActive && "opacity-100"
+                    )}>
+                      {step.label}
+                    </div>
+                  </div>
                   <span className={cn(
-                    "text-[10px] font-black uppercase tracking-widest",
-                    isActive ? "text-[#00A86B]" : "text-slate-400"
+                    "text-[9px] font-black uppercase tracking-widest transition-colors",
+                    isActive ? "text-[#fdb612]" : isCompleted ? "text-slate-900 dark:text-white" : "text-slate-400"
                   )}>
-                    {step.label}
+                    Passo {index + 1}
                   </span>
                 </div>
               );
@@ -1870,19 +1855,19 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-[#00A86B]/5 p-8 rounded-[40px] border border-[#00A86B]/10">
                   <div className="flex items-center gap-4 mb-8">
-                    <div className="size-16 bg-[#00A86B] text-white rounded-2xl flex items-center justify-center shadow-xl shadow-[#00A86B]/20">
-                      <FileCheck className="w-8 h-8" />
+                    <div className="size-16 bg-[#fdb612] text-[#231d0f] rounded-2xl flex items-center justify-center shadow-xl shadow-[#fdb612]/20">
+                      <Calculator className="w-8 h-8" />
                     </div>
                     <div>
-                      <h4 className="text-2xl font-black">Resumo da Proposta</h4>
-                      <p className="text-slate-500 text-sm">Confira os detalhes finais antes de gerar o documento</p>
+                      <h4 className="text-2xl font-black">Resumo da Simulação</h4>
+                      <p className="text-slate-500 text-sm">Validamos os parâmetros técnicos e financeiros para você</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="space-y-4">
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Número da Proposta</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Número da Simulação</label>
                         <input 
                           type="text"
                           value={formData.proposalNumber || ''}
@@ -2020,7 +2005,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     type="submit"
                     className="px-12 py-3 bg-[#00A86B] text-white rounded-xl font-black text-lg flex items-center gap-3 hover:shadow-2xl hover:shadow-[#00A86B]/30 transition-all active:scale-95"
                   >
-                    GERAR PROPOSTA FINAL
+                    FINALIZAR SIMULAÇÃO TÉCNICA
                     <CheckCircle2 className="w-5 h-5" />
                   </button>
                 </div>

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid } from 'lucide-react';
+import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid, Calculator, Zap, TrendingUp, DollarSign } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Proposal, User as UserType, Lead, Client } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
@@ -22,6 +23,7 @@ interface ProposalsViewProps {
   leads: Lead[];
   clients: Client[];
   preFill?: Partial<Proposal> | null;
+  isDarkMode?: boolean;
   onPreFillComplete?: () => void;
   onConvertToInstallation?: (proposal: Proposal) => void;
 }
@@ -57,6 +59,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   leads, 
   clients,
   preFill,
+  isDarkMode = false,
   onPreFillComplete,
   onConvertToInstallation
 }) => {
@@ -220,7 +223,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         proposalNumber,
         date: new Date().toISOString()
       });
-      showToast('Proposta criada com sucesso!');
+      showToast('Simulação criada com sucesso!');
     }
     setSelectedProposal(null);
   };
@@ -239,7 +242,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       status: 'pending' as const
     };
     await createDocument('proposals', duplicated);
-    showToast('Proposta duplicada com sucesso!');
+    showToast('Simulação duplicada com sucesso!');
   };
 
   const confirmDelete = async () => {
@@ -247,7 +250,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       await deleteDocument('proposals', proposalToDelete.id);
       setIsDeleteModalOpen(false);
       setProposalToDelete(null);
-      showToast('Proposta excluída permanentemente.');
+      showToast('Simulação excluída permanentemente.');
     }
   };
 
@@ -810,12 +813,20 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   };
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-8 pb-20">
+      {/* Header with Stats and Quick Nav */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
+          <div className="size-12 rounded-2xl bg-[#fdb612]/20 flex items-center justify-center text-[#fdb612]">
+            <Calculator className="w-6 h-6" />
+          </div>
           <div>
-            <h2 className="text-3xl font-black tracking-tight">Propostas Comerciais</h2>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Gerencie orçamentos e propostas enviadas aos clientes.</p>
+            <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-3">
+              Simulador <span className="text-[#fdb612]">&</span> Propostas
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              Realize simulações técnicas e gere orçamentos de alto desempenho.
+            </p>
           </div>
           <button 
             onClick={() => setIsHelpModalOpen(true)}
@@ -826,16 +837,180 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
             <span className="text-[8px] font-black uppercase text-blue-400 group-hover:text-blue-600 transition-colors">Ajuda E-mail</span>
           </button>
         </div>
-        <motion.button 
-          onClick={() => setIsModalOpen(true)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="bg-[#fdb612] hover:bg-[#fdb612]/90 text-[#231d0f] px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-[#fdb612]/20"
-        >
-          <Plus className="w-4 h-4" />
-          Nova Proposta
-        </motion.button>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={toggleSelectAll}
+            className={cn(
+              "flex-1 md:flex-none px-4 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all border",
+              selectedProposalIds.length > 0 
+                ? "bg-[#fdb612]/10 border-[#fdb612] text-[#fdb612]" 
+                : "bg-white dark:bg-white/5 border-slate-200 dark:border-slate-800 text-slate-500"
+            )}
+          >
+            {selectedProposalIds.length === filteredProposals.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+          </button>
+          <motion.button 
+            onClick={() => setIsModalOpen(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black uppercase tracking-widest text-xs hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all group active:scale-95"
+          >
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+            Nova Simulação
+          </motion.button>
+        </div>
       </header>
+
+      {/* Simulator Analytics Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Real-time Savings Projection */}
+        <div className="lg:col-span-2 p-8 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-[2rem] space-y-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+             <TrendingUp className="w-32 h-32" />
+          </div>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="size-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                <TrendingUp className="w-7 h-7" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Projeção Consolidada</p>
+                <h3 className="text-xl font-black">Expectativa de Economia (25 anos)</h3>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-black text-emerald-500 tabular-nums">
+                R$ {(stats.totalOpen * 25 * 0.45).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Baseado em orçamentos ativos</p>
+            </div>
+          </div>
+
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={[
+                { year: 'Ano 0', savings: 0 },
+                { year: 'Ano 1', savings: stats.totalOpen * 0.1 },
+                { year: 'Ano 5', savings: stats.totalOpen * 0.6 },
+                { year: 'Ano 10', savings: stats.totalOpen * 1.4 },
+                { year: 'Ano 15', savings: stats.totalOpen * 2.4 },
+                { year: 'Ano 20', savings: stats.totalOpen * 3.6 },
+                { year: 'Ano 25', savings: stats.totalOpen * 5.2 },
+              ]}>
+                <defs>
+                  <linearGradient id="colorSavings" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#e2e8f0'} />
+                <XAxis dataKey="year" fontSize={10} axisLine={false} tickLine={false} />
+                <YAxis hide />
+                <RechartsTooltip 
+                  contentStyle={{ 
+                    backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                    border: 'none',
+                    borderRadius: '16px',
+                    boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+                    padding: '12px'
+                  }}
+                   itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="savings" 
+                  stroke="#10b981" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorSavings)" 
+                  animationDuration={2000}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
+             <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Payback Médio</p>
+                <p className="text-lg font-black text-slate-900 dark:text-white">3.2 Anos</p>
+             </div>
+             <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-1">ROI Mensal</p>
+                <p className="text-lg font-black text-emerald-500">~2.8%</p>
+             </div>
+             <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-1">CO2 Evitado</p>
+                <p className="text-lg font-black text-blue-500">14.2 Ton</p>
+             </div>
+             <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Árvores Salvas</p>
+                <p className="text-lg font-black text-amber-500">842</p>
+             </div>
+          </div>
+        </div>
+
+        {/* Sales Funnel / Distribution */}
+        <div className="p-8 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-[2rem] space-y-8 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="size-14 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612]">
+              <LayoutGrid className="w-7 h-7" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Eficiência Comercial</p>
+              <h3 className="text-xl font-black">Funil de Simulações</h3>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {[
+              { label: 'Oportunidades', count: proposals.filter(p => p.status === 'pending').length, color: 'bg-slate-400', icon: Clock },
+              { label: 'Propostas Enviadas', count: proposals.filter(p => p.status === 'sent').length, color: 'bg-blue-500', icon: Send },
+              { label: 'Contratos Aceitos', count: proposals.filter(p => p.status === 'accepted').length, color: 'bg-emerald-500', icon: CheckCircle2 },
+              { label: 'Perdas / Expiradas', count: proposals.filter(p => p.status === 'expired' || p.status === 'cancelled').length, color: 'bg-rose-500', icon: XCircle },
+            ].map((item, idx) => (
+              <div key={item.label} className="space-y-2 group/bar">
+                <div className="flex justify-between items-end">
+                  <div className="flex items-center gap-2">
+                    <item.icon className="w-3.5 h-3.5 text-slate-400 group-hover/bar:text-[#fdb612] transition-colors" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{item.label}</span>
+                  </div>
+                  <span className="text-sm font-black tabular-nums">{item.count}</span>
+                </div>
+                <div className="h-2.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${proposals.length > 0 ? (item.count / proposals.length) * 100 : 0}%` }}
+                    transition={{ duration: 1.5, delay: idx * 0.1 }}
+                    className={cn("h-full rounded-full", item.color)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-8 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between">
+               <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Conversão Geral</p>
+                  <p className="text-3xl font-black text-[#fdb612] tracking-tighter">{stats.acceptRate.toFixed(1)}%</p>
+               </div>
+               <div className="size-16 rounded-full border-4 border-[#fdb612]/20 flex items-center justify-center relative">
+                  <svg className="absolute inset-0 size-full -rotate-90">
+                     <circle 
+                        cx="32" cy="32" r="28" fill="none" 
+                        stroke="currentColor" strokeWidth="4" 
+                        className="text-[#fdb612]"
+                        strokeDasharray={175.92}
+                        strokeDashoffset={175.92 - (175.92 * stats.acceptRate) / 100}
+                     />
+                  </svg>
+                  <TrendingUp className="w-6 h-6 text-[#fdb612]" />
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <NewProposalModal 
         isOpen={isModalOpen}
@@ -879,7 +1054,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               <div className="size-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center text-rose-600 mx-auto mb-4">
                 <AlertCircle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-black tracking-tight mb-2">Excluir Proposta?</h3>
+              <h3 className="text-xl font-black tracking-tight mb-2">Excluir Simulação?</h3>
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
                 Tem certeza que deseja excluir a proposta <span className="font-bold text-slate-900 dark:text-slate-100">{proposalToDelete?.id}</span>? Esta ação não pode ser desfeita.
               </p>
@@ -1084,7 +1259,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-white/5 animate-in slide-in-from-top duration-200">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">ID da Proposta</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">ID da Simulação</label>
                 <input 
                   type="text" 
                   value={filters.id || ''}
@@ -1245,7 +1420,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     onClick={() => handleSort('date')}
                     className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   >
-                    ID / Data
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">ID / Data Simulação</label>
                     <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'date' && sortConfig.direction === 'desc' && "rotate-180")} />
                   </button>
                 </th>
@@ -1254,7 +1429,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     onClick={() => handleSort('client')}
                     className="flex items-center gap-1 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                   >
-                    Cliente / Sistema
+                    Simulação / Sistema
                     <ArrowUpRight className={cn("w-3 h-3 transition-transform", sortConfig?.key === 'client' && sortConfig.direction === 'desc' && "rotate-180")} />
                   </button>
                 </th>
@@ -1343,7 +1518,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">Proposta para {prop.client}</p>
+                    <p className="font-bold text-sm text-slate-900 dark:text-slate-100">Simulação para {prop.client}</p>
                     <p className="text-xs text-slate-500">{prop.systemSize}</p>
                   </td>
                   <td className="px-6 py-4">
@@ -1424,7 +1599,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           handlePreview(prop.id!);
                         }}
                         className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
-                        title="Visualizar Proposta na Tela"
+                        title="Visualizar Simulação na Tela"
                       >
                         <LayoutGrid className="w-4 h-4" />
                       </button>

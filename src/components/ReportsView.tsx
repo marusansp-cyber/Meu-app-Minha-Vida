@@ -41,9 +41,10 @@ interface ReportsViewProps {
   installations: Installation[];
   leads: Lead[];
   clients: Client[];
+  isDarkMode?: boolean;
 }
 
-export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installations, leads, clients }) => {
+export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installations, leads, clients, isDarkMode = false }) => {
   const [dateRange, setDateRange] = useState('30days');
   const [consultantFilter, setConsultantFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -334,11 +335,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
                       <stop offset="95%" stopColor="#fdb612" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#94a3b8' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={(val) => `R$ ${val/1000}k`} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b'
+                    }}
                     formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 'Faturamento']}
                   />
                   <Area type="monotone" dataKey="sales" stroke="#fdb612" strokeWidth={4} fillOpacity={1} fill="url(#colorSales)" />
@@ -393,7 +400,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={consultantCommissionData} margin={{ top: 20, right: 30, left: 40, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
@@ -409,7 +416,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
                     tickFormatter={(val) => `R$ ${val/1000}k`}
                   />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b'
+                    }}
                     formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 'Comissão']}
                   />
                   <Bar dataKey="paid" name="Paga" fill="#10b981" radius={[4, 4, 0, 0]} stackId="a" />

@@ -21,7 +21,7 @@ import {
   X,
   CreditCard
 } from 'lucide-react';
-import { Client, Proposal, Installation, History as HistoryType, Lead, User as UserType } from '../types';
+import { Client, Proposal, Installation, History as HistoryType, Lead, User as UserType, Interaction } from '../types';
 import { cn, formatDate, parseDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { ClientModal } from './ClientModal';
@@ -282,36 +282,61 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     return { active, inactive, total: (clients || []).length };
   }, [clients]);
 
+  const [newNote, setNewNote] = useState('');
+
+  const handleAddNote = async (client: Client) => {
+    if (!newNote.trim()) return;
+    
+    const now = new Date();
+    const newInteraction: Interaction = {
+      id: Math.random().toString(36).substr(2, 9),
+      date: now.toLocaleString('pt-BR'),
+      type: 'Manual',
+      title: 'Nota de Interação',
+      description: newNote.trim(),
+      userName: user?.name || 'Vendedor',
+      status: 'Concluído',
+      timestamp: now.getTime()
+    };
+    
+    const updatedInteractions = [newInteraction, ...(client.interactions || [])];
+    await onUpdateClient(client.id, { interactions: updatedInteractions });
+    setNewNote('');
+    showToast('Nota adicionada ao histórico!');
+  };
+
   const renderClientInteractions = (client: Client) => (
     <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h4 className="font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
           <HistoryIcon className="w-5 h-5 text-[#fdb612]" />
-          Histórico Completo de Interações
+          Linha do Tempo de Interações
         </h4>
-        <button 
-          onClick={() => {
-            const description = window.prompt('Descreva a interação:');
-            if (description) {
-              const newInteraction = {
-                id: Math.random().toString(36).substr(2, 9),
-                date: new Date().toISOString(),
-                type: 'Manual',
-                title: 'Nota Manual',
-                description,
-                userName: user?.name || 'Vendedor',
-                status: 'completed',
-                timestamp: Date.now()
-              };
-              const updatedInteractions = [...(client.interactions || []), newInteraction];
-              onUpdateClient(client.id, { interactions: updatedInteractions });
-            }
-          }}
-          className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest hover:underline"
-        >
-          + Adicionar Nota
-        </button>
       </div>
+
+      {/* Add Note Section */}
+      <div className="mb-8 p-6 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          <MessageCircle className="w-3 h-3 text-[#fdb612]" />
+          Nova Nota Manual
+        </div>
+        <textarea 
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          placeholder="Descreva a interação com o cliente (ex: liguei para tirar dúvidas sobre o kit...)"
+          className="w-full p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-[#fdb612]/50 resize-none min-h-[100px]"
+        />
+        <div className="flex justify-end">
+          <button 
+            onClick={() => handleAddNote(client)}
+            disabled={!newNote.trim()}
+            className="px-6 py-2 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Registrar Nota
+          </button>
+        </div>
+      </div>
+
       <div className="space-y-4">
         {allInteractions.length > 0 ? (
           allInteractions.map((interaction) => (
@@ -421,8 +446,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   
                   onCreateProposal({
                     ...client,
+                    client: client.name,
+                    titular: client.name,
+                    email: client.email,
+                    telefone: client.phone,
+                    endereco: client.address,
+                    cpfCnpj: client.cnpj || client.cpf || '',
                     systemSize: latestProposal?.systemSize || '',
-                    value: latestProposal?.value || 0
+                    value: latestProposal?.value || 0,
+                    energyConsumption: latestProposal?.energyConsumption || ''
                   });
                 }}
                 className="flex items-center gap-2 px-4 py-3 bg-[#fdb612]/10 text-[#fdb612] rounded-xl font-bold text-sm hover:bg-[#fdb612] hover:text-[#231d0f] transition-all group"
@@ -778,7 +810,39 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             {/* Clients List */}
             <div className="space-y-4">
               <div className="bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4 shadow-sm">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="flex bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 gap-1 w-full sm:w-auto">
+                    <button 
+                      onClick={() => setStatusFilters([])}
+                      className={cn(
+                        "flex-1 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                        statusFilters.length === 0 ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-white/5"
+                      )}
+                    >
+                      Todos
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilters(['active'])}
+                      className={cn(
+                        "flex-1 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                        statusFilters.includes('active') && statusFilters.length === 1 ? "bg-emerald-500 text-white" : "text-slate-400 hover:text-emerald-500 hover:bg-white dark:hover:bg-white/5"
+                      )}
+                    >
+                      <div className={cn("size-2 rounded-full", statusFilters.includes('active') && statusFilters.length === 1 ? "bg-white" : "bg-emerald-500")} />
+                      Ativos
+                    </button>
+                    <button 
+                      onClick={() => setStatusFilters(['inactive'])}
+                      className={cn(
+                        "flex-1 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                        statusFilters.includes('inactive') && statusFilters.length === 1 ? "bg-slate-700 text-white" : "text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-white/5"
+                      )}
+                    >
+                      <div className={cn("size-2 rounded-full", statusFilters.includes('inactive') && statusFilters.length === 1 ? "bg-white" : "bg-slate-500")} />
+                      Inativos
+                    </button>
+                  </div>
+                  
                   {isAdminOrStaff && (
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

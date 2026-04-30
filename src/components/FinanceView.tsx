@@ -45,9 +45,10 @@ import { HelpCircle } from 'lucide-react';
 interface FinanceViewProps {
   proposals: Proposal[];
   user: UserType | null;
+  isDarkMode?: boolean;
 }
 
-export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => {
+export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDarkMode = false }) => {
   const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [commissionStatusFilter, setCommissionStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
@@ -579,7 +580,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={representativeData} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                 <XAxis 
                   type="number"
                   axisLine={false} 
@@ -596,11 +597,13 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user }) => 
                   width={100}
                 />
                 <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: isDarkMode ? '#1e293b' : '#f8fafc' }}
                   contentStyle={{ 
                     borderRadius: '16px', 
                     border: 'none', 
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                    color: isDarkMode ? '#f1f5f9' : '#1e293b',
                     padding: '12px'
                   }}
                   formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`]}

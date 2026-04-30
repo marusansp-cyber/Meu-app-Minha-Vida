@@ -64,6 +64,8 @@ export interface Client {
   latitude?: number;
   longitude?: number;
   type?: 'residential' | 'rural' | 'industrial' | 'commercial' | 'public';
+  ucNumber?: string;
+  cep?: string;
   lastModifiedBy?: string;
   lastModifiedAt?: string;
   auditLogs?: ClientAuditLog[];
