@@ -1,6 +1,6 @@
 {
   "name": "Vieira's Solar & Engenharia",
-  "description": "A Vieira's Solar & Engenharia é uma startup que desenvolve uma plataforma de gestão e engenharia voltada para o integrador solar.",
-  "requestFramePermissions": ["geolocation"],
+  "description": "Plataforma avançada de gestão, engenharia e propostas comerciais customizadas para integradores de energia solar. Focada em performance, design de alto nível (PDF) e validação técnica.",
+  "requestFramePermissions": ["geolocation", "camera", "microphone"],
   "majorCapabilities": []
 }

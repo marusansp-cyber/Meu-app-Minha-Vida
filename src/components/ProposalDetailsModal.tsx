@@ -645,7 +645,12 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     {(() => {
                       if (proposal.feasibilityStudy) return proposal.feasibilityStudy;
                       const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-                      const annualSavings = gen * 0.96 * 12;
+                      const consumption = parseFloat(proposal.energyConsumption || '1357');
+                      const rate = 1.05;
+                      const minFee = 100;
+                      const currentBill = consumption * rate;
+                      const projectedBill = Math.max(minFee, (consumption - gen) * rate + minFee);
+                      const annualSavings = Math.max(0, currentBill - projectedBill) * 12;
                       return `O sistema dimensionado para ${proposal.client} apresenta viabilidade técnica e financeira excelente. Com uma geração estimada de ${gen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/mês, a economia anual será de aproximadamente R$ ${annualSavings.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`;
                     })()}
                   </p>
@@ -655,7 +660,13 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <p className="text-xl font-black text-emerald-600">
                         {(() => {
                           const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-                          const savings25 = gen * 0.96 * 12 * 47.727; // Including 5% annual inflation
+                          const consumption = parseFloat(proposal.energyConsumption || '1357');
+                          const rate = 1.05;
+                          const minFee = 100;
+                          const currentBill = consumption * rate;
+                          const projectedBill = Math.max(minFee, (consumption - gen) * rate + minFee);
+                          const annualSavings = Math.max(0, currentBill - projectedBill) * 12;
+                          const savings25 = annualSavings * 47.727; // Including 5% annual inflation
                           return `R$ ${savings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
                         })()}
                       </p>
@@ -779,11 +790,12 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   </div>
                   <div className="space-y-3">
                     {(() => {
-                      const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 12.93;
-                      const annualGen = sysSizeNum * 1300;
+                      const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
+                      const monthlyGenNum = parseFloat(proposal.monthlyGeneration || (sysSizeNum * 108.34).toString()) || 550;
+                      const annualGen = monthlyGenNum * 12;
                       return [
                         { label: "Tarifa de referência", value: "R$ 1,05/kWh (CEMIG – Zona Rural)" },
-                        { label: "Consumo médio", value: "1.357 kWh/mês" },
+                        { label: "Consumo médio", value: `${proposal.energyConsumption || '1.357'} kWh/mês` },
                         { label: "Taxa mínima estimada", value: "R$ 100,00/mês" },
                         { label: "Dimensionamento", value: "100% do consumo histórico" },
                         { label: "Validade dos créditos", value: "60 meses (Lei 14.300/2022)" },
@@ -812,19 +824,31 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <span className="text-[10px] font-black uppercase tracking-widest">Simulação de Fluxo Mensal</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  {[
-                    { label: "Conta Atual", val: "R$ 1.425,00", color: "text-slate-500" },
-                    { label: "Taxa Mínima", val: "R$ 100,00", color: "text-amber-500" },
-                    { label: "Economia Bruta", val: "R$ 1.325,00", color: "text-emerald-500" },
-                    { label: "Financiamento", val: "R$ 500,00", color: "text-rose-500" },
-                    { label: "Ganho Líquido", val: "R$ 825,00", color: "text-emerald-600 font-black" }
-                  ].map((item, i) => (
-                    <div key={i} className="flex flex-col gap-1">
-                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
-                      <span className={cn("text-lg font-bold", item.color)}>{item.val}</span>
-                      {i < 4 && <div className="h-px bg-emerald-200 dark:bg-emerald-800 mt-2 md:hidden" />}
-                    </div>
-                  ))}
+                  {(() => {
+                    const rate = 1.05;
+                    const minFee = 100;
+                    const consumption = parseFloat(proposal.energyConsumption || '1357');
+                    const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                    const currentBill = consumption * rate;
+                    const billAfter = Math.max(minFee, (consumption - gen) * rate + minFee);
+                    const grossSavings = Math.max(0, currentBill - billAfter);
+                    const installment = proposal.financingInstallmentValue || 0;
+                    const netGain = currentBill - (billAfter + installment);
+                    
+                    return [
+                      { label: "Conta Atual", val: `R$ ${currentBill.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, color: "text-slate-500" },
+                      { label: "Taxa Mínima", val: "R$ 100,00", color: "text-amber-500" },
+                      { label: "Economia Mensal", val: `R$ ${grossSavings.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, color: "text-emerald-500" },
+                      { label: "Financiamento", val: `R$ ${installment.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, color: "text-rose-500" },
+                      { label: "Ganho Líquido", val: `R$ ${netGain.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, color: "text-emerald-600 font-black" }
+                    ].map((item, i) => (
+                      <div key={i} className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                        <span className={cn("text-lg font-bold", item.color)}>{item.val}</span>
+                        {i < 4 && <div className="h-px bg-emerald-200 dark:bg-emerald-800 mt-2 md:hidden" />}
+                      </div>
+                    ));
+                  })()}
                 </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -832,14 +856,14 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 <div className="p-8 bg-slate-50 dark:bg-white/5 rounded-[32px] border border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2 text-[#fdb112] mb-6">
                     <ShieldCheck className="w-5 h-5" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">📋 Composição do Investimento</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb112]">📋 Composição do Investimento</span>
                   </div>
                   <div className="space-y-3">
                     {[
-                      { label: "Equipamentos (Tier-1)", value: (proposal.equipmentCost || 22499.99).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
-                      { label: "Instalação e Montagem", value: (proposal.installationCost || 4500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
-                      { label: "Projeto Técnico (ART)", value: (proposal.projectCost || 1500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
-                      { label: "Licenciamento e Logística", value: (proposal.licensingCost || 1500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Equipamentos (Tier-1)", value: (proposal.equipmentCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Instalação e Montagem", value: (proposal.installationCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Projeto Técnico (ART)", value: (proposal.projectCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+                      { label: "Licenciamento e Logística", value: (proposal.licensingCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
                       { label: "Custos Adicionais", value: (proposal.additionalCost || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
                       { label: "TOTAL INVESTIMENTO", value: (proposal.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }), highlight: true }
                     ].map((item, idx) => (
@@ -863,11 +887,11 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <div className="space-y-4">
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Módulos Fotovoltaicos</p>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.panelQuantity || 24}x {proposal.panelBrandModel || "Módulos MAXEON 540 W"}</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.panelQuantity || 0}x {proposal.panelBrandModel || "Módulos de Alta Eficiência"}</p>
                     </div>
                     <div className="p-4 bg-white dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Inversor String</p>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.invertersQuantity || 1}x {proposal.inverterBrandModel || "AUXSOL 7.5"} (Wifi Monitoramento)</p>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{proposal.invertersQuantity || 1}x {proposal.inverterBrandModel || "Inversor String"} (Wifi Monitoramento)</p>
                     </div>
                       <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800/20">
                         <p className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase mb-1">📅 Cronograma de Instalação</p>
@@ -916,12 +940,24 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                    ))}
                 </div>
 
-                <button 
-                  onClick={handleSendEmail}
-                  className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-black text-lg md:text-xl flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-95 shadow-xl shadow-emerald-500/20"
-                >
-                  🚀 QUERO ECONOMIZAR R$ 1.325,00/MÊS
-                </button>
+                {(() => {
+                  const rate = 1.05;
+                  const minFee = 100;
+                  const consumption = parseFloat(proposal.energyConsumption || '1357');
+                  const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                  const currentBill = consumption * rate;
+                  const billAfter = Math.max(minFee, (consumption - gen) * rate + minFee);
+                  const monthlySavings = Math.max(0, currentBill - billAfter);
+
+                  return (
+                    <button 
+                      onClick={handleSendEmail}
+                      className="w-full py-6 bg-emerald-500 hover:bg-emerald-400 text-slate-900 rounded-2xl font-black text-lg md:text-xl flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-95 shadow-xl shadow-emerald-500/20"
+                    >
+                      🚀 QUERO ECONOMIZAR R$ {monthlySavings.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}/MÊS
+                    </button>
+                  );
+                })()}
               </div>
             </div>
           )}

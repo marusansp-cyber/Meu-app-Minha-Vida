@@ -270,14 +270,19 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     doc.circle(x + 3, y + 5, 2, 'S');
   };
 
+  const energyCons = parseFloat(proposal.energyConsumption || "1357");
   const monthlyGen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-  const energyRate = 0.96; // Based on user's reference (1250 kWh -> R$ 14400/year)
-  const annualIncrease = 1.05; // 5% annual electricity inflation
+  const energyRate = 1.05; // As requested: R$ 1,05/kWh
+  const minFee = 100; // As requested: R$ 100,00/mês
   
+  const currentMonthlyBill = energyCons * energyRate;
+  const projectedMonthlyBill = Math.max(minFee, (energyCons - monthlyGen) * energyRate + minFee);
+  const monthlySavingsActual = Math.max(0, currentMonthlyBill - projectedMonthlyBill);
+  const annualSavingsActual = monthlySavingsActual * 12;
+
   // Calculate total savings over 25 years with 5% annual inflation
-  // Sum = MonthlyGen * Rate * 12 * sum(1.05^n) for n=0 to 24
-  // sum(1.05^n) for n=0 to 24 is approximately 47.727
-  const estimatedSavings25 = monthlyGen * energyRate * 12 * 47.727;
+  // Multiplier sum(1.05^n) for n=0 to 24 is approximately 47.727
+  const estimatedSavings25 = annualSavingsActual * 47.727;
 
   // Constants for charts
   const chartX = marginLeft + 15;
@@ -310,8 +315,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   
-  const energyConsVal = parseFloat(proposal.energyConsumption || "550");
-  const energyGenVal = parseFloat(proposal.monthlyGeneration || "1028");
+  const energyConsVal = parseFloat(proposal.energyConsumption || "1357");
+  const energyGenVal = monthlyGen; // Use the already calculated monthlyGen
 
   const leftX = marginLeft + 60;
   const rightX = pageWidth - marginRight - 20;
@@ -338,14 +343,17 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text("As principais informações do sistema proposto estão indicadas nesta seção.", pageWidth / 2, 172, { align: 'center' });
 
   const infoTableY = 185;
-  const rowH = 10;
-  const col1 = marginLeft + 40;
-  const col2 = pageWidth - marginRight - 40;
+  const rowH = 8;
+  const col1 = marginLeft + 30;
+  const col2 = pageWidth - marginRight - 30;
 
+  const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
   const infoRows = [
-    { label: "Potência do sistema:", val: `${proposal.systemSize || "9,45"} kWp`, color: electricBlue },
-    { label: "Área mínima requerida:", val: `${(parseFloat(proposal.systemSize || "9") * 5.2).toFixed(2)} m²` },
-    { label: "Peso distribuído dos módulos:", val: "7,96 kg/m²" },
+    { label: "Potência do sistema:", val: `${sysSizeNum.toFixed(2)} kWp`, color: electricBlue },
+    { label: "Tarifa de referência:", val: "R$ 1,05/kWh" },
+    { label: "Taxa mínima estimada:", val: "R$ 100,00/mês" },
+    { label: "Área mínima requerida:", val: `${(sysSizeNum * 5.2).toFixed(2)} m²` },
+    { label: "Geração anual estimada:", val: `${(energyGenVal * 12).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/ano` },
     { label: "Vida útil do sistema:", val: "25 a 35 Anos" }
   ];
 
@@ -359,15 +367,29 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     doc.text(row.val, col2, infoTableY + (i * rowH), { align: 'right' });
   });
 
+  // Regulatory Note
+  doc.setFontSize(8);
+  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+  doc.setFont("helvetica", "italic");
+  const regNote = "⚠️ Nota regulatória: Novos sistemas enquadrados na GD III terão compensação gradualmente impactada pelo “custo do fio B”, com transição até 2029.";
+  const splitRegNote = doc.splitTextToSize(regNote, pageWidth - marginLeft - marginRight - 20);
+  doc.text(splitRegNote, pageWidth / 2, infoTableY + (infoRows.length * rowH) + 5, { align: 'center' });
+
   doc.setFontSize(16);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.setFont("helvetica", "bold");
   doc.text("Consumo X Geração", pageWidth / 2, 235, { align: 'center' });
 
   const chartY = 280;
   months.forEach((m, i) => {
     const x = chartX + (i * (chartW / 12));
-    const h1 = 15 + Math.random() * 5;
-    const h2 = 25 + Math.random() * 15;
+    
+    // Seasonal variation for consumption (higher in summer/winter)
+    const consFactor = [1.2, 1.1, 1.0, 0.9, 0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 1.1, 1.2][i];
+    const genFactor = [0.8, 0.9, 1.0, 1.1, 1.2, 1.2, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8][i];
+
+    const h1 = (energyConsVal / (energyConsVal * 2)) * 40 * consFactor;
+    const h2 = (energyGenVal / (energyConsVal * 2)) * 40 * genFactor;
+
     doc.setFillColor(180, 180, 180);
     doc.rect(x, chartY - h1, mBarW, h1, 'F');
     // Geração - Blue
@@ -516,18 +538,22 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
 
   // Specific values requested by user for adjustment and alignment
-  const valPosMês = 150.00;
-  const valPosAno = 18900.00; // As requested in summary (maybe total Sem - Com?)
-  const econMensal = 1350.00;
-  const custoComAno = 735.00;
+  const minFeeFin = 100;
+  const energyRateFin = 1.05;
+  const custoSemAno = energyConsVal * energyRateFin * 12;
+  const valPosMês = minFeeFin + Math.max(0, energyConsVal - energyGenVal) * energyRateFin;
+  const valPosAno = valPosMês * 12;
+  const annualSavingsFin = Math.max(0, custoSemAno - valPosAno);
+  const econMensal = annualSavingsFin / 12;
+  const custoComAno = valPosAno;
 
   const finRows = [
-    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${valPosMês.toFixed(2)}/mês` },
-    { label: "Valor médio anual de energia:", val: `R$ ${valPosAno.toFixed(2)}/ano` },
-    { label: "Custo estimado do primeiro ano SEM sistema instalado:", val: `R$ ${(energyConsVal * 12 * 1.05).toFixed(2)}/ano` },
-    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: `R$ ${custoComAno.toFixed(2)}/ano` },
-    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${econMensal.toFixed(2)}/mês` },
-    { label: "Economia total estimada no primeiro ano:", val: `R$ ${(econMensal * 12).toFixed(2)}/ano` }
+    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${valPosMês.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` },
+    { label: "Valor médio anual de energia:", val: `R$ ${valPosAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
+    { label: "Custo estimado do primeiro ano SEM sistema instalado:", val: `R$ ${custoSemAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
+    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: `R$ ${custoComAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
+    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${econMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` },
+    { label: "Economia total estimada no primeiro ano:", val: `R$ ${annualSavingsFin.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` }
   ];
 
   finRows.forEach((row, i) => {
@@ -555,8 +581,13 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const fatChartY = 90;
   months.forEach((m, i) => {
     const x = chartX + (i * (chartW / 12));
-    const h1 = 35 + Math.random() * 5;
-    const h2 = 8 + Math.random() * 3;
+    
+    const consFactor = [1.2, 1.1, 1.0, 0.9, 0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 1.1, 1.2][i];
+    const genFactor = [0.8, 0.9, 1.0, 1.1, 1.2, 1.2, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8][i];
+
+    const h1 = 35 * consFactor;
+    const h2 = Math.max(5, 35 * consFactor - (35 * (energyGenVal/energyConsVal) * genFactor));
+
     doc.setFillColor(180, 180, 180);
     doc.rect(x, fatChartY - h1, mBarW, h1, 'F');
     doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
@@ -575,7 +606,10 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(12);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   doc.text("Payback (tempo de retorno):", marginLeft + 25, 137);
-  doc.text(`${proposal.payback || "4 anos e 2 meses"}`, pageWidth - marginRight - 25, 137, { align: 'right' });
+  
+  const realPayback = annualSavingsFin > 0 ? (proposal.value || 0) / annualSavingsFin : 0;
+  const paybackStr = realPayback > 0 ? `${realPayback.toFixed(1)} Anos` : "N/A";
+  doc.text(paybackStr, pageWidth - marginRight - 25, 137, { align: 'right' });
   
   doc.text("Economia total em 25 anos:", marginLeft + 25, 149);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);

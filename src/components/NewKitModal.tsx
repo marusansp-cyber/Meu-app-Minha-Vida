@@ -203,12 +203,22 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   required
                   type="number" 
                   step="0.01"
+                  min="0"
                   value={formData.power || ''}
-                  onChange={(e) => setFormData({ ...formData, power: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData({ ...formData, power: isNaN(val) ? 0 : val });
+                  }}
                   placeholder="0.00"
-                  className="w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-black text-[#004a61]"
+                  className={cn(
+                    "w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-black text-[#004a61]",
+                    (formData.power !== undefined && formData.power <= 0) ? "border-rose-500/50" : "border-slate-200 dark:border-slate-800"
+                  )}
                 />
               </div>
+              {formData.power !== undefined && formData.power <= 0 && (
+                <p className="text-[10px] font-bold text-rose-500 ml-1 uppercase">A potência deve ser maior que zero</p>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Preço Sugerido (R$)</label>
@@ -217,12 +227,23 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                 <input 
                   required
                   type="number" 
+                  min="0"
+                  step="0.01"
                   value={formData.price || ''}
-                  onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData({ ...formData, price: isNaN(val) ? 0 : val });
+                  }}
                   placeholder="0,00"
-                  className="w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-black text-emerald-600"
+                  className={cn(
+                    "w-full pl-14 pr-5 py-4 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-black text-emerald-600",
+                    (formData.price !== undefined && formData.price <= 0) ? "border-rose-500/50" : "border-slate-200 dark:border-slate-800"
+                  )}
                 />
               </div>
+              {formData.price !== undefined && formData.price <= 0 && (
+                <p className="text-[10px] font-bold text-rose-500 ml-1 uppercase">O preço deve ser maior que zero</p>
+              )}
             </div>
           </div>
 

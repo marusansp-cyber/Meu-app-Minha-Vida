@@ -208,20 +208,53 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   }, [isOpen]);
 
-  const calculateAutomaticValues = (value: string, size: string) => {
-    const val = parseFloat(value);
-    const sz = parseFloat(size);
-    if (!isNaN(val) && !isNaN(sz) && val > 0 && sz > 0) {
-      // Precise calculation for solar
-      const monthlyGen = sz * (efficiency || 108.34); 
-      const energyRate = 0.96; // Based on user reference
-      const annualSavings = monthlyGen * energyRate * 12;
-      const pb = (val / annualSavings).toFixed(1);
+  useEffect(() => {
+    if (formData.systemSize) {
+      const sz = parseFloat(formData.systemSize);
+      if (!isNaN(sz)) {
+        const gen = sz * efficiency;
+        setFormData(prev => ({ ...prev, monthlyGeneration: gen.toFixed(0) }));
+      }
+    }
+  }, [formData.systemSize, efficiency]);
+
+  // Sync panel quantity with system size
+  useEffect(() => {
+    const qty = parseInt(formData.panelQuantity);
+    if (!isNaN(qty) && qty > 0) {
+      // Extract power from brand model or use 550
+      const powerMatch = formData.panelBrandModel.match(/(\d+)\s*W/i);
+      const power = powerMatch ? parseInt(powerMatch[1]) : 550;
+      const sz = (qty * power) / 1000;
+      
+      // Update systemSize only if it's significantly different to avoid loops
+      const currentSz = parseFloat(formData.systemSize);
+      if (isNaN(currentSz) || Math.abs(currentSz - sz) > 0.05) {
+        setFormData(prev => ({ ...prev, systemSize: sz.toFixed(2) }));
+      }
+    }
+  }, [formData.panelQuantity, formData.panelBrandModel]);
+
+  const calculateAutomaticValues = (totalValue: string) => {
+    const val = parseFloat(totalValue);
+    const sz = parseFloat(formData.systemSize);
+    const consumption = parseFloat(formData.energyConsumption);
+    const monthlyGen = parseFloat(formData.monthlyGeneration) || (sz * efficiency);
+    
+    if (!isNaN(val) && !isNaN(sz) && val > 0 && sz > 0 && !isNaN(consumption)) {
+      const energyRate = 1.05; // R$ 1,05/kWh
+      const minFee = 100; // R$ 100,00
+
+      const billBefore = consumption * energyRate;
+      const billAfter = Math.max(minFee, (consumption - monthlyGen) * energyRate + minFee);
+      const monthlySavings = Math.max(0, billBefore - billAfter);
+      const annualSavings = monthlySavings * 12;
+
+      const pb = annualSavings > 0 ? (val / annualSavings).toFixed(1) : '0';
       
       // Total savings over 25 years with 5% annual inflation
-      // Multiplier for 25 years at 5% is approx 47.727
-      const totalSavings = annualSavings * 47.727; 
-      const r = (((totalSavings - val) / val) * 100).toFixed(0);
+      const totalSavings25 = annualSavings * 47.727; 
+      const r = val > 0 ? (((totalSavings25 - val) / val) * 100).toFixed(0) : '0';
       
       setFormData(prev => ({
         ...prev,
@@ -230,37 +263,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       }));
     }
   };
-
-  const set15DaysExpiry = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + 15);
-    setFormData(prev => ({ ...prev, expiryDate: date.toISOString().split('T')[0] }));
-  };
-
-  const handleAutoCalculateSystemSize = () => {
-    const consumption = parseFloat(formData.energyConsumption);
-    if (!isNaN(consumption) && consumption > 0) {
-      const panelPower = 0.61;
-      // Target: 100% sizing of historical consumption
-      // consumption (kWh/month) / efficiency (kWh/kWp/month) = required kWp
-      const requiredKwp = consumption / efficiency; 
-      const numPanels = Math.ceil(requiredKwp / panelPower);
-      const calculatedSize = numPanels * panelPower;
-      setFormData(prev => ({ ...prev, systemSize: calculatedSize.toFixed(2) }));
-      showToast(`Potência calculada: ${calculatedSize.toFixed(2)} kWp (${numPanels} painéis de 610Wp)`);
-    } else {
-      showToast('Por favor, insira o consumo mensal primeiro.');
-    }
-  };
-
-  const estimatedGeneration = parseFloat(formData.monthlyGeneration) || (parseFloat(formData.systemSize) * efficiency);
-
-  useEffect(() => {
-    if (formData.systemSize) {
-      const gen = parseFloat(formData.systemSize) * efficiency;
-      setFormData(prev => ({ ...prev, monthlyGeneration: gen.toFixed(0) }));
-    }
-  }, [formData.systemSize, efficiency]);
 
   const validateStep = (step: Step): boolean => {
     const errors: Record<string, string> = {};
@@ -461,9 +463,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }));
     
     if (kit.price > 0) {
-      calculateAutomaticValues(kit.price.toString(), kit.power.toString());
+      calculateAutomaticValues(kit.price.toString());
     }
     showToast(`Kit "${kit.name}" selecionado.`);
+  };
+
+  const prevStep = () => {
+    const currentIndex = STEPS.findIndex(s => s.id === currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(STEPS[currentIndex - 1].id);
+    }
   };
 
   const nextStep = () => {
@@ -477,12 +486,41 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   };
 
-  const prevStep = () => {
-    const currentIndex = STEPS.findIndex(s => s.id === currentStep);
-    if (currentIndex > 0) {
-      setCurrentStep(STEPS[currentIndex - 1].id);
-    }
-  };
+  useEffect(() => {
+    const equip = parseFloat(formData.equipmentCost || '0');
+    const inst = parseFloat(formData.installationCost || '0');
+    const proj = parseFloat(formData.projectCost || '0');
+    const lic = parseFloat(formData.licensingCost || '0');
+    const log = parseFloat(formData.logisticCost || '0');
+    const add = parseFloat(formData.additionalCost || '0');
+    const discountValue = parseFloat(formData.discount || '0');
+    const marginPerc = parseFloat(formData.margin || '0');
+    
+    const costs = equip + inst + proj + lic + log + add;
+    const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+    const valueWithMargin = costs * multiplier;
+    const finalValue = Math.max(0, valueWithMargin - discountValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      subtotal: costs.toString(),
+      value: finalValue.toFixed(2)
+    }));
+
+    calculateAutomaticValues(finalValue.toFixed(2));
+  }, [
+    formData.equipmentCost, 
+    formData.installationCost, 
+    formData.projectCost, 
+    formData.licensingCost, 
+    formData.logisticCost, 
+    formData.additionalCost,
+    formData.margin, 
+    formData.discount,
+    formData.systemSize,
+    formData.energyConsumption,
+    formData.monthlyGeneration
+  ]);
 
   if (!isOpen) return null;
 
@@ -551,6 +589,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         showToast(`Cliente ${formData.client} cadastrado com sucesso!`);
       }
 
+      const monthlyGenerationValue = formData.monthlyGeneration || (parseFloat(formData.systemSize) * efficiency).toFixed(0);
+
       const proposalData: Proposal = {
         ...formData,
         id: initialData?.id || '',
@@ -564,7 +604,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         representativeEmail: initialData?.representativeEmail || user?.email || null,
         roi: formData.roi || null,
         payback: formData.payback ? `${formData.payback} Anos` : null,
-        monthlyGeneration: formData.monthlyGeneration || estimatedGeneration.toFixed(0),
+        monthlyGeneration: monthlyGenerationValue,
         commission: parseFloat(formData.commission) || 0,
         commissionStatus: initialData?.commissionStatus || 'pending',
         expiryDate: formData.expiryDate || null,
@@ -1386,7 +1426,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <button 
                     type="button"
                     onClick={() => {
-                      calculateAutomaticValues(formData.equipmentCost, formData.systemSize);
+                      calculateAutomaticValues(formData.equipmentCost);
                       showToast('ROI e Payback recalculados com sucesso!');
                     }}
                     className="px-4 py-2 bg-[#0055A4] text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center gap-2"

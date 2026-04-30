@@ -6,6 +6,7 @@ import nodemailer from "nodemailer";
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  console.log("Iniciando servidor Vieira's Solar...");
 
   app.use(express.json({ limit: '50mb' }));
 

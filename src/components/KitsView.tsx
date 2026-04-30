@@ -164,13 +164,25 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
     showToast(`Processando ${csvData.length} kits...`);
 
     let successCount = 0;
+    let skippedCount = 0;
     try {
       for (const row of csvData) {
         const name = row[columnMapping.name];
-        if (!name) continue;
+        if (!name) {
+          skippedCount++;
+          continue;
+        }
 
         const power = parseFloat(row[columnMapping.power] || '0');
         const price = parseFloat(row[columnMapping.price] || '0');
+
+        // Validation for power and price
+        if (isNaN(power) || power <= 0 || isNaN(price) || price <= 0) {
+          console.warn(`Pulando kit "${name}" devido a potência ou preço inválidos.`, { power, price });
+          skippedCount++;
+          continue;
+        }
+
         const description = row[columnMapping.description] || '';
 
         const components: any[] = [];
@@ -222,7 +234,10 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         await createDocument('kits', kitData);
         successCount++;
       }
-      showToast(`${successCount} kits importados com sucesso!`);
+      const msg = skippedCount > 0 
+        ? `${successCount} kits importados. ${skippedCount} ignorados por dados inválidos.`
+        : `${successCount} kits importados com sucesso!`;
+      showToast(msg);
       setActiveSubView('list');
       setUploadStep('upload');
       setCsvData([]);
