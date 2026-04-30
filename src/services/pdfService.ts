@@ -424,13 +424,13 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const inverterComp = kit?.components.find(c => c.name.toLowerCase().includes('inversor'));
   
   // Dynamic identification of quantities and brands
-  const moduleName = moduleComp?.name || "Módulo Fotovoltaico de Alta Eficiência";
-  const moduleBrand = moduleComp?.brand || "Premium Solar";
-  const moduleCount = moduleComp?.quantity || Math.ceil(parseFloat(proposal.systemSize || "5") * 1.8); // fallback estimate
+  const moduleName = proposal.panelBrandModel || moduleComp?.name || "Módulo Fotovoltaico de Alta Eficiência";
+  const moduleBrand = moduleComp?.brand || (proposal.panelBrandModel?.split(' ')[0]) || "Premium Solar";
+  const moduleCount = proposal.panelQuantity || moduleComp?.quantity || Math.ceil(parseFloat(proposal.systemSize || "5") * 1.8);
 
-  const inverterName = inverterComp?.name || "Inversor Solar Inteligente";
-  const inverterBrand = inverterComp?.brand || "EcoEnergy";
-  const inverterCount = inverterComp?.quantity || 1;
+  const inverterName = proposal.inverterBrandModel || inverterComp?.name || "Inversor Solar Inteligente";
+  const inverterBrand = inverterComp?.brand || (proposal.inverterBrandModel?.split(' ')[0]) || "EcoEnergy";
+  const inverterCount = proposal.invertersQuantity || inverterComp?.quantity || 1;
 
   const additionalComps = kit?.components.filter(c => 
     !c.name.toLowerCase().includes('módulo') && 
