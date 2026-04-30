@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { parseProposalFromText } from '../services/geminiService';
 import { 
   X, 
   FileText, 
@@ -34,10 +35,12 @@ import {
   Eye,
   Share2,
   Printer,
-  TrendingUp
+  TrendingUp,
+  BrainCircuit,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
 
@@ -76,6 +79,102 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [losses, setLosses] = useState<number>(25);
   const [efficiency, setEfficiency] = useState<number>(108.34); // Updated for 1300 kWh/kWp specific yield (16809/12.93/12)
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAIInput, setShowAIInput] = useState(false);
+  const [pastedText, setPastedText] = useState('');
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiErrors, setAiErrors] = useState<string[]>([]);
+
+  const validateAIData = (data: any) => {
+    const errors: string[] = [];
+    const check = (path: string, value: any, type: string, required = true) => {
+      if (value === undefined || value === null || value === 'N/A') {
+        if (required) errors.push(`[FALTANDO] Campo obrigatório: ${path}`);
+        return false;
+      }
+      if (typeof value !== type) {
+        errors.push(`[TIPO] Esperado '${type}' em ${path}, recebido '${typeof value}'`);
+        return false;
+      }
+      return true;
+    };
+
+    const isBRLCurrency = (v: string) => /^\d{1,3}(\.\d{3})*(,\d{2})?$/.test(v) || /^\d+(,\d{2})?$/.test(v);
+
+    // 1. Cliente & Consumo
+    check("cliente.nome", data.cliente?.nome, "string");
+    check("consumo.mensal_kwh", data.consumo?.mensal_kwh, "number");
+    check("geracao.mensal_kwh", data.geracao?.mensal_kwh, "number");
+
+    // 2. Sistema
+    if (check("sistema", data.sistema, "object")) {
+      check("sistema.potencia_kwp", data.sistema.potencia_kwp, "number");
+      check("sistema.tarifa_kwh", data.sistema.tarifa_kwh, "number");
+    }
+
+    // 3. Financeiro (BRL Format)
+    if (check("financeiro", data.financeiro, "object")) {
+      const currencyFields = ["valor_sistema", "economia_mensal_1ano", "payback_anos"];
+      for (const f of currencyFields) {
+        const val = data.financeiro[f];
+        if (check(`financeiro.${f}`, val, "string")) {
+          if (val !== "N/A" && !isBRLCurrency(val)) {
+            errors.push(`[FORMATO] financeiro.${f} deve seguir padrão "X.XXX,XX" ou "XX,XX"`);
+          }
+        }
+      }
+    }
+
+    return errors;
+  };
+
+  const handleAIExtraction = async () => {
+    if (!pastedText.trim()) return;
+    
+    setIsProcessingAI(true);
+    setAiErrors([]);
+
+    try {
+      const data = await parseProposalFromText(pastedText);
+      const errors = validateAIData(data);
+
+      if (errors.length > 0) {
+        setAiErrors(errors);
+        showToast('Erros de validação encontrados nos dados extraídos.');
+        return;
+      }
+      
+      // Helper to clean currency strings
+      const cleanCurrency = (val: string) => {
+        if (!val || val === 'N/A') return '0';
+        return val.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+      };
+
+      setFormData(prev => ({
+        ...prev,
+        titular: data.cliente?.nome || prev.titular,
+        client: data.cliente?.nome || prev.client,
+        energyConsumption: data.consumo?.mensal_kwh?.toString() || prev.energyConsumption,
+        systemSize: data.sistema?.potencia_kwp?.toString() || prev.systemSize,
+        panelBrandModel: data.equipamentos?.modulos ? `${data.equipamentos.modulos.fabricante || ''} ${data.equipamentos.modulos.modelo || ''}`.trim() : prev.panelBrandModel,
+        panelQuantity: data.equipamentos?.modulos?.quantidade?.toString() || prev.panelQuantity,
+        inverterBrandModel: data.equipamentos?.inversor ? `${data.equipamentos.inversor.fabricante || ''} ${data.equipamentos.inversor.modelo || ''}`.trim() : prev.inverterBrandModel,
+        invertersQuantity: data.equipamentos?.inversor?.quantidade?.toString() || prev.invertersQuantity,
+        payback: data.financeiro?.payback_anos?.replace(' Anos', '') || prev.payback,
+        equipmentCost: data.financeiro?.valor_sistema ? cleanCurrency(data.financeiro.valor_sistema) : prev.equipmentCost,
+        representative: data.responsavel?.nome || prev.representative,
+        internalNotes: `Extraído e Validado via IA em ${new Date().toLocaleString('pt-BR')}`
+      }));
+
+      showToast('Dados validados e importados com sucesso!');
+      setShowAIInput(false);
+      setPastedText('');
+    } catch (error) {
+      console.error('AI Extraction Error:', error);
+      showToast('Falha crítica no processamento da IA.');
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
 
   const [registerAsNewClient, setRegisterAsNewClient] = useState(false);
 
@@ -754,15 +853,115 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+          {/* AI Extraction Panel */}
+          <AnimatePresence>
+            {showAIInput && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute inset-x-8 top-8 z-50 bg-[#1a160d] border border-[#fdb612]/30 rounded-3xl p-8 shadow-2xl flex flex-col gap-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 bg-[#fdb612]/20 rounded-xl flex items-center justify-center text-[#fdb612]">
+                      <BrainCircuit className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-white uppercase tracking-tight">Extração Inteligente</h4>
+                      <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Powered by Vieiras AI</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowAIInput(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Cole abaixo os dados copiados do simulador, PDF ou rascunho técnico. A IA irá identificar automaticamente:
+                      <span className="text-white font-bold"> Cliente, Consumo, Potência, Equipamentos e Valores.</span>
+                    </p>
+                  </div>
+                  
+                  <textarea 
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    placeholder="Cole os dados aqui... (Ex: Cliente João Silva, Consumo 500kWh, Sistema 5.5kWp...)"
+                    className="w-full h-48 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-[#fdb612] resize-none font-mono"
+                  />
+
+                  {aiErrors.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-2"
+                    >
+                      <div className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Erros de Validação (Corrija o texto e tente novamente)
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                        {aiErrors.map((error, idx) => (
+                          <div key={idx} className="text-[10px] text-red-400 font-medium flex items-start gap-2">
+                            <span className="shrink-0 mt-1 size-1 bg-red-400 rounded-full" />
+                            {error}
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setShowAIInput(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl border border-white/10 text-white font-bold text-sm uppercase tracking-widest hover:bg-white/5 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={handleAIExtraction}
+                    disabled={isProcessingAI || !pastedText.trim()}
+                    className="flex-3 px-6 py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    {isProcessingAI ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Processando Dados...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        Alimentar Formulário
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
             {currentStep === 'ucs' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-2 text-[#00A86B]">
                     <Building2 className="w-5 h-5" />
                     <h4 className="text-sm font-black uppercase tracking-widest">Unidade Consumidora</h4>
                   </div>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => setShowAIInput(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 group"
+                  >
+                    <BrainCircuit className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                    Importar via IA
+                  </button>
+                </div>
                   
                   {/* Client/Lead Search */}
                   <div className="flex flex-col gap-2">
@@ -839,7 +1038,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       )}
                     </div>
                   </div>
-                </div>
                 
                 <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 rounded-2xl mb-6">
                   <input 

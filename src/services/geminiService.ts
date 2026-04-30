@@ -74,3 +74,62 @@ export const extractLeadFromPdf = async (base64Pdf: string): Promise<ExtractedLe
     throw new Error("Não foi possível processar os dados do PDF.");
   }
 };
+
+export const parseProposalFromText = async (text: string): Promise<any> => {
+  const response = await ai.models.generateContent({ 
+    model: "gemini-3-flash-preview",
+    contents: `Você é um Especialista em Automação de Propostas Fotovoltaicas e Estruturação de Dados JSON. Sua única tarefa é extrair informações técnicas, financeiras e cadastrais do texto fornecido e gerar APENAS um objeto JSON válido, estritamente formatado para alimentar um pipeline automatizado de geração de PDF.
+
+📏 REGRAS CRÍTICAS DE SAÍDA:
+1. Responda APENAS com o JSON bruto. NUNCA use markdown, crases, explicações ou texto antes/depois do JSON.
+2. Moeda: Formate TODOS os valores financeiros como strings no padrão brasileiro: "X.XXX,XX".
+3. Listas: Converta serviços e componentes em strings HTML prontas (<ol> ou <ul>).
+4. Tipos: Mantenha números puros para kWh, kWp, m² e quantidades. Use strings para textos, moedas e garantias.
+5. Faltas: Se um dado não existir no input, use null ou "N/A". NUNCA invente valores.
+6. Mídia: Se não houver URLs ou imagens no input, mantenha os placeholders exatos: "https://placeholder.com/logo.png" e "image/png;base64,placeholder".
+
+📐 ESTRUTURA JSON OBRIGATÓRIA:
+{
+  "cliente": { "nome": "string" },
+  "consumo": { "mensal_kwh": number, "anual_kwh": number },
+  "geracao": { "mensal_kwh": number, "anual_kwh": number },
+  "sistema": {
+    "potencia_kwp": number,
+    "tarifa_kwh": number,
+    "taxa_minima": number,
+    "area_m2": number,
+    "vida_util": "string",
+    "nota_regulatoria": "string"
+  },
+  "equipamentos": {
+    "modulos": { "modelo": "string", "fabricante": "string", "quantidade": number, "garantia": "string" },
+    "inversor": { "modelo": "string", "fabricante": "string", "quantidade": number, "monitoramento": "string" },
+    "componentes_adicionais_html": "<ul><li>...</li></ul>"
+  },
+  "servicos_html": "<ol><li>...</li></ol>",
+  "financeiro": {
+    "conta_mensal_pos": "string",
+    "custo_anual_sem": "string",
+    "custo_anual_com": "string",
+    "economia_mensal_1ano": "string",
+    "economia_1ano": "string",
+    "valor_sistema": "string",
+    "payback_anos": "string",
+    "economia_25anos": "string"
+  },
+  "responsavel": { "nome": "string", "crea": "string" },
+  "midia": { "logo_url": "string", "foto_telhado_base64": "string" }
+}
+
+📥 INPUT DE DADOS:
+${text}`
+  });
+
+  try {
+    const rawText = response.text?.replace(/```json\n?/, '').replace(/```/, '').trim() || '';
+    return JSON.parse(rawText);
+  } catch (error) {
+    console.error("Erro ao analisar JSON da extração de proposta:", error);
+    throw new Error("Não foi possível processar os dados técnicos. Certifique-se de que o texto contém informações válidas.");
+  }
+};
