@@ -75,6 +75,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [searchDateEnd, setSearchDateEnd] = useState('');
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
+  const [filterInverterType, setFilterInverterType] = useState<'all' | 'inverter' | 'microinverter'>('all');
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
@@ -474,6 +475,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
   const filteredKits = useMemo(() => {
     let filtered = kits;
+    if (filterInverterType !== 'all') {
+      filtered = filtered.filter(k => k.inverterType === filterInverterType);
+    }
     if (!searchTerm) return filtered;
     const term = searchTerm.toLowerCase();
     return filtered.filter(kit => 
@@ -481,7 +485,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       kit.description.toLowerCase().includes(term) ||
       kit.power.toString().includes(term)
     );
-  }, [kits, searchTerm]);
+  }, [kits, searchTerm, filterInverterType]);
 
   // Update form data when initialData changes
   useEffect(() => {
@@ -1292,15 +1296,50 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
                   
                   {/* Kit Search */}
-                  <div className="relative w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input 
-                      type="text" 
-                      placeholder="Pesquisar Kit (Nome, Potência...)"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
-                    />
+                  <div className="flex items-center gap-3">
+                    <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setFilterInverterType('all')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          filterInverterType === 'all' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
+                        )}
+                      >
+                        Todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterInverterType('inverter')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          filterInverterType === 'inverter' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
+                        )}
+                      >
+                        Inversores
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterInverterType('microinverter')}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                          filterInverterType === 'microinverter' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
+                        )}
+                      >
+                        Micro
+                      </button>
+                    </div>
+
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Pesquisar Kit (Nome, Potência...)"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#00A86B]"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1320,7 +1359,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         )}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-slate-900 dark:text-slate-100">{kit.name}</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">{kit.name}</span>
+                            <span className="text-[8px] font-black uppercase text-slate-400 mt-0.5">
+                              {kit.inverterType === 'microinverter' ? 'Microinversor' : 'Inversor String'}
+                            </span>
+                          </div>
                           <div className="size-8 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center text-[#00A86B]">
                             <Sun className="w-4 h-4" />
                           </div>

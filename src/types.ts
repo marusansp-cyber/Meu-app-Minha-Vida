@@ -301,6 +301,7 @@ export interface Kit {
     model?: string;
     notes?: string;
   }[];
+  inverterType?: 'inverter' | 'microinverter';
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt?: string;

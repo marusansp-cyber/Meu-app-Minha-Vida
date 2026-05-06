@@ -862,6 +862,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                         <p className="text-xl font-black text-[#004a61]">{kit.power} <span className="text-[10px] font-bold">kWp</span></p>
                       </div>
                       <div className="space-y-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tipo Inversor</span>
+                        <p className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-400">
+                          {kit.inverterType === 'microinverter' ? 'Microinversor' : 'Inversor String'}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
                         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Investimento</span>
                         <p className="text-xl font-black text-emerald-600">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kit.price)}
@@ -1029,7 +1035,12 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                             </div>
                             <div>
                               <p className="text-sm font-black text-slate-900 dark:text-slate-100">{kit.name}</p>
-                              <p className="text-[10px] font-bold text-[#004a61] uppercase tracking-widest">{kit.power} kWp</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-[10px] font-bold text-[#004a61] uppercase tracking-widest">{kit.power} kWp</p>
+                                <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-black uppercase tracking-tighter">
+                                  {kit.inverterType === 'microinverter' ? 'Micro' : 'String'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </td>

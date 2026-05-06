@@ -17,6 +17,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
     description: '',
     power: 0,
     price: 0,
+    inverterType: 'inverter',
     components: [],
     status: 'active'
   });
@@ -175,6 +176,17 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                 placeholder="Ex: Kit Residencial 5kWp Premium"
                 className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tipo de Inversor</label>
+              <select 
+                value={formData.inverterType || 'inverter'}
+                onChange={(e) => setFormData({ ...formData, inverterType: e.target.value as any })}
+                className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-[#004a61]"
+              >
+                <option value="inverter">Inversor String</option>
+                <option value="microinverter">Microinversor</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
