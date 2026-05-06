@@ -33,6 +33,8 @@ interface ProposalViewProps {
   roiMonthly: number;
   validUntil: string;
   proposalNumber: string;
+  photoUrl?: string;
+  customImageLinks?: string[];
   onBack: () => void;
 }
 
@@ -46,6 +48,8 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
   roiMonthly,
   validUntil,
   proposalNumber,
+  photoUrl,
+  customImageLinks,
   onBack
 }) => {
   // Generate 10-year projection data
@@ -267,6 +271,47 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
           ))}
         </div>
       </section>
+
+      {/* Project Gallery */}
+      {(photoUrl || (customImageLinks && customImageLinks.length > 0)) && (
+        <section className="space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="size-10 bg-[#fdb612]/10 text-[#fdb612] rounded-2xl flex items-center justify-center">
+              <LayoutGrid className="w-5 h-5" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Galeria do Projeto</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {photoUrl && (
+              <div className="group relative aspect-video rounded-[2.5rem] overflow-hidden bg-slate-100 dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 shadow-lg">
+                <img 
+                  src={photoUrl} 
+                  alt="Principal" 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
+                  <span className="text-white font-black uppercase text-xs tracking-widest">Foto do Local</span>
+                </div>
+              </div>
+            )}
+            {customImageLinks?.map((link, idx) => (
+              <div key={idx} className="group relative aspect-video rounded-[2.5rem] overflow-hidden bg-slate-100 dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 shadow-lg">
+                <img 
+                  src={link} 
+                  alt={`Anexo ${idx + 1}`} 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-6">
+                  <span className="text-white font-black uppercase text-xs tracking-widest">Anexo {idx + 1}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Investment & Payment Section */}
       <section className="bg-[#231d0f] rounded-[4rem] p-12 text-white relative overflow-hidden shadow-2xl">

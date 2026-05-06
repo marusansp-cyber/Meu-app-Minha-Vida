@@ -24,7 +24,9 @@ import {
   LayoutGrid,
   Sun,
   ArrowRight,
-  Rocket
+  Rocket,
+  Image as ImageIcon,
+  Eye
 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
@@ -292,6 +294,84 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Foto do Telhado (URL)</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text" 
+                        value={editForm.photoUrl || ''}
+                        onChange={(e) => setEditForm({ ...editForm, photoUrl: e.target.value })}
+                        placeholder="https://exemplo.com/foto.jpg"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                    {editForm.photoUrl && (
+                      <button 
+                        type="button"
+                        onClick={() => window.open(editForm.photoUrl, '_blank')}
+                        className="size-11 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 hover:text-[#fdb612] transition-colors"
+                        title="Visualizar imagem"
+                      >
+                        <Eye className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Imagens Adicionais (URLs)</label>
+                    <button 
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, customImageLinks: [...(editForm.customImageLinks || []), ''] })}
+                      className="text-[10px] font-black uppercase text-emerald-600 hover:underline"
+                    >
+                      + Adicionar
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(editForm.customImageLinks || []).map((link, index) => (
+                      <div key={index} className="flex gap-2 group">
+                        <div className="relative flex-1">
+                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="text" 
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...(editForm.customImageLinks || [])];
+                              newLinks[index] = e.target.value;
+                              setEditForm({ ...editForm, customImageLinks: newLinks });
+                            }}
+                            placeholder="https://exemplo.com/outra-foto.jpg"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                          />
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {link && (
+                            <button 
+                              type="button"
+                              onClick={() => window.open(link, '_blank')}
+                              className="size-11 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 hover:text-[#fdb612]"
+                            >
+                              <Eye className="w-5 h-5" />
+                            </button>
+                          )}
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              const newLinks = (editForm.customImageLinks || []).filter((_, i) => i !== index);
+                              setEditForm({ ...editForm, customImageLinks: newLinks });
+                            }}
+                            className="size-11 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 hover:text-rose-500"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Observações Internas</label>
                   <textarea 
                     value={editForm.internalNotes || ''}
@@ -521,6 +601,48 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       </p>
                     </div>
                   </div>
+
+                  {proposal.photoUrl && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Foto do Local</label>
+                      <div className="relative group cursor-pointer overflow-hidden rounded-[2rem] border-2 border-slate-100 dark:border-slate-800 aspect-video bg-slate-100 dark:bg-slate-900 flex items-center justify-center" onClick={() => window.open(proposal.photoUrl, '_blank')}>
+                        <img 
+                          src={proposal.photoUrl} 
+                          alt="Local da Instalação" 
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <Eye className="w-8 h-8" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {proposal.customImageLinks && proposal.customImageLinks.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Galeria do Projeto</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        {proposal.customImageLinks.map((link, idx) => link && (
+                          <div 
+                            key={idx} 
+                            className="relative group cursor-pointer overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-800 aspect-square bg-slate-100 dark:bg-slate-900 flex items-center justify-center" 
+                            onClick={() => window.open(link, '_blank')}
+                          >
+                            <img 
+                              src={link} 
+                              alt={`Anexo ${idx + 1}`} 
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <Eye className="w-5 h-5" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {proposal.ucNumber && (
                     <div className="flex items-center gap-4">

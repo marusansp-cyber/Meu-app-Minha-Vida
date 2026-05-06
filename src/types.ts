@@ -248,6 +248,8 @@ export interface Proposal {
   
   // Step 5: FINALIZAÇÃO
   signatureUrl?: string;
+  photoUrl?: string;
+  customImageLinks?: string[];
 }
 
 export interface Partner {
@@ -321,4 +323,14 @@ export interface CompanySettings {
   phone?: string;
   email?: string;
   updatedAt?: string;
+}
+
+export interface SMTPSettings {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  secure: boolean;
+  fromName?: string;
+  fromEmail?: string;
 }

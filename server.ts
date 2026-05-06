@@ -50,26 +50,56 @@ async function startServer() {
 
   // Proposal Email API
   app.post("/api/proposals/send", async (req, res) => {
-    const { to, subject, body, pdfBase64, fileName } = req.body;
+    const { to, subject, body, pdfBase64, fileName, smtpConfig } = req.body;
 
     if (!to || !pdfBase64) {
       return res.status(400).json({ success: false, message: "Destinatário e PDF são obrigatórios." });
     }
 
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    const user = smtpConfig?.user || process.env.SMTP_USER;
+    const pass = smtpConfig?.pass || process.env.SMTP_PASS;
+
+    if (!user || !pass) {
       return res.status(500).json({ 
         success: false, 
-        message: "Configuração de e-mail incompleta. Por favor, configure SMTP_USER e SMTP_PASS nas configurações do app (ícone de engrenagem no AI Studio)." 
+        message: "Configuração de e-mail incompleta. Por favor, configure os dados de SMTP nas configurações do sistema." 
       });
     }
 
     try {
-      const transporter = getTransporter();
-      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
-      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+      // Helper to get transporter with either env vars or provided config
+      const getTransporterWithConfig = () => {
+        const u = (user || "").trim().replace(/^["'](.+)["']$/, '$1');
+        const p = (pass || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+        const h = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+        const port = parseInt(smtpConfig?.port || process.env.SMTP_PORT || "587");
+        
+        const isGmail = h.toLowerCase().includes("gmail.com") || h.toLowerCase().includes("googlemail.com");
 
+        const config: any = {
+          auth: {
+            user: u,
+            pass: p,
+          },
+        };
+
+        if (isGmail) {
+          config.service = 'gmail';
+        } else {
+          config.host = h;
+          config.port = port;
+          config.secure = port === 465;
+          config.tls = {
+            rejectUnauthorized: false
+          };
+        }
+
+        return nodemailer.createTransport(config);
+      };
+
+      const transporter = getTransporterWithConfig();
       const mailOptions = {
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        from: smtpConfig?.from || process.env.SMTP_FROM || user,
         to,
         subject: subject || "Proposta Solar - Vieira's Solar & Engenharia",
         text: body || "Olá, segue em anexo a proposta comercial para o seu sistema de energia solar.",
@@ -110,30 +140,52 @@ async function startServer() {
   });
 
   // SMTP Test API
-  app.get("/api/smtp/test", async (req, res) => {
-    const user = (process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
-    const pass = (process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+  app.post("/api/smtp/test", async (req, res) => {
+    const { smtpConfig } = req.body;
+    
+    // Check if we have credentials either from body or env
+    const user = (smtpConfig?.user || process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
+    const pass = (smtpConfig?.pass || process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
 
     if (!user || !pass) {
       return res.status(500).json({ 
         success: false, 
-        message: "SMTP não configurado. Defina SMTP_USER e SMTP_PASS nas variáveis de ambiente do AI Studio." 
+        message: "Dados SMTP não fornecidos. Preencha os campos ou configure as variáveis de ambiente." 
       });
     }
 
     try {
-      const transporter = getTransporter();
-      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
-      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+      // Helper to get transporter with either env vars or provided config
+      const getTransporterWithConfig = () => {
+        const u = user;
+        const p = pass;
+        const h = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+        const port = parseInt(smtpConfig?.port || process.env.SMTP_PORT || "587");
+        
+        const isGmail = h.toLowerCase().includes("gmail.com") || h.toLowerCase().includes("googlemail.com");
 
-      console.log(`Testando SMTP com Usuário: ${process.env.SMTP_USER}`);
-      // Log partial password for verification without exposing it fully
-      const pass = process.env.SMTP_PASS || "";
-      console.log(`Senha SMTP configurada? ${pass ? "SIM (tamanho: " + pass.length + ")" : "NÃO"}`);
-      if (pass.length > 0) {
-        console.log(`Início da senha (limpa): ${pass.replace(/\s+/g, '').substring(0, 4)}...`);
-      }
-      
+        const config: any = {
+          auth: {
+            user: u,
+            pass: p,
+          },
+        };
+
+        if (isGmail) {
+          config.service = 'gmail';
+        } else {
+          config.host = h;
+          config.port = port;
+          config.secure = port === 465;
+          config.tls = {
+            rejectUnauthorized: false
+          };
+        }
+
+        return nodemailer.createTransport(config);
+      };
+
+      const transporter = getTransporterWithConfig();
       await transporter.verify();
       res.json({ success: true, message: "Conexão SMTP verificada com sucesso!" });
     } catch (error) {

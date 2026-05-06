@@ -37,7 +37,8 @@ import {
   Printer,
   TrendingUp,
   BrainCircuit,
-  MessageSquare
+  MessageSquare,
+  Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -249,7 +250,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     payback: initialData?.payback?.replace(' Anos', '') || '4.5',
     commission: initialData?.commission?.toString() || '5',
     commissionStatus: initialData?.commissionStatus || 'pending',
-    expiryDate: initialData?.expiryDate || '',
+    expiryDate: initialData?.expiryDate || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     ucNumber: initialData?.ucNumber || '',
     energyConsumption: initialData?.energyConsumption || '1357',
     monthlyGeneration: initialData?.monthlyGeneration || '',
@@ -264,6 +265,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     additionalCost: initialData?.additionalCost?.toString() || '',
     installationStartDate: initialData?.installationStartDate || '',
     estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
+    photoUrl: initialData?.photoUrl || '',
+    customImageLinks: initialData?.customImageLinks || [],
     
     // Step 1: UCS
     titular: initialData?.titular || '',
@@ -447,6 +450,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
           errors[field] = 'Este campo deve ser um valor positivo maior que zero';
         }
       });
+    } else if (step === 'finalization') {
+      if (!formData.expiryDate) {
+        errors.expiryDate = 'Data de validade da proposta é obrigatória';
+      }
+      if (formData.value <= 0) {
+        errors.value = 'Valor total da proposta deve ser maior que zero';
+      }
     }
 
     setValidationErrors(errors);
@@ -499,6 +509,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         additionalCost: initialData.additionalCost?.toString() || '',
         installationStartDate: initialData.installationStartDate || '',
         estimatedCompletionDate: initialData.estimatedCompletionDate || '',
+        photoUrl: initialData.photoUrl || '',
+        customImageLinks: initialData.customImageLinks || [],
         
         titular: initialData.titular || '',
         cpfCnpj: initialData.cpfCnpj || '',
@@ -531,7 +543,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
       });
-      setCurrentStep('ucs');
+      setCurrentStep((initialData as any).startAtStep || 'ucs');
     } else {
       setFormData({
         client: '',
@@ -543,7 +555,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         payback: '4.5',
         commission: '5',
         commissionStatus: 'pending',
-        expiryDate: '',
+        expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         ucNumber: '',
         energyConsumption: '1357',
         kitId: '',
@@ -556,6 +568,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         additionalCost: '',
         installationStartDate: '',
         estimatedCompletionDate: '',
+        photoUrl: '',
+        customImageLinks: [],
         
         titular: '',
         cpfCnpj: '',
@@ -734,6 +748,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         financingInstallmentValue: installmentValue,
         pixInstallmentType: formData.paymentMethod === 'pix_plus_installments' ? formData.pixInstallmentType : null,
         email: formData.email || null,
+        photoUrl: formData.photoUrl || null,
+        customImageLinks: formData.customImageLinks || [],
 
         // Number conversions for custom fields
         panelQuantity: parseInt(formData.panelQuantity) || 0,
@@ -2078,6 +2094,38 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Titular</label>
                         <p className="font-bold">{formData.titular || formData.client || 'Não informado'}</p>
                       </div>
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className={cn(
+                          "text-[10px] font-black uppercase block mb-1 tracking-widest",
+                          validationErrors.expiryDate ? "text-rose-500" : "text-slate-400"
+                        )}>
+                          Validade da Proposta *
+                        </label>
+                        <div className="relative">
+                          <Calendar className={cn(
+                            "absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4",
+                            validationErrors.expiryDate ? "text-rose-500" : "text-slate-400"
+                          )} />
+                          <input 
+                            type="date"
+                            value={formData.expiryDate || ''}
+                            onChange={(e) => {
+                              setFormData({ ...formData, expiryDate: e.target.value });
+                              if (validationErrors.expiryDate) {
+                                setValidationErrors(prev => {
+                                  const next = { ...prev };
+                                  delete next.expiryDate;
+                                  return next;
+                                });
+                              }
+                            }}
+                            className="w-full pl-6 text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                          />
+                        </div>
+                        {validationErrors.expiryDate && (
+                          <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase tracking-tight">{validationErrors.expiryDate}</p>
+                        )}
+                      </div>
                       {(user?.role === 'admin' || user?.role === 'finance') && (
                         <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
                           <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Status da Comissão</label>
@@ -2098,8 +2146,91 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div className="space-y-4">
-                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Observações Internas</label>
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Foto do Telhado (URL)</label>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input 
+                                type="text"
+                                value={formData.photoUrl || ''}
+                                onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
+                                placeholder="https://exemplo.com/foto.jpg"
+                                className="w-full pl-10 pr-4 py-2 text-xs font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                              />
+                            </div>
+                            {formData.photoUrl && (
+                              <button 
+                                type="button"
+                                onClick={() => window.open(formData.photoUrl, '_blank')}
+                                className="size-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 hover:text-[#00A86B] transition-colors"
+                                title="Visualizar imagem"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center justify-between mb-4">
+                            <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest">Imagens Adicionais (URLs)</label>
+                            <button 
+                              type="button"
+                              onClick={() => setFormData({ ...formData, customImageLinks: [...(formData.customImageLinks || []), ''] })}
+                              className="text-[10px] font-black uppercase text-[#00A86B] hover:underline"
+                            >
+                              + Adicionar Link
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {(formData.customImageLinks || []).map((link, index) => (
+                              <div key={index} className="flex gap-2 group">
+                                <div className="relative flex-1">
+                                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                  <input 
+                                    type="text"
+                                    value={link}
+                                    onChange={(e) => {
+                                      const newLinks = [...(formData.customImageLinks || [])];
+                                      newLinks[index] = e.target.value;
+                                      setFormData({ ...formData, customImageLinks: newLinks });
+                                    }}
+                                    placeholder="https://exemplo.com/outra-foto.jpg"
+                                    className="w-full pl-10 pr-4 py-2 text-xs font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                                  />
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {link && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => window.open(link, '_blank')}
+                                      className="size-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 hover:text-[#00A86B]"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const newLinks = (formData.customImageLinks || []).filter((_, i) => i !== index);
+                                      setFormData({ ...formData, customImageLinks: newLinks });
+                                    }}
+                                    className="size-8 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-500"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                            {(formData.customImageLinks || []).length === 0 && (
+                              <p className="text-[10px] font-medium text-slate-400 text-center py-2 italic">Nenhum link adicional adicionado.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Observações Internas</label>
                         <textarea 
                           value={formData.internalNotes || ''}
                           onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}

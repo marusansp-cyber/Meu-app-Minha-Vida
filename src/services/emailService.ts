@@ -1,19 +1,33 @@
+import { getDocument } from '../firestoreUtils';
+import { SMTPSettings } from '../types';
+
 export interface EmailParams {
   to: string;
   subject?: string;
   body?: string;
   pdfBase64: string;
   fileName?: string;
+  smtpConfig?: SMTPSettings;
 }
 
 export const sendProposalEmail = async (params: EmailParams): Promise<{ success: boolean; message: string }> => {
   try {
+    let finalParams = { ...params };
+
+    // If smtpConfig is not provided, try to fetch from Firestore
+    if (!finalParams.smtpConfig) {
+      const settings = await getDocument<SMTPSettings>('settings', 'smtp');
+      if (settings) {
+        finalParams.smtpConfig = settings;
+      }
+    }
+
     const response = await fetch('/api/proposals/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(finalParams),
     });
 
     if (!response.ok) {

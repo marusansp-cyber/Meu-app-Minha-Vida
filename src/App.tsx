@@ -59,6 +59,28 @@ export default function App() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+    const ensureDemoClient = async () => {
+      if (clients.length > 0 && !clients.some(c => c.name === 'Residencial Vieira')) {
+        const demoClient: Partial<Client> = {
+          name: 'Residencial Vieira',
+          email: 'contato@res-vieira.com.br',
+          phone: '(31) 98877-6655',
+          address: 'Av. Otacílio Negrão de Lima, 123 - Pampulha, Belo Horizonte - MG',
+          cnpj: '12.345.678/0001-90',
+          status: 'active',
+          type: 'residential',
+          ucNumber: '30098877665',
+          cep: '31270-901'
+        };
+        await createDocument('clients', demoClient as Client);
+      }
+    };
+    if (isAuthenticated && clients.length > 0) {
+      ensureDemoClient();
+    }
+  }, [isAuthenticated, clients.length]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -564,6 +586,19 @@ export default function App() {
                     onManageProjects={() => setCurrentView('installations')}
                     onAddCollaborator={() => setCurrentView('collaborators')}
                     onGoToLeads={() => setCurrentView('leads')}
+                    onCreateResidencialVieiraProposal={() => {
+                      handleOpenProposalsWithPreFill({
+                        client: 'Residencial Vieira',
+                        titular: 'Residencial Vieira',
+                        email: 'contato@res-vieira.com.br',
+                        telefone: '(31) 98877-6655',
+                        endereco: 'Pampulha, Belo Horizonte - MG',
+                        energyConsumption: '1450',
+                        systemSize: '12.85',
+                        value: 45800,
+                        startAtStep: 'kit'
+                      } as any);
+                    }}
                   />
                 )}
                 {currentView === 'leads' && (

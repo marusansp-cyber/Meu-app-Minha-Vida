@@ -1563,24 +1563,27 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                             </button>
                           ))}
                         </div>
-                        {prop.status === 'accepted' && (
+                        <div className="flex items-center gap-2">
                           <button 
                             onClick={(e) => handleToggleCommissionStatus(prop, e)}
                             className="transition-transform active:scale-95"
                             disabled={isUpdatingCommission === prop.id}
+                            title="Clique para alternar status da comissão"
                           >
                             {getCommissionBadge(prop.commissionStatus)}
                           </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {prop.expiryDate && (
+                          <span className={cn(
+                            "text-[9px] font-bold uppercase tracking-tighter",
+                            new Date(prop.expiryDate) < new Date() ? "text-rose-500" : "text-slate-400"
+                          )}>
+                            Validade: {formatDate(prop.expiryDate)}
+                          </span>
                         )}
                       </div>
-                      {prop.expiryDate && (
-                        <span className={cn(
-                          "text-[9px] font-bold uppercase tracking-tighter ml-1",
-                          new Date(prop.expiryDate) < new Date() ? "text-rose-500" : "text-slate-400"
-                        )}>
-                          Validade: {formatDate(prop.expiryDate)}
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4">

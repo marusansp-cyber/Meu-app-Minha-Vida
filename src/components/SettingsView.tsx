@@ -28,9 +28,10 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-import { User as UserType, CompanySettings } from '../types';
+import { User as UserType, CompanySettings, SMTPSettings } from '../types';
 import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
 import { SMTPHelpModal } from './SMTPHelpModal';
+import { Eye, EyeOff, CheckCircle, AlertCircle, Lock } from 'lucide-react';
 
 interface SettingsViewProps {
   user: UserType | null;
@@ -43,8 +44,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showSMTPHelp, setShowSMTPHelp] = useState(false);
+  const [showSMTPPassword, setShowSMTPPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [smtpData, setSmtpData] = useState<SMTPSettings>({
+    host: 'smtp.gmail.com',
+    port: 587,
+    user: '',
+    pass: '',
+    from: ''
+  });
+
   const [smtpStatus, setSmtpStatus] = useState<{
     configured: boolean;
     user: string | null;
@@ -175,19 +185,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     showToast('Dados exportados com sucesso!');
   };
 
+  const handleSaveSMTP = async () => {
+    try {
+      showToast('Salvando configurações SMTP...');
+      await setDocument('settings', 'smtp', {
+        ...smtpData,
+        updatedAt: new Date().toISOString()
+      });
+      showToast('Configurações SMTP salvas no Firestore!');
+      
+      // Attempt to test after saving
+      handleSendTestEmail();
+    } catch (error) {
+      console.error('Error saving SMTP settings:', error);
+      showToast('Erro ao salvar no Firestore.');
+    }
+  };
+
   const handleSendTestEmail = async () => {
     try {
-      showToast('Enviando e-mail de teste...');
-      const res = await fetch('/api/smtp/test');
+      showToast('Testando conexão SMTP...');
+      
+      // Fetch latest from firestore just to be sure server gets it if it pulls from there
+      // But we'll pass the current data in the request body for immediate testing
+      const res = await fetch('/api/smtp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpConfig: smtpData })
+      });
+      
       const data = await res.json();
       if (data.success) {
         showToast(`✅ Conexão SMTP verificada com sucesso!`);
-        // Refresh status
-        const statusRes = await fetch('/api/smtp/status');
-        const statusData = await statusRes.json();
-        if (statusData.success) setSmtpStatus(statusData);
+        setSmtpStatus({
+          configured: true,
+          user: smtpData.user,
+          host: smtpData.host,
+          passLength: smtpData.pass.length
+        });
       } else {
-        showToast(`❌ Erro SMTP: ${data.message || 'Verifique as variáveis'}`);
+        showToast(`❌ Erro SMTP: ${data.message || 'Verifique os dados'}`);
         if (data.error?.includes('535') || data.error?.includes('Invalid login')) {
           setShowSMTPHelp(true);
         }
@@ -229,7 +266,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
         setCompanySettings(settings);
       }
     };
+    
+    const fetchSMTPSettings = async () => {
+      const settings = await getDocument<SMTPSettings>('settings', 'smtp');
+      if (settings) {
+        setSmtpData(settings);
+        setSmtpStatus({
+          configured: true,
+          user: settings.user,
+          host: settings.host,
+          passLength: settings.pass.length
+        });
+      }
+    };
+
     fetchCompanySettings();
+    fetchSMTPSettings();
   }, []);
 
   React.useEffect(() => {
@@ -743,116 +795,181 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
           {activeTab === 'integrations' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-right duration-500">
               <div className={cn(
-                "p-6 rounded-2xl border flex items-center justify-between",
+                "p-6 rounded-3xl border flex items-center justify-between transition-all duration-500",
                 smtpStatus?.configured 
                   ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-800" 
-                  : "bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-800"
+                  : "bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-800"
               )}>
-                <div className="flex gap-4">
+                <div className="flex gap-5">
                   <div className={cn(
-                    "size-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg",
-                    smtpStatus?.configured ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-amber-500 text-white shadow-amber-500/20"
+                    "size-14 rounded-2xl flex items-center justify-center shrink-0 shadow-xl transition-all",
+                    smtpStatus?.configured ? "bg-emerald-500 text-white shadow-emerald-500/30" : "bg-rose-500 text-white shadow-rose-500/30"
                   )}>
-                    <Mail className="w-5 h-5" />
+                    <Mail className="w-7 h-7" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">
-                      Status da Integração: {smtpStatus?.configured ? 'ATIVO' : 'PENDENTE'}
+                    <h4 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-tighter">
+                      Servidor de E-mail: {smtpStatus?.configured ? 'INTEGRADO' : 'PENDENTE'}
                     </h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed max-w-md">
                       {smtpStatus?.configured 
-                        ? `Configurado com o e-mail: ${smtpStatus.user}` 
-                        : 'Você precisa configurar as variáveis no AI Studio para enviar e-mails.'}
+                        ? `O sistema está utilizando o servidor ${smtpStatus.host} com o usuário ${smtpStatus.user}.` 
+                        : 'Configure os dados SMTP abaixo para habilitar o envio de propostas via E-mail.'}
                     </p>
                   </div>
                 </div>
                 {smtpStatus?.configured && (
-                  <div className="px-3 py-1 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                    Verificado
+                  <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">
+                    <CheckCircle className="w-3 h-3" />
+                    Ativo agora
                   </div>
                 )}
               </div>
 
-              <div className="p-6 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-800">
-                <div className="flex gap-4">
-                  <div className="size-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Configuração de E-mail (Segurança)</h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      Para sua segurança, as senhas SMTP NÃO são armazenadas no banco de dados. 
-                      Elas devem ser definidas como <strong>Environment Variables</strong> no menu de Configurações (ícone de engrenagem) do AI Studio.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Como Configurar</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">Passo 1</span>
-                      <p className="text-xs font-bold mt-1">Gere a "Senha de App" na sua Conta Google.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#fdb612]">
+                      <Globe className="w-3 h-3" />
+                      Configuração de Rede
+                    </h5>
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">SMTP Host</label>
+                        <input 
+                          type="text" 
+                          value={smtpData.host}
+                          onChange={(e) => setSmtpData({ ...smtpData, host: e.target.value })}
+                          placeholder="smtp.gmail.com"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Porta</label>
+                        <input 
+                          type="number" 
+                          value={smtpData.port}
+                          onChange={(e) => setSmtpData({ ...smtpData, port: parseInt(e.target.value) || 587 })}
+                          placeholder="587"
+                          className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm text-center"
+                        />
+                      </div>
                     </div>
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <span className="text-[10px] font-black text-[#fdb612]">Passo 2</span>
-                      <p className="text-xs font-bold mt-1">No AI Studio (Topo Direito), abra a Engrenagem.</p>
-                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Variáveis Esperadas (Exemplos)</h5>
-                  <div className="space-y-2">
-                    {[
-                      { key: 'SMTP_USER', value: 'marusansp@gmail.com', desc: 'Seu e-mail do Gmail' },
-                      { key: 'SMTP_PASS', value: 'xxxx xxxx xxxx xxxx', desc: 'Sua Senha de App de 16 dígitos' },
-                      { key: 'SMTP_HOST', value: 'smtp.gmail.com', desc: 'Host (Google default)' },
-                      { key: 'SMTP_PORT', value: '587', desc: 'Porta padrão' },
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 rounded-xl group hover:border-[#fdb612]/30 transition-all">
-                        <div>
-                          <code className="text-[10px] font-black text-[#0055A4] dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded uppercase">{item.key}</code>
-                          <p className="text-xs font-medium text-slate-500 mt-1">{item.desc}</p>
+                  <div className="space-y-4">
+                    <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#fdb612]">
+                      <Lock className="w-3 h-3" />
+                      Credenciais de Acesso
+                    </h5>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Usuário / E-mail</label>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="email" 
+                            value={smtpData.user}
+                            onChange={(e) => setSmtpData({ ...smtpData, user: e.target.value })}
+                            placeholder="seuemail@provedor.com"
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                          />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <code className="text-xs font-bold text-slate-900 dark:text-slate-100">{item.value}</code>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Senha ou Senha de App</label>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type={showSMTPPassword ? "text" : "password"}
+                            value={smtpData.pass}
+                            onChange={(e) => setSmtpData({ ...smtpData, pass: e.target.value })}
+                            placeholder="••••••••••••••••"
+                            className="w-full pl-11 pr-12 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] font-mono text-sm"
+                          />
                           <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.value);
-                              showToast(`${item.key} copiado!`);
-                            }}
-                            className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
+                            type="button"
+                            onClick={() => setShowSMTPPassword(!showSMTPPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                           >
-                            <Download className="w-4 h-4" />
+                            {showSMTPPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                         </div>
                       </div>
-                    ))}
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail de Remetente (Opcional)</label>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="email" 
+                            value={smtpData.from || ''}
+                            onChange={(e) => setSmtpData({ ...smtpData, from: e.target.value })}
+                            placeholder="noreply@empresa.com"
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                          />
+                        </div>
+                        <p className="text-[9px] text-slate-400 font-medium italic">Se vazio, o e-mail cadastrado em "Usuário" será usado como remetente.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                <button 
-                  onClick={handleSendTestEmail}
-                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-[0.98]"
-                >
-                  Testar Conexão Agora
-                </button>
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-[10px] text-center text-slate-500">
-                    Certifique-se de salvar as variáveis no ícone de <strong>Engrenagem no Topo Direito</strong> do editor.
-                  </p>
-                  <button 
-                    onClick={() => setShowSMTPHelp(true)}
-                    className="text-[10px] font-black text-[#fdb612] uppercase tracking-widest hover:underline flex items-center gap-1"
-                  >
-                    <HelpCircle className="w-3 h-3" />
-                    Problemas com Gmail? Veja como resolver
-                  </button>
+                <div className="space-y-6">
+                  <div className="p-6 bg-[#231d0f] rounded-3xl border border-[#fdb612]/20 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612] opacity-5 rounded-full -mr-16 -mt-16 transition-all group-hover:scale-150" />
+                    
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] mb-4">Central de Segurança SMTP</h5>
+                    <div className="space-y-4 relative z-10">
+                      <div className="flex gap-3">
+                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
+                          <AlertCircle className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                          <strong>Atenção:</strong> Se você usa <strong>Gmail</strong>, você NÃO pode usar sua senha normal. 
+                          Ative a Verificação em 2 Etapas e gere uma <strong>Senha de App</strong> nas configurações da sua conta Google.
+                        </p>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setShowSMTPHelp(true)}
+                        className="w-full flex items-center justify-center gap-2 py-3 border border-[#fdb612]/30 text-[#fdb612] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#fdb612]/10 transition-all"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Tutorial Passo a Passo
+                      </button>
+
+                      <div className="pt-4 border-t border-white/10 space-y-3">
+                        <button 
+                          onClick={handleSaveSMTP}
+                          className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/30 transition-all active:scale-[0.98]"
+                        >
+                          Salvar Configurações
+                        </button>
+                        <button 
+                          onClick={handleSendTestEmail}
+                          className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                        >
+                          Testar Conexão
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-blue-50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex gap-4">
+                    <LifeBuoy className="w-5 h-5 text-blue-500 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Servidores Comuns</p>
+                      <p className="text-[9px] text-slate-500 leading-relaxed">
+                        <strong>Outlook:</strong> smtp-mail.outlook.com (Porta 587)<br/>
+                        <strong>Yahoo:</strong> smtp.mail.yahoo.com (Porta 465)<br/>
+                        <strong>Locaweb:</strong> smtp.email-ssl.com.br (Porta 465)
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

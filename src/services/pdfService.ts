@@ -645,5 +645,51 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text("Assinatura do Cliente", marginLeft + 50, signY + 11, { align: 'center' });
   doc.text("Responsável Técnico | CREA-MG 256019D", pageWidth - marginRight - 50, signY + 11, { align: 'center' });
 
+  // --- PAGE 5: ANEXOS FOTOGRÁFICOS (If available) ---
+  const allImages = [
+    proposal.photoUrl,
+    ...(proposal.customImageLinks || [])
+  ].filter(link => link && typeof link === 'string' && link.length > 0);
+
+  if (allImages.length > 0) {
+    doc.addPage();
+    drawHeaderFooter(5);
+    doc.setFontSize(24);
+    doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+    doc.text("Anexos Fotográficos", pageWidth / 2, 45, { align: 'center' });
+
+    let currentY = 60;
+    const imgWidth = pageWidth - marginLeft - marginRight - 20;
+    const imgHeight = 100;
+    const marginBetween = 10;
+
+    for (const [idx, imgUrl] of allImages.entries()) {
+      try {
+        // If we don't have enough space for another image, add a new page
+        if (currentY + imgHeight > pageHeight - 30) {
+          doc.addPage();
+          drawHeaderFooter(5); // Reuse page 5 header footer style
+          currentY = 30;
+        }
+
+        // Try to add the image. Note: External URLs might fail due to CORS.
+        // In a real app we might proxy these or ensure CORS is allowed.
+        doc.addImage(imgUrl, 'JPEG', marginLeft + 10, currentY, imgWidth, imgHeight);
+        
+        doc.setFontSize(8);
+        doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+        doc.text(`Anexo ${idx + 1}`, marginLeft + 10, currentY + imgHeight + 5);
+
+        currentY += imgHeight + marginBetween + 10;
+      } catch (e) {
+        console.error(`Error adding image ${idx} to PDF:`, e);
+        doc.setFontSize(10);
+        doc.setTextColor(200, 0, 0);
+        doc.text(`[Erro ao carregar imagem: ${imgUrl}]`, marginLeft + 10, currentY + 10);
+        currentY += 20;
+      }
+    }
+  }
+
   return doc.output('datauristring');
 };
