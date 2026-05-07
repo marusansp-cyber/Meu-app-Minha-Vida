@@ -40,12 +40,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     
     const leadMatches = leads.filter(l => 
       l.name.toLowerCase().includes(term) || 
-      l.email.toLowerCase().includes(term)
+      l.email.toLowerCase().includes(term) ||
+      (l.cpfCnpj && l.cpfCnpj.replace(/\D/g, '').includes(term.replace(/\D/g, '')))
     ).map(l => ({ ...l, type: 'Lead' as const }));
 
     const clientMatches = clients.filter(c => 
       (c.name.toLowerCase().includes(term) || 
-      c.email.toLowerCase().includes(term)) &&
+      c.email.toLowerCase().includes(term) ||
+      (c.cpfCnpj && c.cpfCnpj.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) ||
+      (c.cpf && c.cpf.replace(/\D/g, '').includes(term.replace(/\D/g, ''))) ||
+      (c.cnpj && c.cnpj.replace(/\D/g, '').includes(term.replace(/\D/g, '')))) &&
       c.id !== client?.id
     ).map(c => ({ ...c, type: 'Cliente' as const }));
 
@@ -59,10 +63,11 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
       email: item.email,
       phone: item.phone || (item.whatsapp) || (item.type === 'Cliente' ? (item as any).phone : ''),
       address: item.address || '',
-      cnpj: item.cnpj || (item.cpfCnpj && item.cpfCnpj.length > 11 ? item.cpfCnpj : ''),
-      cpf: item.cpf || (item.cpfCnpj && item.cpfCnpj.length <= 11 ? item.cpfCnpj : ''),
+      cnpj: item.cnpj || (item.cpfCnpj && item.cpfCnpj.replace(/\D/g, '').length > 11 ? item.cpfCnpj : ''),
+      cpf: item.cpf || (item.cpfCnpj && item.cpfCnpj.replace(/\D/g, '').length <= 11 ? item.cpfCnpj : ''),
       latitude: item.latitude,
-      longitude: item.longitude
+      longitude: item.longitude,
+      type: item.type === 'Lead' ? 'residential' : (item.type === 'residential' ? 'residential' : item.type)
     });
     setSearchTerm('');
     setShowSuggestions(false);

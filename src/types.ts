@@ -250,6 +250,7 @@ export interface Proposal {
   signatureUrl?: string;
   photoUrl?: string;
   customImageLinks?: string[];
+  clientType?: string;
 }
 
 export interface Partner {

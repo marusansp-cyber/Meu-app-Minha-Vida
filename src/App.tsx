@@ -25,7 +25,7 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { GlobalSearch } from './components/GlobalSearch';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument } from './firestoreUtils';
+import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument, setFirestoreErrorListener } from './firestoreUtils';
 
 import { ToastProvider } from './context/ToastContext';
 
@@ -39,7 +39,29 @@ export default function App() {
   const [editingProject, setEditingProject] = useState<Installation | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isFirestoreConnected, setIsFirestoreConnected] = useState(true);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFirestoreErrorListener((err) => {
+      if (err.error.includes('unavailable') || err.error.includes('offline')) {
+        setIsFirestoreConnected(false);
+      }
+    });
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setIsFirestoreConnected(true);
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [proposalPreFill, setProposalPreFill] = useState<Partial<Proposal> | null>(null);
   const [installationPreFill, setInstallationPreFill] = useState<any | null>(null);
@@ -525,12 +547,17 @@ export default function App() {
                 installations={installations}
                 onResultClick={(view, id) => {
                   setCurrentView(view);
-                  // Optional: handle scrolling or opening details modal
                 }}
               />
             </div>
 
             <div className="flex items-center gap-6">
+              {!isFirestoreConnected && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg text-rose-500 animate-pulse">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Erro de Conexão</span>
+                </div>
+              )}
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
@@ -546,7 +573,7 @@ export default function App() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user?.email}</p>
                 </div>
                 <div className="size-10 rounded-full bg-[#fdb612] flex items-center justify-center text-[#231d0f] font-black mr-2">
-                  {user?.email.charAt(0).toUpperCase()}
+                  {user?.email ? user.email.charAt(0).toUpperCase() : '?'}
                 </div>
                 <button 
                   onClick={handleLogout}
@@ -559,6 +586,18 @@ export default function App() {
               </div>
             </div>
           </header>
+
+          {!isOnline && (
+            <div className="bg-rose-500 text-white px-4 py-2 text-center text-xs font-black uppercase tracking-[0.2em]">
+              Você está offline. Algumas funcionalidades podem estar indisponíveis.
+            </div>
+          )}
+
+          {!isFirestoreConnected && isOnline && (
+            <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-black uppercase tracking-[0.2em]">
+              Tentando reconectar ao banco de dados... Verifique sua conexão.
+            </div>
+          )}
 
           <div className="max-w-7xl mx-auto p-4 md:p-8 w-full">
             {!canAccess(currentView) ? (

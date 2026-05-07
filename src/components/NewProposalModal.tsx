@@ -191,9 +191,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       email: c.email,
       phone: c.phone,
       address: c.address,
-      cpfCnpj: c.cpfCnpj || '',
+      cep: c.cep,
+      cpfCnpj: c.cnpj || c.cpf || c.cpfCnpj || '',
+      ucNumber: c.ucNumber,
+      createdAt: c.createdAt,
+      type: c.type,
       source: 'Cliente' as const
-    })).filter(c => c.name.toLowerCase().includes(term) || c.email.toLowerCase().includes(term));
+    })).filter(c => 
+      c.name.toLowerCase().includes(term) || 
+      c.email.toLowerCase().includes(term) ||
+      (c.cpfCnpj && c.cpfCnpj.replace(/\D/g, '').includes(term.replace(/\D/g, '')))
+    );
 
     const leadMatches = (leads || []).map(l => ({
       id: l.id,
@@ -205,9 +213,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       cpfCnpj: l.cpfCnpj,
       ucNumber: l.ucNumber,
       createdAt: l.createdAt,
+      type: 'residential' as const,
       source: 'Lead' as const
     })).filter(l => {
-      const matchesTerm = l.name.toLowerCase().includes(term) || l.email.toLowerCase().includes(term);
+      const matchesTerm = l.name.toLowerCase().includes(term) || 
+                         l.email.toLowerCase().includes(term) ||
+                         (l.cpfCnpj && l.cpfCnpj.replace(/\D/g, '').includes(term.replace(/\D/g, '')));
       let matchesDate = true;
       if (searchDateStart && l.createdAt && l.createdAt < searchDateStart) matchesDate = false;
       if (searchDateEnd && l.createdAt && l.createdAt > searchDateEnd) matchesDate = false;
@@ -227,7 +238,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       endereco: suggestion.address || prev.endereco,
       cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj,
       cep: suggestion.cep || prev.cep,
-      ucNumber: suggestion.ucNumber || prev.ucNumber
+      ucNumber: suggestion.ucNumber || prev.ucNumber,
+      clientType: suggestion.type || 'residential'
     }));
     setClientSearchTerm('');
     setShowClientSuggestions(false);
@@ -430,7 +442,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       if (!formData.cpfCnpj?.trim()) errors.cpfCnpj = 'CPF/CNPJ é obrigatório';
       
       // Email validation
-      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      if (!formData.email) {
+        errors.email = 'E-mail é obrigatório';
+      } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email.trim())) {
         errors.email = 'Formato de e-mail inválido';
       }
       
@@ -440,17 +454,23 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       }
     } else if (step === 'kit') {
       if (!formData.systemSize || parseFloat(formData.systemSize) <= 0) {
-        errors.systemSize = 'Tamanho do sistema deve ser maior que zero';
+        errors.systemSize = 'Potência do sistema deve ser maior que zero';
       }
-      if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
+      if (!formData.panelBrandModel?.trim()) {
+        errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
+      }
     } else if (step === 'pricing') {
       const costs = ['equipmentCost', 'installationCost', 'projectCost', 'licensingCost', 'logisticCost'];
       costs.forEach(field => {
         const val = parseFloat((formData as any)[field]);
-        if (isNaN(val) || val <= 0) {
-          errors[field] = 'Este campo deve ser um valor positivo maior que zero';
+        if (isNaN(val) || val < 0) { // Allow 0 but not negative/NaN
+          errors[field] = 'Este campo deve ser um valor numérico válido';
         }
       });
+      
+      if (!formData.margin || parseFloat(formData.margin) < 0) {
+        errors.margin = 'Margem de lucro não pode ser negativa';
+      }
     } else if (step === 'finalization') {
       if (!formData.expiryDate) {
         errors.expiryDate = 'Data de validade da proposta é obrigatória';
@@ -645,12 +665,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
   const nextStep = () => {
     if (!validateStep(currentStep)) {
-      showToast('Por favor, corrija os erros antes de prosseguir.');
+      const errorList = Object.values(validationErrors);
+      const firstError = errorList.length > 0 ? errorList[0] : 'Por favor, corrija os erros destacados antes de prosseguir.';
+      showToast(`⚠️ ${firstError}`);
+      
+      // Auto-scroll to the first error might be nice but we'll stick to clear UI for now
       return;
     }
     const currentIndex = STEPS.findIndex(s => s.id === currentStep);
     if (currentIndex < STEPS.length - 1) {
       setCurrentStep(STEPS[currentIndex + 1].id);
+      setValidationErrors({}); // Clear errors when moving forward
     }
   };
 
@@ -662,9 +687,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateStep('pricing')) {
-      showToast('Por favor, verifique os dados de precificação.');
+    if (!validateStep(currentStep)) {
+      const errorList = Object.values(validationErrors);
+      const firstError = errorList.length > 0 ? errorList[0] : 'Por favor, corrija os erros destacado antes de salvar.';
+      showToast(`⚠️ ${firstError}`);
       return;
+    }
+
+    if (currentStep === 'finalization') {
+      if (!validateStep('finalization')) return;
     }
 
     setIsSubmitting(true);
@@ -1393,8 +1424,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       value={formData.systemSize || ''}
                       onChange={(e) => setFormData({ ...formData, systemSize: e.target.value })}
                       placeholder="8,2"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.systemSize ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.systemSize && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.systemSize}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1414,8 +1449,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       value={formData.panelBrandModel || ''}
                       onChange={(e) => setFormData({ ...formData, panelBrandModel: e.target.value })}
                       placeholder="EX: 550W - Marca X"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.panelBrandModel ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.panelBrandModel && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.panelBrandModel}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1535,8 +1574,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.equipmentCost || ''}
                       onChange={(e) => setFormData({ ...formData, equipmentCost: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.equipmentCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.equipmentCost && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.equipmentCost}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1545,8 +1588,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.installationCost || ''}
                       onChange={(e) => setFormData({ ...formData, installationCost: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.installationCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.installationCost && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.installationCost}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1555,8 +1602,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.projectCost || ''}
                       onChange={(e) => setFormData({ ...formData, projectCost: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.projectCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.projectCost && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.projectCost}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1565,8 +1616,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.licensingCost || ''}
                       onChange={(e) => setFormData({ ...formData, licensingCost: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.licensingCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.licensingCost && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.licensingCost}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1575,8 +1630,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.logisticCost || ''}
                       onChange={(e) => setFormData({ ...formData, logisticCost: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.logisticCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.logisticCost && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.logisticCost}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1662,9 +1721,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         type="number" 
                         value={formData.margin || ''}
                         onChange={(e) => setFormData({ ...formData, margin: e.target.value })}
-                        className="w-full pl-12 pr-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/20 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold",
+                          validationErrors.margin ? "border-rose-500" : "border-[#fdb612]/20"
+                        )}
                       />
                     </div>
+                    {validationErrors.margin && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.margin}</p>}
                     <p className="text-[10px] text-slate-400 font-medium italic">Margem aplicada sobre o custo total</p>
                   </div>
 

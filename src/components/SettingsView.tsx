@@ -224,9 +224,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
           passLength: smtpData.pass.length
         });
       } else {
-        showToast(`❌ Erro SMTP: ${data.message || 'Verifique os dados'}`);
-        if (data.error?.includes('535') || data.error?.includes('Invalid login')) {
+        const isGmailError = data.message?.includes('Gmail') || data.message?.includes('App') || data.error?.includes('535') || data.error === 'INVALID_GMAIL_PASS_LENGTH';
+        
+        if (isGmailError) {
+          if (data.error === 'INVALID_GMAIL_PASS_LENGTH') {
+            showToast(`⚠️ ERRO: A Senha de App do Gmail deve ter 16 dígitos.`);
+          } else {
+            showToast(`⚠️ ERRO GMAIL: Você deve usar uma SENHA DE APP.`);
+          }
           setShowSMTPHelp(true);
+        } else {
+          showToast(`❌ Erro SMTP: ${data.message || 'Verifique os dados'}`);
         }
       }
     } catch (e) {

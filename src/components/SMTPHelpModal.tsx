@@ -68,8 +68,9 @@ export const SMTPHelpModal: React.FC<SMTPHelpModalProps> = ({ isOpen, onClose })
             <div className="flex gap-4">
               <div className="size-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black flex-shrink-0 text-sm">3</div>
               <div>
-                <h5 className="font-black text-slate-900 dark:text-slate-100 mb-1">Configure no AI Studio</h5>
-                <p className="text-sm text-slate-500 mb-2">Copie o código amarelo de 16 dígitos que aparecerá. No menu superior do AI Studio, clique nas <strong>Configurações (ícone de engrenagem)</strong> e cole no campo <code>SMTP_PASS</code>.</p>
+                <h5 className="font-black text-slate-900 dark:text-slate-100 mb-1">Configure no Sistema</h5>
+                <p className="text-sm text-slate-500 mb-2">Copie o código amarelo de 16 dígitos que aparecerá. Cole no campo <strong>Senha ou Senha de App</strong> aqui mesmo na aba de Integração (SMTP) e clique em Salvar.</p>
+                <p className="text-[10px] text-slate-400 italic">Dica: Se você for o desenvolvedor, você também pode configurar a variável SMTP_PASS nas configurações do AI Studio para que seja o padrão do sistema.</p>
               </div>
             </div>
           </div>

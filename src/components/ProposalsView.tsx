@@ -83,7 +83,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     endDate: '',
     commissionStatus: 'all',
     kitPanel: '',
-    kitInverter: ''
+    kitInverter: '',
+    cpfCnpj: '',
+    hasProject: 'all',
+    clientType: 'all'
   });
   const [selectedProposalIds, setSelectedProposalIds] = useState<string[]>([]);
   const [isSendingBulk, setIsSendingBulk] = useState(false);
@@ -649,6 +652,15 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       const matchesValue = filters.value === '' || (p.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).toLowerCase().includes(filters.value.toLowerCase()));
       const matchesRepresentative = filters.representative === 'all' || p.representative === filters.representative;
       const matchesCommissionStatus = filters.commissionStatus === 'all' || p.commissionStatus === filters.commissionStatus;
+      const matchesCpfCnpj = filters.cpfCnpj === '' || (p.cpfCnpj && p.cpfCnpj.replace(/\D/g, '').includes(filters.cpfCnpj.replace(/\D/g, '')));
+      
+      let matchesHasProject = true;
+      if (filters.hasProject !== 'all') {
+        const hasProject = p.status === 'accepted'; // Consider accepted as having a project in this context
+        matchesHasProject = filters.hasProject === 'yes' ? hasProject : !hasProject;
+      }
+
+      const matchesClientType = filters.clientType === 'all' || p.tensaoFornecimento?.toLowerCase().includes(filters.clientType.toLowerCase());
       
       // Kit component filtering
       let matchesKit = true;
@@ -684,7 +696,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         }
       }
 
-      return matchesSearch && matchesStatus && matchesKit && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate && matchesCommissionStatus;
+      return matchesSearch && matchesStatus && matchesKit && matchesRepFilter && matchesId && matchesClient && matchesSystem && matchesValue && matchesRepresentative && matchesDate && matchesCommissionStatus && matchesCpfCnpj && matchesHasProject && matchesClientType;
     });
 
     if (sortConfig) {
@@ -1368,6 +1380,42 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                   <option value="paid">Paga</option>
                 </select>
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CPF / CNPJ</label>
+                <input 
+                  type="text" 
+                  value={filters.cpfCnpj || ''}
+                  onChange={(e) => setFilters({ ...filters, cpfCnpj: e.target.value })}
+                  placeholder="000.000.000-00"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Possui Projeto?</label>
+                <select 
+                  value={filters.hasProject || 'all'}
+                  onChange={(e) => setFilters({ ...filters, hasProject: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                >
+                  <option value="all">Todos</option>
+                  <option value="yes">Sim (Aceitos)</option>
+                  <option value="no">Não (Pendentes/Sent)</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Cliente</label>
+                <select 
+                  value={filters.clientType || 'all'}
+                  onChange={(e) => setFilters({ ...filters, clientType: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#fdb612]"
+                >
+                  <option value="all">Todos</option>
+                  <option value="Residencial">Residencial</option>
+                  <option value="Rural">Rural</option>
+                  <option value="Industrial">Industrial</option>
+                  <option value="Comercial">Comercial</option>
+                </select>
+              </div>
               <div className="flex items-end gap-2">
                 <button 
                   onClick={() => {
@@ -1381,7 +1429,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                       endDate: '',
                       kitPanel: '',
                       kitInverter: '',
-                      commissionStatus: 'all'
+                      commissionStatus: 'all',
+                      cpfCnpj: '',
+                      hasProject: 'all',
+                      clientType: 'all'
                     });
                     setSearchTerm('');
                     setStatusFilters([]);

@@ -224,21 +224,36 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const textGray = [120, 120, 120];     // #787878
 
   const drawHeaderFooter = (pageNumber: number) => {
-    // Top Bar - Green
+    const totalPages = 4 + (proposal.photoUrl || (proposal.customImageLinks && proposal.customImageLinks.length > 0) ? 1 : 0);
+    
+    // Top Bar - Primary Green with Gradient-like effect
     doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-    doc.rect(0, 0, pageWidth, 5, 'F');
+    doc.rect(0, 0, pageWidth, 8, 'F');
+    
+    // Subtle shadow line
+    doc.setFillColor(40, 140, 60);
+    doc.rect(0, 8, pageWidth, 0.5, 'F');
+
+    // Header Content
     doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Energia Solar", marginLeft, 12);
+    doc.setFontSize(10);
+    doc.text("Vieira's Solar & Engenharia", marginLeft, 15);
+    
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
+    doc.text(`Proposta Comercial: ${proposal.proposalNumber || proposal.id}`, pageWidth - marginRight, 15, { align: 'right' });
 
-    // Bottom Bar - Blue
+    // Bottom Bar - Electric Blue
     doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(0, pageHeight - 5, pageWidth, 5, 'F');
+    doc.rect(0, pageHeight - 10, pageWidth, 10, 'F');
+    
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.text("Energia Solar", marginLeft, pageHeight - 1);
-    doc.text("Energia Solar", pageWidth - marginRight, pageHeight - 1, { align: 'right' });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("GERANDO ENERGIA PARA O SEU FUTURO", marginLeft, pageHeight - 4);
+    doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - marginRight, pageHeight - 4, { align: 'right' });
   };
 
   const drawGaugeIcon = (x: number, y: number) => {
@@ -416,8 +431,12 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
   doc.text("Lista de Equipamentos", pageWidth / 2, 45, { align: 'center' });
 
-  const equipY = 70;
+  const equipY = 75;
   const half = (pageWidth - marginLeft - marginRight) / 2;
+
+  // Background for section headers
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(marginLeft + 5, equipY - 10, pageWidth - marginLeft - marginRight - 10, 150, 5, 5, 'F');
 
   // Automate Kit components identification
   const moduleComp = kit?.components.find(c => c.name.toLowerCase().includes('módulo') || c.name.toLowerCase().includes('painel'));
@@ -440,6 +459,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   drawPanelIcon(marginLeft + 20, equipY);
   doc.setFontSize(14);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
   doc.text("Módulo Fotovoltaico", marginLeft + 30, equipY + 6);
   doc.setFontSize(11);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
@@ -454,7 +474,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     doc.setFont("helvetica", "bold");
     doc.text(inf.k, marginLeft + 20, equipY + 20 + (i * 8));
     doc.setFont("helvetica", "normal");
-    doc.text(inf.v, marginLeft + 60, equipY + 20 + (i * 8));
+    const splitV = doc.splitTextToSize(inf.v, half - 50);
+    doc.text(splitV, marginLeft + 48, equipY + 20 + (i * 8));
   });
 
   drawInverterIcon(marginLeft + half + 5, equipY);
@@ -467,31 +488,32 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const invInfo = [
     { k: "Modelo:", v: inverterName },
     { k: "Fabricante:", v: inverterBrand },
-    { k: "Quantidade:", v: `${inverterCount} Unidade` },
-    { k: "Monitoramento:", v: "Wi-Fi + App Mobile" }
+    { k: "Quantidade:", v: `${inverterCount} Unidade(s)` },
+    { k: "Monitoramento:", v: "WiFi + App Mobile" }
   ];
   invInfo.forEach((inf, i) => {
     doc.setFont("helvetica", "bold");
     doc.text(inf.k, marginLeft + half + 5, equipY + 20 + (i * 8));
     doc.setFont("helvetica", "normal");
-    doc.text(inf.v, marginLeft + half + 40, equipY + 20 + (i * 8));
+    const splitV = doc.splitTextToSize(inf.v, half - 50);
+    doc.text(splitV, marginLeft + half + 35, equipY + 20 + (i * 8));
   });
 
   // Additional Equipment Section
   const startY = equipY + 65;
   doc.setFontSize(14);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Resumo de Componentes Adicionais", marginLeft + 20, startY);
+  doc.text("Outros Componentes Inclusos", marginLeft + 20, startY);
   
   doc.setFontSize(9);
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   
   // Automate additional components list from kit or fallback
   const items = additionalComps.length > 0 ? additionalComps : [
-    { name: "Estrutura de fixação para telhado", quantity: 1, brand: "" },
-    { name: "Cabo Solar 6mm (Preto/Vermelho)", quantity: 1, brand: "" },
-    { name: "Conectores MC4 Original", quantity: 1, brand: "" },
-    { name: "String Box DC/AC Completa", quantity: 1, brand: "" }
+    { name: "Estrutura de fixação (Telhado)", quantity: 1 },
+    { name: "Cabos Solares 6mm CC", quantity: 1 },
+    { name: "Conectores MC4 Blindados", quantity: 1 },
+    { name: "String Box Completa", quantity: 1 }
   ];
 
   items.forEach((comp, idx) => {
@@ -501,10 +523,19 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     if (row < pageHeight - 30) {
       doc.setFont("helvetica", "bold");
       const name = comp.name || "Componente";
-      const truncatedName = name.length > 35 ? name.substring(0, 32) + '...' : name;
+      const truncatedName = name.length > 40 ? name.substring(0, 37) + '...' : name;
       doc.text(`• ${truncatedName}`, col, row);
     }
   });
+
+  // Regulatory Logo placeholder
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.1);
+  doc.rect(pageWidth - marginRight - 40, pageHeight - 65, 30, 30);
+  doc.setFontSize(6);
+  doc.setTextColor(200, 200, 200);
+  doc.text("Selo de Qualidade", pageWidth - marginRight - 25, pageHeight - 50, { align: 'center' });
+  doc.text("VIEIRA'S SOLAR", pageWidth - marginRight - 25, pageHeight - 45, { align: 'center' });
 
   // --- PAGE 3: SERVIÇOS E FINANCEIRA ---
   doc.addPage();

@@ -66,12 +66,25 @@ async function startServer() {
       });
     }
 
+    const userClean = (user || "").trim().replace(/^["'](.+)["']$/, '$1');
+    const passClean = (pass || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+    const hostClean = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+    const isActuallyGmail = hostClean.toLowerCase().includes("gmail.com") || hostClean.toLowerCase().includes("googlemail.com");
+
+    if (isActuallyGmail && passClean.length !== 16) {
+      return res.status(401).json({
+        success: false,
+        message: "Erro de Configuração Gmail: A Senha de App deve ter exatamente 16 caracteres. O Google rejeitou sua senha atual possivelmente por ser sua senha comum ou estar incompleta.",
+        error: "INVALID_GMAIL_PASS_LENGTH"
+      });
+    }
+
     try {
       // Helper to get transporter with either env vars or provided config
       const getTransporterWithConfig = () => {
-        const u = (user || "").trim().replace(/^["'](.+)["']$/, '$1');
-        const p = (pass || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
-        const h = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+        const u = userClean;
+        const p = passClean;
+        const h = hostClean;
         const port = parseInt(smtpConfig?.port || process.env.SMTP_PORT || "587");
         
         const isGmail = h.toLowerCase().includes("gmail.com") || h.toLowerCase().includes("googlemail.com");
@@ -118,17 +131,17 @@ async function startServer() {
       console.error("Erro ao enviar e-mail:", error);
       let errorMessage = "Erro no serviço de e-mail: Verifique se as credenciais SMTP estão corretas.";
       const errorStr = String(error);
-      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
-      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+      const usedHost = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isActuallyGmail = usedHost.includes("gmail.com") || usedHost.includes("googlemail.com");
       
       if (errorStr.includes('EAUTH') || errorStr.includes('Invalid login') || errorStr.includes('535')) {
-        if (isGmail) {
+        if (isActuallyGmail) {
           errorMessage = "Erro de Autenticação Gmail: O Google rejeitou sua senha. Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas comuns NÃO funcionam. Gere uma em 'Segurança' na sua Conta Google.";
         } else {
           errorMessage = "Erro de Autenticação SMTP (535): Usuário ou senha incorretos. Verifique se o provedor exige senhas de aplicativo.";
         }
       } else if (errorStr.includes('ECONNREFUSED') || errorStr.includes('ETIMEDOUT') || errorStr.includes('ESOCKET')) {
-        errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor. Verifique o Host (smtp.gmail.com) e a Porta (587 ou 465).";
+        errorMessage = "Erro de Conexão SMTP: Não foi possível conectar ao servidor. Verifique o Host (" + usedHost + ") e a Porta.";
       }
 
       res.status(500).json({ 
@@ -146,6 +159,8 @@ async function startServer() {
     // Check if we have credentials either from body or env
     const user = (smtpConfig?.user || process.env.SMTP_USER || "").trim().replace(/^["'](.+)["']$/, '$1');
     const pass = (smtpConfig?.pass || process.env.SMTP_PASS || "").replace(/\s+/g, "").trim().replace(/^["'](.+)["']$/, '$1');
+    const usedHost = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+    const isActuallyGmail = usedHost.includes("gmail.com") || usedHost.includes("googlemail.com");
 
     if (!user || !pass) {
       return res.status(500).json({ 
@@ -154,12 +169,20 @@ async function startServer() {
       });
     }
 
+    if (isActuallyGmail && pass.length !== 16) {
+      return res.status(401).json({
+        success: false,
+        message: "Erro de Configuração Gmail: A Senha de App deve ter exatamente 16 caracteres. O Google rejeitou sua senha atual possivelmente por ser sua senha comum ou estar incompleta.",
+        error: "INVALID_GMAIL_PASS_LENGTH"
+      });
+    }
+
     try {
       // Helper to get transporter with either env vars or provided config
       const getTransporterWithConfig = () => {
         const u = user;
         const p = pass;
-        const h = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").trim().replace(/^["'](.+)["']$/, '$1');
+        const h = usedHost.trim().replace(/^["'](.+)["']$/, '$1');
         const port = parseInt(smtpConfig?.port || process.env.SMTP_PORT || "587");
         
         const isGmail = h.toLowerCase().includes("gmail.com") || h.toLowerCase().includes("googlemail.com");
@@ -192,11 +215,11 @@ async function startServer() {
       console.error("Erro no teste SMTP:", error);
       let errorMessage = "Falha na conexão SMTP.";
       const errorStr = String(error);
-      const host = (process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
-      const isGmail = host.includes("gmail.com") || host.includes("googlemail.com");
+      const usedHost = (smtpConfig?.host || process.env.SMTP_HOST || "smtp.gmail.com").toLowerCase();
+      const isActuallyGmail = usedHost.includes("gmail.com") || usedHost.includes("googlemail.com");
 
       if (errorStr.includes('EAUTH') || errorStr.includes('Invalid login') || errorStr.includes('535')) {
-        if (isGmail) {
+        if (isActuallyGmail) {
           errorMessage = "Erro de Autenticação Gmail: Senha Rejeitada. Você DEVE usar uma 'Senha de App' (16 dígitos). Senhas normais NÃO funcionam no Gmail SMTP.";
         } else {
           errorMessage = "Erro de Autenticação SMTP (535): Usuário ou senha incorretos.";

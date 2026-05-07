@@ -43,6 +43,12 @@ interface FirestoreErrorInfo {
   }
 }
 
+let globalErrorListener: ((error: FirestoreErrorInfo) => void) | null = null;
+
+export function setFirestoreErrorListener(listener: (error: FirestoreErrorInfo) => void) {
+  globalErrorListener = listener;
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
@@ -62,6 +68,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
+  
+  if (globalErrorListener) {
+    globalErrorListener(errInfo);
+  }
+  
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
