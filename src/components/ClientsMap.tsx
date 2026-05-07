@@ -33,7 +33,10 @@ const RecenterMap = ({ coords }: { coords: [number, number] }) => {
   const map = useMap();
   useEffect(() => {
     if (coords) {
-      map.setView(coords, 12);
+      map.flyTo(coords, 14, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
     }
   }, [coords, map]);
   return null;
@@ -44,7 +47,12 @@ const FitBounds = ({ markers, trigger }: { markers: ClientMarker[], trigger: num
   useEffect(() => {
     if (markers.length > 0) {
       const bounds = L.latLngBounds(markers.map(m => m.coords));
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { 
+        padding: [50, 50],
+        maxZoom: 15,
+        animate: true,
+        duration: 1.5
+      });
     }
   }, [trigger, markers, map]);
   return null;
@@ -62,9 +70,15 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fitTrigger, setFitTrigger] = useState(0);
+  const [selectedCoords, setSelectedCoords] = useState<[number, number] | null>(null);
 
   useEffect(() => {
+    let active = true;
     const geocodeClients = async () => {
+      // Debounce the entire geocoding process to wait for clients list to stabilize
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (!active) return;
+
       setLoading(true);
       setError(null);
       const newMarkers: ClientMarker[] = [];
@@ -72,6 +86,8 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
       try {
         // Geocode each client address if coordinates are missing
         for (const client of clients) {
+          if (!active) return;
+
           if (client.latitude && client.longitude) {
             newMarkers.push({
               client,
@@ -83,33 +99,37 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
           if (!client.address) continue;
 
           try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(client.address)}`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(client.address)}&limit=1`);
             const data = await response.json();
 
-            if (data && data.length > 0) {
+            if (data && data.length > 0 && active) {
               newMarkers.push({
                 client,
                 coords: [parseFloat(data[0].lat), parseFloat(data[0].lon)]
               });
             }
-            // Add a small delay to respect Nominatim rate limits
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Respect rate limits
+            await new Promise(resolve => setTimeout(resolve, 1000));
           } catch (err) {
             console.error(`Geocoding error for client ${client.name}:`, err);
           }
         }
-        setMarkers(newMarkers);
+        if (active) {
+          setMarkers(newMarkers);
+        }
       } catch (err) {
         console.error('Geocoding error:', err);
-        setError('Erro ao carregar mapa de clientes');
+        if (active) setError('Erro ao carregar mapa de clientes');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     if (clients.length > 0) {
       geocodeClients();
     }
+    
+    return () => { active = false; };
   }, [clients]);
 
   useEffect(() => {
@@ -137,13 +157,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
     );
   }
 
-  const center: [number, number] = markers.length > 0 ? markers[0].coords : [-23.5505, -46.6333]; // Default to São Paulo
+  const center: [number, number] = markers.length > 0 ? markers[0].coords : [-23.5505, -46.6333];
 
   return (
     <div className={`rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm relative z-0 ${className}`}>
       {markers.length > 0 && (
         <button
-          onClick={() => setFitTrigger(prev => prev + 1)}
+          onClick={() => {
+            setSelectedCoords(null);
+            setFitTrigger(prev => prev + 1);
+          }}
           className="absolute top-4 right-4 z-[1000] bg-white dark:bg-[#231d0f] p-3 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-[#fdb612] transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest"
           title="Centralizar todos os marcadores"
         >
@@ -164,14 +187,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
         {markers.map((marker) => {
           const clientProposals = proposals.filter(p => p.client === marker.client.name).length;
           const clientInstallations = installations.filter(i => i.name === marker.client.name).length;
-          const totalProjects = clientProposals + clientInstallations;
 
           return (
             <Marker 
               key={marker.client.id} 
               position={marker.coords}
               eventHandlers={{
-                click: () => onSelectClient?.(marker.client)
+                click: () => {
+                  setSelectedCoords(marker.coords);
+                  onSelectClient?.(marker.client);
+                }
               }}
             >
               <Popup>
@@ -189,11 +214,6 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
                         )}>
                           {marker.client.status === 'active' ? 'Ativo' : 'Inativo'}
                         </div>
-                        {marker.client.type && (
-                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                            • {marker.client.type}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -210,16 +230,6 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
                   </div>
 
                   <div className="text-[10px] text-slate-500 mb-2 truncate" title={marker.client.address}>{marker.client.address}</div>
-                  <div className="flex flex-col gap-2 mb-3">
-                    <a 
-                      href={`https://www.google.com/maps/search/?api=1&query=${marker.coords[0]},${marker.coords[1]}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[9px] font-bold text-blue-600 flex items-center gap-1 hover:underline"
-                    >
-                      <MapPin className="w-3 h-3" /> Ver no Google Maps
-                    </a>
-                  </div>
                   <div className="flex gap-2">
                     <button 
                       onClick={() => onSelectClient?.(marker.client)}
@@ -227,22 +237,16 @@ export const ClientsMap: React.FC<ClientsMapProps> = ({
                     >
                       Detalhes
                     </button>
-                    {onEditClient && (
-                      <button 
-                        onClick={() => onEditClient(marker.client)}
-                        className="flex-1 py-1.5 bg-blue-500/10 text-blue-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all text-center"
-                      >
-                        Editar
-                      </button>
-                    )}
                   </div>
                 </div>
               </Popup>
             </Marker>
           );
         })}
+        {selectedCoords && <RecenterMap coords={selectedCoords} />}
         {markers.length > 0 && <FitBounds markers={markers} trigger={fitTrigger} />}
       </MapContainer>
     </div>
   );
 };
+

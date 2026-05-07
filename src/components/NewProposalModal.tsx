@@ -314,6 +314,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     financingRate: initialData?.financingRate?.toString() || '',
     financingCET: initialData?.financingCET?.toString() || '',
     downPayment: initialData?.downPayment?.toString() || '',
+    status: initialData?.status || 'pending',
+    clientType: initialData?.clientType || 'residential'
   });
   const [roiError, setRoiError] = useState<string | null>(null);
 

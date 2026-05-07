@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize, CheckCircle2 } from 'lucide-react';
 import { Client, Lead, User as UserType } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
@@ -371,7 +371,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           <div className="space-y-2">
             <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
               <MapPin className="w-4 h-4 text-[#fdb612]" />
-              Endereço
+              Endereço de Instalação
             </label>
             <div className="flex flex-col gap-2">
               <div className="relative group">
@@ -391,17 +391,17 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                   type="button"
                   onClick={handleGeocode}
                   disabled={isGeocoding}
-                  className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 font-bold text-xs disabled:opacity-50"
+                  className="flex-[2] py-2.5 bg-[#fdb612] text-[#231d0f] rounded-xl hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all border border-transparent font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isGeocoding ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Buscando...
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Localizando...
                     </>
                   ) : (
                     <>
-                      <Crosshair className="w-3 h-3" />
-                      Buscar por Endereço
+                      <Crosshair className="w-4 h-4" />
+                      Geolocalizar Endereço
                     </>
                   )}
                 </button>
@@ -424,14 +424,20 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                       );
                     }
                   }}
-                  className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800"
+                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 font-bold text-xs"
                   title="Usar minha localização atual"
                 >
                   <Maximize className="w-4 h-4" />
+                  GPS
                 </button>
               </div>
             </div>
             {errors.address && <p className="text-[10px] font-bold text-rose-500">{errors.address}</p>}
+            {(formData.latitude && formData.longitude) && (
+              <p className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Coordenadas salvas: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

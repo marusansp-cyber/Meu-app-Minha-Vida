@@ -336,11 +336,11 @@ export default function App() {
     if (user.role === 'admin') return true;
     
     const permissions: Record<string, string[]> = {
-      sales: ['dashboard', 'leads', 'sales', 'proposals', 'clients', 'reports'],
+      sales: ['dashboard', 'leads', 'sales', 'clients', 'reports'],
       engineer: ['dashboard', 'installations', 'clients'],
       installer: ['dashboard', 'installations'],
-      finance: ['dashboard', 'finance', 'proposals', 'clients', 'reports'],
-      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'users', 'sales', 'proposals', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
+      finance: ['dashboard', 'finance', 'clients', 'reports'],
+      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'users', 'sales', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -359,7 +359,7 @@ export default function App() {
 
   const handleOpenProposalsWithPreFill = (data: Partial<Proposal>) => {
     setProposalPreFill(data);
-    setCurrentView('proposals');
+    setCurrentView('sales');
   };
 
   const handleConvertToInstallation = (proposal: Proposal) => {
@@ -682,18 +682,15 @@ export default function App() {
                 )}
                 {currentView === 'team' && <TeamView />}
                 {currentView === 'users' && <UsersView />}
-                {currentView === 'sales' && <SalesView proposals={proposals} />}
-                {currentView === 'proposals' && (
-                  <ProposalsView 
+                {currentView === 'sales' && (
+                  <SalesView 
                     proposals={proposals} 
                     user={user} 
-                    kits={kits} 
-                    leads={leads} 
-                    clients={clients} 
+                    kits={kits}
+                    leads={leads}
+                    clients={clients}
                     preFill={proposalPreFill}
-                    isDarkMode={isDarkMode}
                     onPreFillComplete={() => setProposalPreFill(null)}
-                    onConvertToInstallation={handleConvertToInstallation}
                   />
                 )}
                 {currentView === 'settings' && <SettingsView user={user} onUpdateUser={setUser} onLogout={handleLogout} />}

@@ -30,18 +30,42 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
     const term = searchTerm.toLowerCase();
 
     return {
-      clients: clients.filter(c => 
-        c.name.toLowerCase().includes(term) || 
-        c.email.toLowerCase().includes(term)
-      ).slice(0, 3),
-      proposals: proposals.filter(p => 
-        p.client.toLowerCase().includes(term) || 
-        p.proposalNumber?.toLowerCase().includes(term) ||
-        p.id.toLowerCase().includes(term)
-      ).slice(0, 3),
-      installations: installations.filter(i => 
-        i.name.toLowerCase().includes(term)
-      ).slice(0, 3)
+      clients: clients.map(c => {
+        let score = 0;
+        let snippet = '';
+        if (c.name.toLowerCase().startsWith(term)) score += 10;
+        else if (c.name.toLowerCase().includes(term)) score += 5;
+        
+        if (c.email.toLowerCase().includes(term)) {
+          score += 3;
+          snippet = c.email;
+        }
+
+        return { ...c, score, snippet };
+      }).filter(c => c.score > 0).sort((a, b) => b.score - a.score).slice(0, 4),
+
+      proposals: proposals.map(p => {
+        let score = 0;
+        let snippet = '';
+        if (p.client.toLowerCase().startsWith(term)) score += 10;
+        else if (p.client.toLowerCase().includes(term)) score += 5;
+        
+        if (p.proposalNumber?.toLowerCase().includes(term)) {
+          score += 8;
+          snippet = `Nº ${p.proposalNumber}`;
+        }
+        
+        if (p.id.toLowerCase().includes(term)) score += 1;
+
+        return { ...p, score, snippet };
+      }).filter(p => p.score > 0).sort((a, b) => b.score - a.score).slice(0, 4),
+
+      installations: installations.map(i => {
+        let score = 0;
+        if (i.name.toLowerCase().startsWith(term)) score += 10;
+        else if (i.name.toLowerCase().includes(term)) score += 5;
+        return { ...i, score };
+      }).filter(i => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 4)
     };
   }, [searchTerm, clients, proposals, installations]);
 
@@ -105,7 +129,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
                         </div>
                         <div className="text-left flex-1 min-w-0">
                           <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-[#fdb612] transition-colors">{client.name}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{client.email}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{client.snippet || client.email}</p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
                       </button>
@@ -167,7 +191,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
                         </div>
                         <div className="text-left flex-1 min-w-0">
                           <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-[#fdb612] transition-colors">{proposal.client}</p>
-                          <p className="text-[10px] text-slate-400 truncate">No: {proposal.proposalNumber || proposal.id.slice(0, 8)} • {proposal.value}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{proposal.snippet ? `${proposal.snippet} • ` : ''}{proposal.value}</p>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
                       </button>

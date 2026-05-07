@@ -24,7 +24,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     cpfCnpj: '',
     address: '',
     cep: '',
-    ucNumber: ''
+    ucNumber: '',
+    scheduledDate: ''
   });
 
   const [errors, setErrors] = useState<Record<string, string | null>>({});
@@ -182,11 +183,10 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 )}
                 value={formData.name || ''}
                 onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
-                  if (errors.name) {
-                    const err = validateName(e.target.value);
-                    setErrors({ ...errors, name: err });
-                  }
+                  const val = e.target.value;
+                  setFormData({ ...formData, name: val });
+                  const err = validateName(val);
+                  setErrors(prev => ({ ...prev, name: err }));
                 }}
               />
             </div>
@@ -214,10 +214,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 onChange={(e) => {
                   const val = e.target.value;
                   setFormData({ ...formData, email: val });
-                  if (errors.email) {
-                    const err = validateEmail(val);
-                    setErrors({ ...errors, email: err });
-                  }
+                  const err = validateEmail(val);
+                  setErrors(prev => ({ ...prev, email: err }));
                 }}
               />
               {formData.email && !errors.email && (
@@ -249,8 +247,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                 onChange={(e) => {
                   const masked = maskPhone(e.target.value);
                   setFormData({ ...formData, phone: masked });
-                  const errContext = validatePhone(masked);
-                  setErrors({ ...errors, phone: errContext });
+                  const err = validatePhone(masked);
+                  setErrors(prev => ({ ...prev, phone: err }));
                 }}
               />
               {formData.phone && !errors.phone && (
@@ -280,8 +278,8 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                   onChange={(e) => {
                     const masked = maskPhone(e.target.value);
                     setFormData({ ...formData, whatsapp: masked });
-                    const errContext = validatePhone(masked);
-                    setErrors({ ...errors, whatsapp: errContext });
+                    const err = validatePhone(masked);
+                    setErrors(prev => ({ ...prev, whatsapp: err }));
                   }}
                 />
                 {formData.whatsapp && !errors.whatsapp && (
@@ -317,7 +315,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     if (parts.length > 2) val = parts[0] + '.' + parts[1];
                     setFormData({ ...formData, systemSize: val });
                     const err = validateSystemSize(val);
-                    setErrors({ ...errors, systemSize: err });
+                    setErrors(prev => ({ ...prev, systemSize: err }));
                   }}
                 />
               </div>
@@ -345,7 +343,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
                     const masked = maskCurrency(e.target.value);
                     setFormData({ ...formData, value: masked });
                     const err = validateValue(masked);
-                    setErrors({ ...errors, value: err });
+                    setErrors(prev => ({ ...prev, value: err }));
                   }}
                 />
               </div>

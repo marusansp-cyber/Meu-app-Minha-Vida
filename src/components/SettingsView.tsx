@@ -94,6 +94,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     status: "Ativo",
     nextBilling: "14/04/2026",
     paymentMethod: "Cartão de Crédito (**** 4242)",
+    newPassword: "",
+    confirmPassword: "",
     invoices: [
       { id: '1', date: '14/03/2026', amount: 'R$ 499,00', status: 'Pago' },
       { id: '2', date: '14/02/2026', amount: 'R$ 499,00', status: 'Pago' },

@@ -285,13 +285,16 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
       const matchesRepresentative = selectedRepresentatives.length === 0 || (lead.representative && selectedRepresentatives.includes(lead.representative));
       
       let matchesDate = true;
-      const dateToCompare = dateFilterType === 'created' ? lead.createdAt : lead.scheduledDate;
+      const fullDateToCompare = dateFilterType === 'created' ? lead.createdAt : lead.scheduledDate;
+      const dateToCompare = fullDateToCompare ? fullDateToCompare.split('T')[0] : null;
       
-      if (dateToCompare) {
-        if (startDate && dateToCompare < startDate) matchesDate = false;
-        if (endDate && dateToCompare > endDate) matchesDate = false;
-      } else if (startDate || endDate) {
-        matchesDate = false;
+      if (startDate || endDate) {
+        if (!dateToCompare) {
+          matchesDate = false;
+        } else {
+          if (startDate && dateToCompare < startDate) matchesDate = false;
+          if (endDate && dateToCompare > endDate) matchesDate = false;
+        }
       }
       
       return matchesSearch && matchesStatus && matchesUrgency && matchesDate && matchesRepresentative;
