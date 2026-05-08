@@ -4,13 +4,18 @@ import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
 
 async function startServer() {
-  const app = express();
-  const PORT = 3000;
-  console.log("Iniciando servidor Vieira's Solar...");
+  console.log("=== INICIANDO PROCESSO DE STARTUP DO SERVIDOR ===");
+  try {
+    const app = express();
+    const PORT = 3000;
+    
+    app.get("/api/health", (req, res) => {
+      res.json({ status: "ok", time: new Date().toISOString() });
+    });
 
-  app.use(express.json({ limit: '50mb' }));
+    app.use(express.json({ limit: '50mb' }));
 
-  console.log("Verificando configuração SMTP...");
+    console.log("Verificando configuração SMTP...");
   if (process.env.SMTP_USER && process.env.SMTP_PASS) {
     console.log(`SMTP_USER detectado: ${process.env.SMTP_USER}`);
     console.log("SMTP_PASS detectado (tamanho):", process.env.SMTP_PASS.length);
@@ -116,6 +121,10 @@ async function startServer() {
         to,
         subject: subject || "Proposta Solar - Vieira's Solar & Engenharia",
         text: body || "Olá, segue em anexo a proposta comercial para o seu sistema de energia solar.",
+        headers: {
+          'Disposition-Notification-To': userClean, // Requests a read receipt to the sender
+          'Return-Receipt-To': userClean // Another common header for receipts
+        },
         attachments: [
           {
             filename: fileName || "proposta_solar.pdf",
@@ -248,11 +257,13 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    console.log("Configurando middleware do Vite...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
+    console.log("Middleware do Vite configurado.");
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
@@ -264,6 +275,10 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+  } catch (error) {
+    console.error("FALHA CRÍTICA AO INICIAR SERVIDOR:", error);
+    process.exit(1);
+  }
 }
 
 startServer();

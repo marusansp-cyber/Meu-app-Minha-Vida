@@ -224,7 +224,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const textGray = [120, 120, 120];     // #787878
 
   const drawHeaderFooter = (pageNumber: number) => {
-    const totalPages = 4 + (proposal.photoUrl || (proposal.customImageLinks && proposal.customImageLinks.length > 0) ? 1 : 0);
+    const totalPages = 5 + (proposal.photoUrl || (proposal.customImageLinks && proposal.customImageLinks.length > 0) ? 1 : 0);
     
     // Top Bar - Primary Green with Gradient-like effect
     doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
@@ -308,8 +308,75 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const cfX = marginLeft + 15;
   const cfW = pageWidth - marginLeft - marginRight - 30;
 
-  // --- PAGE 1: PROJETO E INSTALAÇÃO ---
+  // --- PAGE 1: COVER AND CLIENT DATA ---
   drawHeaderFooter(1);
+  
+  // Custom Cover
+  doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.rect(marginLeft, 30, pageWidth - marginLeft - marginRight, 80, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(28);
+  doc.setFont("helvetica", "bold");
+  doc.text("PROPOSTA COMERCIAL", pageWidth / 2, 65, { align: 'center' });
+  doc.setFontSize(14);
+  doc.text("ENERGIA SOLAR FOTOVOLTAICA", pageWidth / 2, 75, { align: 'center' });
+
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.setFontSize(20);
+  doc.text("Dados do Cliente", marginLeft + 5, 125);
+
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(marginLeft + 5, 130, pageWidth - marginLeft - marginRight - 10, 50, 3, 3, 'F');
+  
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("Nome/Titular:", marginLeft + 15, 142);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.titular || proposal.client}`, marginLeft + 50, 142);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("CPF/CNPJ:", marginLeft + 15, 150);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.cpfCnpj || "N/A"}`, marginLeft + 50, 150);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Endereço:", marginLeft + 15, 158);
+  doc.setFont("helvetica", "normal");
+  const splitAddr = doc.splitTextToSize(`${proposal.endereco || "N/A"}${proposal.cep ? ', CEP: ' + proposal.cep : ''}`, pageWidth - marginLeft - marginRight - 60);
+  doc.text(splitAddr, marginLeft + 50, 158);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Email:", marginLeft + 15, 172);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.email || "Não informado"}`, marginLeft + 50, 172);
+
+  const consultantY = 200;
+  doc.setFontSize(18);
+  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  doc.text("Seu Consultor", marginLeft + 5, consultantY);
+  
+  doc.setFontSize(11);
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("Consultor Responsável:", marginLeft + 15, consultantY + 12);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.representative}`, marginLeft + 65, consultantY + 12);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Data da Proposta:", marginLeft + 15, consultantY + 20);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.date}`, marginLeft + 65, consultantY + 20);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Válido até:", marginLeft + 15, consultantY + 28);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${proposal.expiryDate || "15 dias após a emissão"}`, marginLeft + 65, consultantY + 28);
+
+  // --- PAGE 2: PROJETO E INSTALAÇÃO ---
+  doc.addPage();
+  drawHeaderFooter(2);
   
   doc.setFont("helvetica", "bold");
   doc.setFontSize(28);
@@ -424,9 +491,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.rect(pageWidth / 2 + 10, chartY + 12, 4, 4, 'F');
   doc.text("Geração (kWh)", pageWidth / 2 + 16, chartY + 15.5);
 
-  // --- PAGE 2: LISTA DE EQUIPAMENTOS ---
+  // --- PAGE 3: LISTA DE EQUIPAMENTOS ---
   doc.addPage();
-  drawHeaderFooter(2);
+  drawHeaderFooter(3);
   doc.setFontSize(28);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
   doc.text("Lista de Equipamentos", pageWidth / 2, 45, { align: 'center' });
@@ -537,9 +604,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text("Selo de Qualidade", pageWidth - marginRight - 25, pageHeight - 50, { align: 'center' });
   doc.text("VIEIRA'S SOLAR", pageWidth - marginRight - 25, pageHeight - 45, { align: 'center' });
 
-  // --- PAGE 3: SERVIÇOS E FINANCEIRA ---
+  // --- PAGE 4: SERVIÇOS E FINANCEIRA ---
   doc.addPage();
-  drawHeaderFooter(3);
+  drawHeaderFooter(4);
   doc.setFontSize(28);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
   doc.text("Serviços Inclusos", pageWidth / 2, 45, { align: 'center' });
@@ -602,9 +669,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   });
 
 
-  // --- PAGE 4: FATURA E PAYBACK ---
+  // --- PAGE 5: FATURA E PAYBACK ---
   doc.addPage();
-  drawHeaderFooter(4);
+  drawHeaderFooter(5);
   doc.setFontSize(24);
   doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
   doc.text("Primeiro Ano da Fatura de Energia", pageWidth / 2, 45, { align: 'center' });
@@ -684,7 +751,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   if (allImages.length > 0) {
     doc.addPage();
-    drawHeaderFooter(5);
+    drawHeaderFooter(6);
     doc.setFontSize(24);
     doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
     doc.text("Anexos Fotográficos", pageWidth / 2, 45, { align: 'center' });

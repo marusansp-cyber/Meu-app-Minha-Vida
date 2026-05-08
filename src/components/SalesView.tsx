@@ -41,8 +41,63 @@ export const SalesView: React.FC<SalesViewProps> = ({
     cpfCnpj: '',
     hasProject: 'all',
     clientType: 'all',
-    status: 'all'
+    status: 'pending' // Default to pending as requested in another part of the prompt, or just make sure it's an option
   });
+
+  const [isSendingEmail, setIsSendingEmail] = useState<string | null>(null);
+
+  const handleToggleCommission = async (proposal: Proposal) => {
+    try {
+      const newStatus = proposal.commissionStatus === 'paid' ? 'pending' : 'paid';
+      await updateDocument('proposals', proposal.id, { commissionStatus: newStatus });
+      showToast(`Comissão marcada como ${newStatus === 'paid' ? 'paga' : 'pendente'}.`);
+    } catch (error) {
+      showToast('Erro ao atualizar comissão.');
+    }
+  };
+
+  const handleSendEmail = async (proposal: Proposal) => {
+    setIsSendingEmail(proposal.id);
+    try {
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const { generateProposalPDF } = await import('../services/pdfService');
+      const { sendProposalEmail } = await import('../services/emailService');
+
+      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      const result = await sendProposalEmail({
+        to: proposal.email || proposal.cpfCnpj || '', // Fallback or prompt for email
+        subject: `Proposta Solar - ${proposal.client}`,
+        body: `Olá ${proposal.client},\n\nSegue em anexo a proposta detalhada para seu sistema fotovoltaico.\n\nPor favor, confirme o recebimento deste e-mail.\n\nAtenciosamente,\nEquipe Vieira's Solar`,
+        pdfBase64,
+        fileName: `proposta_${proposal.client.replace(/\s+/g, '_')}.pdf`
+      });
+
+      if (result.success) {
+        showToast('E-mail enviado com sucesso!');
+        await updateDocument('proposals', proposal.id, { status: 'sent' });
+      } else {
+        showToast(result.message);
+      }
+    } catch (error) {
+      showToast('Erro ao enviar e-mail.');
+    } finally {
+      setIsSendingEmail(null);
+    }
+  };
+
+  const handleDownloadPDF = async (proposal: Proposal) => {
+    try {
+      const { generateProposalPDF } = await import('../services/pdfService');
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfDataUri = await generateProposalPDF(proposal, kit);
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      link.download = `proposta_${proposal.client.replace(/\s+/g, '_')}.pdf`;
+      link.click();
+    } catch (error) {
+      showToast('Erro ao gerar PDF.');
+    }
+  };
 
   useEffect(() => {
     if (preFill) {
@@ -515,15 +570,16 @@ export const SalesView: React.FC<SalesViewProps> = ({
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Projeto?</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Status da Proposta</label>
                   <select 
-                    value={filters.hasProject}
-                    onChange={(e) => setFilters(prev => ({ ...prev, hasProject: e.target.value }))}
+                    value={filters.status}
+                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-[#fdb612]"
                   >
-                    <option value="all">Indiferente</option>
-                    <option value="yes">Sim (Accepted)</option>
-                    <option value="no">Não (Outros)</option>
+                    <option value="all">Todos</option>
+                    <option value="pending">Pendente (Em Aberto)</option>
+                    <option value="sent">Enviado</option>
+                    <option value="accepted">Aceito (Fechado)</option>
                   </select>
                 </div>
               </motion.div>
@@ -539,6 +595,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 <th className="px-8 py-5">Consultor</th>
                 <th className="px-8 py-5">Data</th>
                 <th className="px-8 py-5">Status</th>
+                <th className="px-8 py-5">Comissão</th>
                 <th className="px-8 py-5 text-right">Ações</th>
               </tr>
             </thead>
@@ -585,8 +642,41 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       {proposal.status === 'accepted' ? 'Fechado' : proposal.status === 'sent' ? 'Enviado' : 'Em Aberto'}
                     </span>
                   </td>
+                  <td className="px-8 py-5">
+                    <button 
+                      onClick={() => handleToggleCommission(proposal)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                        proposal.commissionStatus === 'paid'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                      )}
+                    >
+                      {proposal.commissionStatus === 'paid' ? 'Paga' : 'Pendente'}
+                    </button>
+                  </td>
                   <td className="px-8 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => handleSendEmail(proposal)}
+                        disabled={isSendingEmail === proposal.id}
+                        className={cn(
+                          "p-2 rounded-lg transition-all",
+                          isSendingEmail === proposal.id
+                            ? "bg-slate-100 text-slate-300 animate-pulse"
+                            : "text-slate-400 hover:text-blue-500 hover:bg-blue-500/10"
+                        )}
+                        title="Enviar por E-mail"
+                      >
+                        <Send className={cn("w-4 h-4", isSendingEmail === proposal.id && "animate-bounce")} />
+                      </button>
+                      <button 
+                        onClick={() => handleDownloadPDF(proposal)}
+                        className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all"
+                        title="Gerar PDF detalhado"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
                       <button 
                         onClick={() => {
                           setSelectedProposal(proposal);
@@ -602,7 +692,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                           setSelectedProposal(proposal);
                           setIsModalOpen(true);
                         }}
-                        className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                        className="p-2 text-slate-400 hover:text-zinc-500 hover:bg-zinc-500/10 rounded-lg transition-all"
                         title="Editar"
                       >
                         <Edit2 className="w-4 h-4" />
