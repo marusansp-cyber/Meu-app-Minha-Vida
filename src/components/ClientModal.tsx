@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize, CheckCircle2 } from 'lucide-react';
-import { Client, Lead, User as UserType } from '../types';
+import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize, CheckCircle2, ScrollText, History, Plus, AlertCircle, Activity } from 'lucide-react';
+import { Client, Lead, User as UserType, Interaction } from '../types';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
 
@@ -20,11 +20,17 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     email: '',
     phone: '',
     address: '',
+    addressNumber: '',
+    addressComplement: '',
+    cep: '',
     cnpj: '',
     cpf: '',
+    notes: '',
     status: 'active',
     type: 'residential'
   });
+  const [activeTab, setActiveTab] = useState<'info' | 'history'>('info');
+  const [newNote, setNewNote] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -63,6 +69,9 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
       email: item.email,
       phone: item.phone || (item.whatsapp) || (item.type === 'Cliente' ? (item as any).phone : ''),
       address: item.address || '',
+      cep: item.cep || '',
+      addressNumber: item.addressNumber || '',
+      addressComplement: item.addressComplement || '',
       cnpj: item.cnpj || (item.cpfCnpj && item.cpfCnpj.replace(/\D/g, '').length > 11 ? item.cpfCnpj : ''),
       cpf: item.cpf || (item.cpfCnpj && item.cpfCnpj.replace(/\D/g, '').length <= 11 ? item.cpfCnpj : ''),
       latitude: item.latitude,
@@ -91,6 +100,50 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
   }, [client, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleCepChange = async (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, cep: cleaned.slice(0, 8) }));
+
+    if (cleaned.length === 8) {
+      setIsValidating(true);
+      try {
+        const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleaned}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({
+            ...prev,
+            address: data.street || '',
+            type: prev.type || 'residential' // Keep current type
+          }));
+          // Focus number field if possible? 
+        }
+      } catch (error) {
+        console.error('Error fetching CEP:', error);
+      } finally {
+        setIsValidating(false);
+      }
+    }
+  };
+
+  const handleAddNote = () => {
+    if (!newNote.trim()) return;
+
+    const interaction: Interaction = {
+      id: Math.random().toString(36).substr(2, 9),
+      date: new Date().toLocaleDateString('pt-BR'),
+      type: 'note',
+      description: newNote,
+      userName: user?.name || 'Sistema',
+      timestamp: Date.now()
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      interactions: [interaction, ...(prev.interactions || [])]
+    }));
+    setNewNote('');
+  };
 
   const handleCnpjChange = async (value: string) => {
     const formatted = formatCNPJ(value);
@@ -244,7 +297,22 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </div>
             <div>
               <h3 className="text-xl font-bold font-display">{client ? 'Editar Cliente' : 'Novo Cliente'}</h3>
-              <p className="text-xs text-slate-500">Preencha os dados do cliente</p>
+              <div className="flex gap-4 mt-1">
+                <button 
+                  onClick={() => setActiveTab('info')}
+                  className={cn("text-[10px] font-black uppercase tracking-widest transition-all", activeTab === 'info' ? "text-[#fdb612]" : "text-slate-400 hover:text-slate-500")}
+                >
+                  Informações
+                </button>
+                {client && (
+                  <button 
+                    onClick={() => setActiveTab('history')}
+                    className={cn("text-[10px] font-black uppercase tracking-widest transition-all", activeTab === 'history' ? "text-[#fdb612]" : "text-slate-400 hover:text-slate-500")}
+                  >
+                    Histórico
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -253,10 +321,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar bg-gradient-to-br from-white to-[#fdb612]/5 dark:from-[#1a160d] dark:to-[#fdb612]/2">
-          {!client && canSearch && (
+          {activeTab === 'info' ? (
+            <>
+          {canSearch && (
             <div className="relative group">
               <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] mb-1.5 block">
-                Bucar dados (Lead ou Cliente)
+                {client ? 'Preencher dados a partir de outro Lead/Cliente' : 'Preencher dados automaticamente'}
               </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
@@ -368,75 +438,125 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
-              <MapPin className="w-4 h-4 text-[#fdb612]" />
-              Endereço de Instalação
-            </label>
-            <div className="flex flex-col gap-2">
-              <div className="relative group">
+          <div className="space-y-4 pt-2">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#fdb612] bg-[#fdb612]/5 px-3 py-1 rounded-full w-fit">Localização</h4>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">CEP</label>
+                <input
+                  type="text"
+                  value={formData.cep || ''}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                  placeholder="00000-000"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Logradouro</label>
                 <input
                   type="text"
                   value={formData.address || ''}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Rua, Número, Bairro, Cidade - UF"
-                  className={cn(
-                    "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                    errors.address ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
-                  )}
+                  placeholder="Rua, Avenida, etc."
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
                 />
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleGeocode}
-                  disabled={isGeocoding}
-                  className="flex-[2] py-2.5 bg-[#fdb612] text-[#231d0f] rounded-xl hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all border border-transparent font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isGeocoding ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Localizando...
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="w-4 h-4" />
-                      Geolocalizar Endereço
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                          setFormData({
-                            ...formData,
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude
-                          });
-                        },
-                        (error) => {
-                          console.error('Geolocation error:', error);
-                          alert('Não foi possível obter sua localização atual.');
-                        }
-                      );
-                    }
-                  }}
-                  className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 font-bold text-xs"
-                  title="Usar minha localização atual"
-                >
-                  <Maximize className="w-4 h-4" />
-                  GPS
-                </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Número</label>
+                <input
+                  type="text"
+                  value={formData.addressNumber || ''}
+                  onChange={(e) => setFormData({ ...formData, addressNumber: e.target.value })}
+                  placeholder="Ex: 123"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Complemento</label>
+                <input
+                  type="text"
+                  value={formData.addressComplement || ''}
+                  onChange={(e) => setFormData({ ...formData, addressComplement: e.target.value })}
+                  placeholder="Apto, Bloco, etc."
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
               </div>
             </div>
-            {errors.address && <p className="text-[10px] font-bold text-rose-500">{errors.address}</p>}
-            {(formData.latitude && formData.longitude) && (
-              <p className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Coordenadas salvas: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-              </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleGeocode}
+                disabled={isGeocoding}
+                className="flex-[2] py-2.5 bg-[#fdb612] text-[#231d0f] rounded-xl hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all border border-transparent font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isGeocoding ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Buscando Coordenadas...
+                  </>
+                ) : (
+                  <>
+                    <Crosshair className="w-4 h-4" />
+                    Validar no Mapa
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                        setFormData({
+                          ...formData,
+                          latitude: position.coords.latitude,
+                          longitude: position.coords.longitude
+                        });
+                      },
+                      (error) => {
+                        console.error('Geolocation error:', error);
+                        alert('Não foi possível obter sua localização atual.');
+                      }
+                    );
+                  }
+                }}
+                className="flex-1 py-2.5 bg-white dark:bg-slate-800 text-slate-500 rounded-xl hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 font-bold text-xs"
+              >
+                <Maximize className="w-4 h-4" />
+                GPS
+              </button>
+            </div>
+
+            {(formData.latitude && formData.longitude) ? (
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 leading-none mb-0.5">Localização Confirmada</p>
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      Lat: {formData.latitude.toFixed(6)} | Lon: {formData.longitude.toFixed(6)}
+                    </p>
+                  </div>
+                </div>
+                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              </div>
+            ) : (
+              <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-2xl flex items-center gap-3">
+                <div className="size-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-500">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 leading-none mb-0.5">Mapa Pendente</p>
+                  <p className="text-xs font-bold text-amber-600/70">As coordenadas facilitam a visualização no mapa de vendas.</p>
+                </div>
+              </div>
             )}
           </div>
 
@@ -456,10 +576,15 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 placeholder="00.000.000/0000-00"
                 className={cn(
                   "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                  errors.cnpj ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                  errors.cnpj ? "border-rose-500 bg-rose-50/50 dark:bg-rose-500/5 text-rose-700" : "border-slate-200 dark:border-slate-800"
                 )}
               />
-              {errors.cnpj && <p className="text-[10px] font-bold text-rose-500">{errors.cnpj}</p>}
+              {errors.cnpj && (
+                <div className="flex items-center gap-1 text-[10px] font-bold text-rose-500 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.cnpj}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -473,10 +598,15 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 placeholder="000.000.000-00"
                 className={cn(
                   "w-full bg-slate-50 dark:bg-slate-900 border rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
-                  errors.cpf ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                  errors.cpf ? "border-rose-500 bg-rose-50/50 dark:bg-rose-500/5 text-rose-700" : "border-slate-200 dark:border-slate-800"
                 )}
               />
-              {errors.cpf && <p className="text-[10px] font-bold text-rose-500">{errors.cpf}</p>}
+              {errors.cpf && (
+                <div className="flex items-center gap-1 text-[10px] font-bold text-rose-500 mt-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.cpf}
+                </div>
+              )}
             </div>
           </div>
 
@@ -538,6 +668,78 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               />
             </div>
           </div>
+
+          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#fdb612] bg-[#fdb612]/5 px-3 py-1 rounded-full w-fit">Informações Adicionais</h4>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <ScrollText className="w-4 h-4 text-[#fdb612]" />
+                Observações do Cliente
+              </label>
+              <textarea
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Insira notas permanentes sobre este cliente..."
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all h-24 resize-none"
+              />
+            </div>
+          </div>
+          </>
+          ) : (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] mb-1.5 block">Nova Nota / Ação</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Descreva o contato ou ação realizada..."
+                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNote())}
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleAddNote}
+                    className="size-11 flex items-center justify-center bg-[#fdb612] text-[#231d0f] rounded-xl hover:shadow-lg transition-all active:scale-95"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-slate-500">
+                   <History className="w-4 h-4" />
+                   <span className="text-[10px] font-black uppercase tracking-widest">Histórico de Interações</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {(formData.interactions || []).length > 0 ? (
+                    formData.interactions?.map((it) => (
+                      <div key={it.id} className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex gap-4">
+                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
+                          {it.type === 'note' ? <ScrollText className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-[#fdb612] tracking-wider">{it.userName}</span>
+                            <span className="size-1 rounded-full bg-slate-300" />
+                            <span className="text-[10px] font-medium text-slate-400">{it.date}</span>
+                          </div>
+                          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 font-medium">{it.description}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                      <p className="text-xs text-slate-400 font-medium italic">Nenhuma interação registrada ainda.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="pt-4 flex gap-3">
             <button

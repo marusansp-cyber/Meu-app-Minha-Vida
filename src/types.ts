@@ -66,6 +66,9 @@ export interface Client {
   type?: 'residential' | 'rural' | 'industrial' | 'commercial' | 'public';
   ucNumber?: string;
   cep?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  notes?: string;
   lastModifiedBy?: string;
   lastModifiedAt?: string;
   auditLogs?: ClientAuditLog[];
@@ -203,6 +206,9 @@ export interface Proposal {
   financingInstallments?: number | null;
   financingInstallmentValue?: number | null;
   email?: string | null;
+  phone?: string | null;
+  paymentTerms?: string | null;
+  annualSavings?: number | null;
   internalNotes?: string | null;
   
   // Advanced Wizard Fields
@@ -295,6 +301,8 @@ export interface Kit {
   inverterLogo?: string;
   panelImage?: string;
   inverterImage?: string;
+  panelBrandModel?: string;
+  inverterBrandModel?: string;
   components: {
     name: string;
     quantity: number;

@@ -84,6 +84,7 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isSavingComponent, setIsSavingComponent] = useState<string | null>(null); // kitId-compIdx
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   // Search Cache
   const searchCache = React.useRef<Record<string, Kit[]>>({});
@@ -191,14 +192,18 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
         for (let i = 1; i <= 3; i++) {
           const nameKey = `comp${i}Name`;
           const qtyKey = `comp${i}Qty`;
+          const brandKey = `comp${i}Brand`;
+          const modelKey = `comp${i}Model`;
+          const notesKey = `comp${i}Notes`;
+          
           const cName = row[columnMapping[nameKey]];
           if (cName) {
             components.push({
               name: cName,
               quantity: parseInt(row[columnMapping[qtyKey]] || '1'),
-              brand: '',
-              model: '',
-              notes: ''
+              brand: row[columnMapping[brandKey]] || '',
+              model: row[columnMapping[modelKey]] || '',
+              notes: row[columnMapping[notesKey]] || ''
             });
           }
         }
@@ -219,6 +224,13 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
           }
         }
 
+        // Auto-extract brand and model from specific components for indexing
+        const moduleComp = components.find(c => {
+          const cName = c.name.toLowerCase();
+          return cName.includes('painel') || cName.includes('módulo') || cName.includes('modulo');
+        });
+        const inverterComp = components.find(c => c.name.toLowerCase().includes('inversor'));
+
         const kitData: Omit<Kit, 'id'> = {
           name,
           power,
@@ -227,8 +239,10 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
           components: components.length > 0 ? components : [],
           status: 'active',
           createdAt: new Date().toISOString(),
-          panelBrand: components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'))?.brand || '',
-          inverterBrand: components.find(c => c.name.toLowerCase().includes('inversor'))?.brand || ''
+          panelBrand: moduleComp?.brand || '',
+          inverterBrand: inverterComp?.brand || '',
+          panelBrandModel: moduleComp ? `${moduleComp.brand || ''} ${moduleComp.model || ''}`.trim() : '',
+          inverterBrandModel: inverterComp ? `${inverterComp.brand || ''} ${inverterComp.model || ''}`.trim() : ''
         };
 
         await createDocument('kits', kitData);
@@ -936,7 +950,17 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1">
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Marca</span>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Marca</span>
+                                    {comp.notes?.match(/https?:\/\/[^\s]+/) && (
+                                      <button 
+                                        onClick={() => setSelectedImage(comp.notes?.match(/https?:\/\/[^\s]+/)![0])}
+                                        className="text-[8px] font-black text-[#004a61] uppercase hover:underline"
+                                      >
+                                        Ver Imagem
+                                      </button>
+                                    )}
+                                  </div>
                                   <input 
                                     type="text"
                                     defaultValue={comp.brand}
@@ -1352,6 +1376,28 @@ export const KitsView: React.FC<KitsViewProps> = ({ kits, targetPower: initialTa
                 {isDeletingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 Confirmar Exclusão
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative max-w-4xl max-h-[90vh] w-full animate-in zoom-in-95 duration-300">
+            <button 
+              onClick={() => setSelectedImage(null)}
+              className="absolute -top-12 right-0 p-2 text-white hover:text-[#fdb612] transition-colors"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <div className="bg-white rounded-2xl overflow-hidden shadow-2xl p-2">
+              <img 
+                src={selectedImage} 
+                alt="Preview" 
+                className="w-full h-full object-contain max-h-[80vh] rounded-xl"
+                referrerPolicy="no-referrer"
+              />
             </div>
           </div>
         </div>

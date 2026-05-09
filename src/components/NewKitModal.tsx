@@ -119,15 +119,28 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
 
     setIsSubmitting(true);
     try {
+      // Automatically extract panel and inverter brand/model for better indexing and usage in proposals
+      const moduleComp = formData.components?.find(c => {
+        const name = c.name.toLowerCase();
+        return name.includes('painel') || name.includes('módulo') || name.includes('modulo');
+      });
+      const inverterComp = formData.components?.find(c => c.name.toLowerCase().includes('inversor'));
+
+      const updatedData = {
+        ...formData,
+        panelBrandModel: moduleComp ? `${moduleComp.brand || ''} ${moduleComp.model || ''}`.trim() : formData.panelBrandModel,
+        inverterBrandModel: inverterComp ? `${inverterComp.brand || ''} ${inverterComp.model || ''}`.trim() : formData.inverterBrandModel,
+      };
+
       if (kit?.id) {
         await updateDocument('kits', kit.id, {
-          ...formData,
+          ...updatedData,
           updatedAt: new Date().toISOString()
         });
         showToast('Kit atualizado com sucesso!');
       } else {
         await createDocument('kits', {
-          ...formData,
+          ...updatedData,
           status: 'active',
           createdAt: new Date().toISOString()
         });

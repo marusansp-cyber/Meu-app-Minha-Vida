@@ -44,6 +44,7 @@ import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
+import { generateProposalPDF } from '../services/pdfService';
 
 interface NewProposalModalProps {
   isOpen: boolean;
@@ -280,6 +281,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
     photoUrl: initialData?.photoUrl || '',
     customImageLinks: initialData?.customImageLinks || [],
+    paymentTerms: initialData?.paymentTerms || '30/60/90 dias',
     
     // Step 1: UCS
     titular: initialData?.titular || '',
@@ -1696,6 +1698,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   )}
 
                   <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Prazo de Pagamento</label>
+                    <input 
+                      type="text" 
+                      value={formData.paymentTerms || ''}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                      placeholder="Ex: 30/60/90 dias ou Entrada + 12x"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Data de Início da Instalação</label>
                     <input 
                       type="date"
@@ -2199,8 +2212,67 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
                         />
                       </div>
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-500/5 rounded-2xl border border-emerald-100 dark:border-emerald-500/20">
+                        <label className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-500 block mb-3 tracking-widest">Documentação</label>
+                        <button 
+                          type="button"
+                          onClick={async () => {
+                            if (!formData.client && !formData.titular) {
+                              showToast("Selecione um cliente primeiro.");
+                              return;
+                            }
+                            
+                            showToast("Gerando PDF da Proposta...");
+                            try {
+                              // Create a temporary proposal object for the PDF
+                              const proposalForPdf: Proposal = {
+                                id: 'preview',
+                                client: formData.client || formData.titular || 'Cliente',
+                                titular: formData.titular || formData.client || 'Cliente',
+                                value: formData.value || 0,
+                                systemSize: formData.systemSize || "0",
+                                energyConsumption: formData.energyConsumption || "1298",
+                                monthlyGeneration: formData.monthlyGeneration || "1343",
+                                date: formData.date || new Date().toLocaleDateString('pt-BR'),
+                                expiryDate: formData.expiryDate || "",
+                                representative: formData.representative || "Representante",
+                                status: 'pending',
+                                email: formData.email,
+                                telefone: formData.telefone || formData.phone || formData.whatsapp,
+                                endereco: formData.endereco,
+                                cpfCnpj: formData.cpfCnpj,
+                                paymentTerms: formData.paymentTerms,
+                                proposalNumber: formData.proposalNumber || "2026/001",
+                                annualSavings: formData.annualSavings || 15155,
+                                panelBrandModel: formData.panelBrandModel,
+                                inverterBrandModel: formData.inverterBrandModel,
+                                panelQuantity: formData.panelQuantity,
+                                invertersQuantity: formData.invertersQuantity
+                              };
+
+                              const pdfDataUri = await generateProposalPDF(proposalForPdf, selectedKit);
+                              
+                              // Trigger download
+                              const link = document.createElement('a');
+                              link.href = pdfDataUri;
+                              link.download = `Proposta_${proposalForPdf.proposalNumber}_${proposalForPdf.client.replace(/\s+/g, '_')}.pdf`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              
+                              showToast("PDF Gerado com Sucesso!");
+                            } catch (error) {
+                              console.error("Erro ao gerar PDF:", error);
+                              showToast("Erro ao gerar PDF.");
+                            }
+                          }}
+                          className="w-full py-3 bg-emerald-500 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Gerar PDF da Proposta
+                        </button>
+                      </div>
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Titular</label>
                         <p className="font-bold">{formData.titular || formData.client || 'Não informado'}</p>
                       </div>
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -2231,6 +2303,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                             className="w-full pl-6 text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
                           />
                         </div>
+                        <p className="text-[9px] text-slate-400 font-medium mt-1 uppercase tracking-tight">
+                          Padrão: 15 dias após a criação.
+                        </p>
                         {validationErrors.expiryDate && (
                           <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase tracking-tight">{validationErrors.expiryDate}</p>
                         )}

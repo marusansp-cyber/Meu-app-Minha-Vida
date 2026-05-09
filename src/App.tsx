@@ -83,7 +83,8 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
-    const ensureDemoClient = async () => {
+    const ensureDemoData = async () => {
+      // Ensure Residencial Vieira client
       if (clients.length > 0 && !clients.some(c => c.name === 'Residencial Vieira')) {
         const demoClient: Partial<Client> = {
           name: 'Residencial Vieira',
@@ -94,15 +95,108 @@ export default function App() {
           status: 'active',
           type: 'residential',
           ucNumber: '30098877665',
-          cep: '31270-901'
+          cep: '31270-901',
+          latitude: -19.8519,
+          longitude: -43.9554
         };
         await createDocument('clients', demoClient as Client);
       }
+
+      // Ensure Kits
+      if (kits.length > 0) {
+        if (!kits.some(k => k.name === 'Kit PV Energia Solar 10kWp')) {
+          await createDocument('kits', {
+            name: 'Kit PV Energia Solar 10kWp',
+            description: 'Kit de alta performance para residências de médio porte.',
+            power: 10,
+            price: 24500,
+            status: 'active',
+            panelBrand: 'Jinko',
+            inverterBrand: 'Deye',
+            components: [
+              { name: 'Painel Solar Jinko Tiger Neo', quantity: 18, brand: 'Jinko' },
+              { name: 'Inversor Deye 10kW', quantity: 1, brand: 'Deye' }
+            ]
+          });
+        }
+        if (!kits.some(k => k.name === 'Kit Residencial Completo')) {
+          await createDocument('kits', {
+            name: 'Kit Residencial Completo',
+            power: 7.5,
+            price: 18000,
+            status: 'active',
+            description: 'Solução completa para residências.',
+            components: [
+              { name: 'Painel Solar Jinko Tiger Neo', quantity: 15, brand: 'Jinko' },
+              { name: 'Inversor Deye 5kW', quantity: 1, brand: 'Deye' }
+            ]
+          });
+        }
+      }
+
+      // Ensure 'Edifício Skyline' Installation
+      if (installations.length > 0) {
+        const skyline = installations.find(i => i.name.includes('Edifício Skyline'));
+        if (skyline) {
+          const updatedStages = (skyline.stages || []).map(s => {
+            if (s.name === 'Instalação') return { ...s, status: 'completed', progress: 100 };
+            if (s.name === 'Inspeção' || s.name.includes('Vistoria')) return { ...s, status: 'pending', progress: 0 };
+            return s;
+          });
+          
+          if (skyline.technician?.name !== 'Sara Connor' || skyline.stage !== 'Inspeção') {
+            await updateDocument('installations', skyline.id, {
+              stages: updatedStages,
+              progress: 100,
+              stage: 'Inspeção',
+              technician: { 
+                name: 'Sara Connor', 
+                avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' 
+              },
+              lastUpdated: new Date().toISOString()
+            });
+          }
+        } else {
+          await createDocument('installations', {
+            name: 'Edifício Skyline',
+            projectId: 'SKY-2026',
+            stage: 'Inspeção',
+            type: 'apartment',
+            progress: 100,
+            technician: { 
+              name: 'Sara Connor', 
+              avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' 
+            },
+            lastUpdated: new Date().toISOString(),
+            stages: [
+              { name: 'Projeto / Engenharia', status: 'completed', progress: 100 },
+              { name: 'Vistoria Técnica', status: 'completed', progress: 100 },
+              { name: 'Instalação', status: 'completed', progress: 100 },
+              { name: 'Inspeção', status: 'pending', progress: 0 }
+            ]
+          });
+        }
+      }
+
+      // Ensure accepted proposal for Residencial Vieira
+      if (proposals.length > 0 && !proposals.some(p => p.client === 'Residencial Vieira' && p.status === 'accepted')) {
+        await createDocument('proposals', {
+          client: 'Residencial Vieira',
+          value: 24500,
+          date: new Date().toLocaleDateString('pt-BR'),
+          status: 'accepted',
+          systemSize: '10 kWp',
+          representative: user?.name || 'Sistema',
+          proposalNumber: '2026/088',
+          email: 'contato@res-vieira.com.br'
+        });
+      }
     };
-    if (isAuthenticated && clients.length > 0) {
-      ensureDemoClient();
+
+    if (isAuthenticated && (clients.length > 0 || kits.length > 0 || installations.length > 0 || proposals.length > 0)) {
+      ensureDemoData();
     }
-  }, [isAuthenticated, clients.length]);
+  }, [isAuthenticated, clients.length, kits.length, installations.length, proposals.length]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');

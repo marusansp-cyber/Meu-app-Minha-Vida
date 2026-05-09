@@ -54,7 +54,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>(['active']);
   const [showFilters, setShowFilters] = useState(false);
   const [clientFilters, setClientFilters] = useState({
     cnpj_cpf: '',
@@ -426,7 +426,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 {client.address && (
                   <span className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 font-medium">
                     <MapPin className="w-4 h-4 text-[#fdb612]" />
-                    {client.address}
+                    {client.address}{client.addressNumber ? `, ${client.addressNumber}` : ''}{client.addressComplement ? ` - ${client.addressComplement}` : ''}
                   </span>
                 )}
               </div>
@@ -753,46 +753,97 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </div>
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                   <div className="flex items-center gap-4">
-                    <div className="size-16 rounded-2xl bg-[#fdb612] flex items-center justify-center text-[#231d0f] text-2xl font-black">
-                      {selectedClient.name.charAt(0)}
+                    <div className="size-16 rounded-2xl bg-[#fdb612] flex items-center justify-center text-[#231d0f] text-2xl font-black shadow-lg shadow-[#fdb612]/20">
+                      {selectedClient.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h4 className="font-black text-xl text-slate-900 dark:text-slate-100">{selectedClient.name}</h4>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{selectedClient.status}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest",
+                          selectedClient.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-500/10 text-slate-500"
+                        )}>
+                          {selectedClient.status === 'active' ? 'Ativo' : 'Inativo'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 capitalize">{selectedClient.type || 'Residencial'}</span>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="space-y-4 bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
                       <Mail className="w-4 h-4 text-[#fdb612]" />
                       {selectedClient.email}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
                       <Phone className="w-4 h-4 text-[#fdb612]" />
                       {selectedClient.phone}
                     </div>
                     {selectedClient.address && (
-                      <div className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-400">
+                      <div className="flex items-start gap-3 text-xs text-slate-600 dark:text-slate-400 font-medium">
                         <MapPin className="w-4 h-4 text-[#fdb612] shrink-0 mt-0.5" />
-                        {selectedClient.address}
+                        <span className="leading-relaxed">
+                          {selectedClient.address}{selectedClient.addressNumber ? `, ${selectedClient.addressNumber}` : ''}
+                        </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+                  <div className="space-y-3">
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                       <HistoryIcon className="w-3 h-3" />
+                       Últimas Interações
+                    </h5>
+                    <div className="space-y-2">
+                      <div className="bg-[#fdb612]/5 p-3 rounded-xl border border-[#fdb612]/10 space-y-2">
+                        <textarea 
+                          value={newNote}
+                          onChange={(e) => setNewNote(e.target.value)}
+                          placeholder="Nota rápida..."
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-[10px] outline-none focus:ring-1 focus:ring-[#fdb612] resize-none"
+                          rows={2}
+                        />
+                        <button 
+                          onClick={() => handleAddNote(selectedClient)}
+                          disabled={!newNote.trim()}
+                          className="w-full py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg font-black text-[9px] uppercase tracking-widest disabled:opacity-50 transition-all"
+                        >
+                          Adicionar Nota
+                        </button>
+                      </div>
+                      {allInteractions.slice(0, 2).map((it) => (
+                        <div key={it.id} className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[8px] font-black uppercase text-[#fdb612]">{it.type}</span>
+                            <span className="text-[8px] font-medium text-slate-400">{it.date}</span>
+                          </div>
+                          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 line-clamp-1">{it.title || it.description}</p>
+                        </div>
+                      ))}
+                      {allInteractions.length === 0 && !newNote && (
+                        <p className="text-[10px] text-slate-400 italic text-center py-2">Sem interações registradas.</p>
+                      )}
+                    </div>
+                  </div>
+ 
+                  <div className="pt-6 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3">
                     {onCreateProposal && (
                       <button 
                         onClick={() => onCreateProposal(selectedClient)}
-                        className="flex-1 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all"
+                        className="flex items-center justify-center gap-2 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-[10px] uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
                       >
+                        <Plus className="w-4 h-4" />
                         Criar Proposta
                       </button>
                     )}
                     <button 
-                      onClick={() => setViewMode('list')}
-                      className="flex-1 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setViewMode('list');
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
                     >
-                      Ir para Lista
+                      Ver Histórico
                     </button>
                   </div>
                 </div>
@@ -986,7 +1037,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                           <option value="public">Público</option>
                         </select>
                       </div>
-                      <div className="pt-2">
+                      {/* Button hidden as requested */}
+                      {/* <div className="pt-2">
                         <button 
                           onClick={() => {
                             setClientFilters({
@@ -1003,7 +1055,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         >
                           Limpar Filtros
                         </button>
-                      </div>
+                      </div> */}
                     </div>
                   </motion.div>
                 )}
@@ -1035,14 +1087,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         </div>
                       </button>
                     ))}
-                    {statusFilters.length > 0 && (
+                    {/* Button hidden as requested */}
+                    {/* {statusFilters.length > 0 && (
                       <button 
                         onClick={() => setStatusFilters([])}
                         className="text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline ml-2"
                       >
                         Limpar
                       </button>
-                    )}
+                    )} */}
                     <button 
                       onClick={() => setShowFilters(false)}
                       className="ml-auto px-4 py-1.5 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-widest text-[9px] shadow-lg shadow-[#fdb612]/10"

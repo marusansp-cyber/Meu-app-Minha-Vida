@@ -5,6 +5,8 @@ import {
   Trash2, 
   X, 
   Maximize2, 
+  Pencil,
+  Save,
   Image as ImageIcon,
   Filter,
   Download,
@@ -14,7 +16,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, formatDate } from '../lib/utils';
 import { GalleryItem, User } from '../types';
-import { syncCollection, createDocument, deleteDocument } from '../firestoreUtils';
+import { syncCollection, createDocument, deleteDocument, updateDocument } from '../firestoreUtils';
 
 interface GalleryViewProps {
   user: User | null;
@@ -23,6 +25,7 @@ interface GalleryViewProps {
 export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isUploading, setIsUploading] = useState(false);
@@ -76,12 +79,46 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
     }
   };
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir esta imagem?')) {
+    
+    if (deletingId === id) {
+      // Confirmed delete
       await deleteDocument('gallery', id);
+      if (selectedItem?.id === id) {
+        setSelectedItem(null);
+      }
+      setDeletingId(null);
+    } else {
+      // First click: set state to show confirmation
+      setDeletingId(id);
+      // Auto-reset confirmation after 3 seconds
+      setTimeout(() => setDeletingId(null), 3000);
     }
   };
+
+  const handleEdit = (e: React.MouseEvent, item: GalleryItem) => {
+    e.stopPropagation();
+    setEditingItem(item);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    await updateDocument('gallery', editingItem.id, {
+      name: editingItem.name,
+      description: editingItem.description,
+      category: editingItem.category
+    });
+    
+    if (selectedItem?.id === editingItem.id) {
+      setSelectedItem(editingItem);
+    }
+    setEditingItem(null);
+  };
+
+  const isAdminOrStaff = user?.role === 'admin' || user?.role === 'admin_staff' || user?.role === 'sales' || user?.role === 'engineer' || user?.role === 'finance' || user?.role === 'installer';
 
   const categories = [
     { id: 'all', label: 'Todos' },
@@ -100,6 +137,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
         </div>
         
         <div className="flex items-center gap-2">
+          {items.some(i => i.uploadedBy === user?.name) && isAdminOrStaff && (
+             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500 mr-2">Modo Gestão Ativo</p>
+          )}
           <label className={cn(
             "flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-lg shadow-[#fdb612]/20",
             isUploading && "opacity-50 cursor-not-allowed"
@@ -169,15 +209,31 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  {user?.role === 'admin' && (
-                    <button 
-                      onClick={(e) => handleDelete(e, item.id)}
-                      className="p-2 bg-rose-500 text-white rounded-lg hover:scale-110 transition-all shadow-lg"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                  {isAdminOrStaff && (
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={(e) => handleEdit(e, item)}
+                        className="p-3 bg-white/20 backdrop-blur-md text-white rounded-xl hover:bg-[#fdb612] hover:text-[#231d0f] transition-all shadow-lg"
+                        title="Editar"
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={(e) => handleDelete(e, item.id)}
+                        className={cn(
+                          "p-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-1 min-w-[44px]",
+                          deletingId === item.id 
+                            ? "bg-amber-500 text-white animate-pulse scale-110" 
+                            : "bg-rose-500 text-white hover:scale-110"
+                        )}
+                        title={deletingId === item.id ? "Clique de novo para confirmar" : "Excluir"}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        {deletingId === item.id && <span className="text-[8px] font-black uppercase">Confirmar?</span>}
+                      </button>
+                    </div>
                   )}
-                  <div className="p-2 bg-white/20 backdrop-blur-md text-white rounded-lg">
+                  <div className="p-2 bg-white/20 backdrop-blur-md text-white rounded-lg self-center">
                     <Maximize2 className="w-3 h-3" />
                   </div>
                 </div>
@@ -281,6 +337,20 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
                       <Download className="w-4 h-4" />
                       Baixar HD
                     </a>
+                    {isAdminOrStaff && (
+                      <button
+                        onClick={(e) => handleDelete(e, selectedItem.id)}
+                        className={cn(
+                          "flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg",
+                          deletingId === selectedItem.id
+                            ? "bg-amber-500 text-white animate-pulse"
+                            : "bg-rose-500 text-white hover:scale-105 active:scale-95"
+                        )}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {deletingId === selectedItem.id ? 'Confirma Exclusão?' : 'Excluir'}
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedItem(null)}
                       className="px-6 py-4 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5"
@@ -292,6 +362,78 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingItem && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-[#231d0f] rounded-[2rem] p-8 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Editar Imagem</h3>
+                <button onClick={() => setEditingItem(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-all">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome do Arquivo</label>
+                  <input
+                    type="text"
+                    value={editingItem.name}
+                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Categoria</label>
+                  <select
+                    value={editingItem.category}
+                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value as any })}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium"
+                  >
+                    {categories.filter(c => c.id !== 'all').map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Descrição</label>
+                  <textarea
+                    value={editingItem.description || ''}
+                    onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium resize-none"
+                    placeholder="Adicione uma descrição para esta imagem..."
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    onClick={handleSaveEdit}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg"
+                  >
+                    <Save className="w-4 h-4" />
+                    Salvar Alterações
+                  </button>
+                  <button
+                    onClick={() => setEditingItem(null)}
+                    className="px-6 py-4 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

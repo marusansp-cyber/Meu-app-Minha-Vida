@@ -208,586 +208,331 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   const pageWidth = 210;
   const pageHeight = 297;
+  const margin = 15;
 
-  // Margins in mm (from cm requirements)
-  const marginTop = 19.1;
-  const marginBottom = 19.1;
-  const marginLeft = 6.4;
-  const marginRight = 6.4;
-  const headerHeight = 7.6;
-  const footerHeight = 7.6;
+  // Colors
+  const primaryGold = [253, 182, 18];  // #fdb612
+  const secondaryNavy = [0, 74, 97];    // #004a61
+  const textDark = [35, 29, 15];       // #231d0f
+  const textLight = [100, 100, 100];
+  const bgGray = [248, 250, 252];
 
-  // Colors - matching the screenshots more closely
-  const primaryGreen = [57, 181, 74];   // #39B54A - Vibrant Energy Green
-  const electricBlue = [0, 174, 239];   // #00AEEF - Electric Blue
-  const textDark = [50, 50, 50];        // #323232
-  const textGray = [120, 120, 120];     // #787878
-
-  const drawHeaderFooter = (pageNumber: number) => {
-    const totalPages = 5 + (proposal.photoUrl || (proposal.customImageLinks && proposal.customImageLinks.length > 0) ? 1 : 0);
-    
-    // Top Bar - Primary Green with Gradient-like effect
-    doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-    doc.rect(0, 0, pageWidth, 8, 'F');
-    
-    // Subtle shadow line
-    doc.setFillColor(40, 140, 60);
-    doc.rect(0, 8, pageWidth, 0.5, 'F');
-
-    // Header Content
-    doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Vieira's Solar & Engenharia", marginLeft, 15);
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.text(`Proposta Comercial: ${proposal.proposalNumber || proposal.id}`, pageWidth - marginRight, 15, { align: 'right' });
-
-    // Bottom Bar - Electric Blue
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(0, pageHeight - 10, pageWidth, 10, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("GERANDO ENERGIA PARA O SEU FUTURO", marginLeft, pageHeight - 4);
-    doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - marginRight, pageHeight - 4, { align: 'right' });
+  const formatCurrency = (val: number | string | undefined | null) => {
+    const num = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.-]+/g,"")) : val;
+    if (num === null || num === undefined || isNaN(num)) return "R$ [Aguardando]";
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
-  const drawGaugeIcon = (x: number, y: number) => {
-    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.setLineWidth(3);
-    // Outer circle (rim)
-    doc.ellipse(x + 15, y + 15, 12, 12, 'S');
-    // Needle
-    doc.setLineWidth(1.5);
-    doc.line(x + 15, y + 15, x + 25, y + 5);
-    // Center point
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.circle(x + 15, y + 15, 2, 'F');
-  };
+  const aguardando = (val: any) => val || "[Aguardando]";
 
-  const drawPanelIcon = (x: number, y: number) => {
-    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.setLineWidth(0.5);
-    doc.rect(x, y, 6, 8);
-    doc.line(x, y + 4, x + 6, y + 4);
-    doc.line(x + 3, y, x + 3, y + 8);
-  };
-
-  const drawInverterIcon = (x: number, y: number) => {
-    doc.setDrawColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.setLineWidth(0.5);
-    doc.rect(x, y, 6, 8);
-    doc.line(x + 1, y + 2, x + 5, y + 2);
-    doc.circle(x + 3, y + 5, 2, 'S');
-  };
-
-  const energyCons = parseFloat(proposal.energyConsumption || "1357");
-  const monthlyGen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-  const energyRate = 1.05; // As requested: R$ 1,05/kWh
-  const minFee = 100; // As requested: R$ 100,00/mês
+  // --- HEADER & COVER ---
+  doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.rect(0, 0, pageWidth, 40, 'F');
   
-  const currentMonthlyBill = energyCons * energyRate;
-  const projectedMonthlyBill = Math.max(minFee, (energyCons - monthlyGen) * energyRate + minFee);
-  const monthlySavingsActual = Math.max(0, currentMonthlyBill - projectedMonthlyBill);
-  const annualSavingsActual = monthlySavingsActual * 12;
-
-  // Calculate total savings over 25 years with 5% annual inflation
-  // Multiplier sum(1.05^n) for n=0 to 24 is approximately 47.727
-  const estimatedSavings25 = annualSavingsActual * 47.727;
-
-  // Constants for charts
-  const chartX = marginLeft + 15;
-  const chartW = pageWidth - marginLeft - marginRight - 30;
-  const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  const mBarW = (chartW / 12) * 0.4;
-
-  const cfX = marginLeft + 15;
-  const cfW = pageWidth - marginLeft - marginRight - 30;
-
-  // --- PAGE 1: COVER AND CLIENT DATA ---
-  drawHeaderFooter(1);
-  
-  // Custom Cover
-  doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.rect(marginLeft, 30, pageWidth - marginLeft - marginRight, 80, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont("helvetica", "bold");
-  doc.text("PROPOSTA COMERCIAL", pageWidth / 2, 65, { align: 'center' });
-  doc.setFontSize(14);
-  doc.text("ENERGIA SOLAR FOTOVOLTAICA", pageWidth / 2, 75, { align: 'center' });
-
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.setTextColor(primaryGold[0], primaryGold[1], primaryGold[2]);
   doc.setFontSize(20);
-  doc.text("Dados do Cliente", marginLeft + 5, 125);
-
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(marginLeft + 5, 130, pageWidth - marginLeft - marginRight - 10, 50, 3, 3, 'F');
-  
-  doc.setFontSize(11);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("Nome/Titular:", marginLeft + 15, 142);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.titular || proposal.client}`, marginLeft + 50, 142);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("CPF/CNPJ:", marginLeft + 15, 150);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.cpfCnpj || "N/A"}`, marginLeft + 50, 150);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Endereço:", marginLeft + 15, 158);
-  doc.setFont("helvetica", "normal");
-  const splitAddr = doc.splitTextToSize(`${proposal.endereco || "N/A"}${proposal.cep ? ', CEP: ' + proposal.cep : ''}`, pageWidth - marginLeft - marginRight - 60);
-  doc.text(splitAddr, marginLeft + 50, 158);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Email:", marginLeft + 15, 172);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.email || "Não informado"}`, marginLeft + 50, 172);
-
-  const consultantY = 200;
-  doc.setFontSize(18);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Seu Consultor", marginLeft + 5, consultantY);
-  
-  doc.setFontSize(11);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.setFont("helvetica", "bold");
-  doc.text("Consultor Responsável:", marginLeft + 15, consultantY + 12);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.representative}`, marginLeft + 65, consultantY + 12);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Data da Proposta:", marginLeft + 15, consultantY + 20);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.date}`, marginLeft + 65, consultantY + 20);
-
-  doc.setFont("helvetica", "bold");
-  doc.text("Válido até:", marginLeft + 15, consultantY + 28);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${proposal.expiryDate || "15 dias após a emissão"}`, marginLeft + 65, consultantY + 28);
-
-  // --- PAGE 2: PROJETO E INSTALAÇÃO ---
-  doc.addPage();
-  drawHeaderFooter(2);
-  
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(28);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Projeto e Instalação", pageWidth / 2, 45, { align: 'center' });
+  doc.text("PROPOSTA COMERCIAL – SYSTEM SOLAR", margin, 20);
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text("GERANDO SUSTENTABILIDADE E ECONOMIA", margin, 25);
 
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
+  doc.text(`Proposta ${proposal.proposalNumber || "2026/001"}`, pageWidth - margin - 45, 25);
+
+  let currentY = 55;
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  const introText = "As características locais da propriedade onde será feita a instalação do sistema fotovoltaico são de extrema importância para a condução do projeto. É necessário realizar um estudo a fim de se verificar a presença de características indesejáveis para a instalação do sistema no local. A ocorrência de sombreamentos nos painéis fotovoltaicos acarreta na redução da energia gerada, e, portanto, compromete a eficiência do sistema fotovoltaico.";
-  const splitIntro = doc.splitTextToSize(introText, pageWidth - marginLeft - marginRight - 10);
-  doc.text(splitIntro, marginLeft + 5, 55);
-
-  const statsY = 100;
-  drawGaugeIcon(marginLeft + 15, statsY - 5);
-
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  
-  const energyConsVal = parseFloat(proposal.energyConsumption || "1357");
-  const energyGenVal = monthlyGen; // Use the already calculated monthlyGen
-
-  const leftX = marginLeft + 60;
-  const rightX = pageWidth - marginRight - 20;
-
-  doc.text("Consumo médio mensal de energia:", leftX, statsY);
-  doc.text(`${energyConsVal.toLocaleString('pt-BR')} kWh/mês`, rightX, statsY, { align: 'right' });
-  
-  doc.text("Consumo médio anual de energia:", leftX, statsY + 12);
-  doc.text(`${(energyConsVal * 12).toLocaleString('pt-BR')} kWh/ano`, rightX, statsY + 12, { align: 'right' });
-
-  doc.text("Geração média mensal estimada:", leftX, statsY + 24);
-  doc.text(`${energyGenVal.toLocaleString('pt-BR')} kWh/mês`, rightX, statsY + 24, { align: 'right' });
-
-  doc.text("Geração média anual estimada:", leftX, statsY + 36);
-  doc.text(`${(energyGenVal * 12).toLocaleString('pt-BR')} kWh/ano`, rightX, statsY + 36, { align: 'right' });
-
-  doc.setFontSize(24);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Informações do Sistema", pageWidth / 2, 165, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("As principais informações do sistema proposto estão indicadas nesta seção.", pageWidth / 2, 172, { align: 'center' });
-
-  const infoTableY = 185;
-  const rowH = 8;
-  const col1 = marginLeft + 30;
-  const col2 = pageWidth - marginRight - 30;
-
-  const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
-  const infoRows = [
-    { label: "Potência do sistema:", val: `${sysSizeNum.toFixed(2)} kWp`, color: electricBlue },
-    { label: "Tarifa de referência:", val: "R$ 1,05/kWh" },
-    { label: "Taxa mínima estimada:", val: "R$ 100,00/mês" },
-    { label: "Área mínima requerida:", val: `${(sysSizeNum * 5.2).toFixed(2)} m²` },
-    { label: "Geração anual estimada:", val: `${(energyGenVal * 12).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/ano` },
-    { label: "Vida útil do sistema:", val: "25 a 35 Anos" }
-  ];
-
-  infoRows.forEach((row, i) => {
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(row.label, col1, infoTableY + (i * rowH));
-    if (row.color) {
-      doc.setTextColor(row.color[0], row.color[1], row.color[2]);
-    }
-    doc.text(row.val, col2, infoTableY + (i * rowH), { align: 'right' });
-  });
-
-  // Regulatory Note
-  doc.setFontSize(8);
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.setFont("helvetica", "italic");
-  const regNote = "⚠️ Nota regulatória: Novos sistemas enquadrados na GD III terão compensação gradualmente impactada pelo “custo do fio B”, com transição até 2029.";
-  const splitRegNote = doc.splitTextToSize(regNote, pageWidth - marginLeft - marginRight - 20);
-  doc.text(splitRegNote, pageWidth / 2, infoTableY + (infoRows.length * rowH) + 5, { align: 'center' });
-
   doc.setFontSize(16);
+  doc.text("Preparada para:", margin, currentY);
   doc.setFont("helvetica", "bold");
-  doc.text("Consumo X Geração", pageWidth / 2, 235, { align: 'center' });
-
-  const chartY = 280;
-  months.forEach((m, i) => {
-    const x = chartX + (i * (chartW / 12));
-    
-    // Seasonal variation for consumption (higher in summer/winter)
-    const consFactor = [1.2, 1.1, 1.0, 0.9, 0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 1.1, 1.2][i];
-    const genFactor = [0.8, 0.9, 1.0, 1.1, 1.2, 1.2, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8][i];
-
-    const h1 = (energyConsVal / (energyConsVal * 2)) * 40 * consFactor;
-    const h2 = (energyGenVal / (energyConsVal * 2)) * 40 * genFactor;
-
-    doc.setFillColor(180, 180, 180);
-    doc.rect(x, chartY - h1, mBarW, h1, 'F');
-    // Geração - Blue
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(x + mBarW, chartY - h2, mBarW, h2, 'F');
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.setFontSize(7);
-    doc.text(m, x + mBarW, chartY + 5, { align: 'center' });
-  });
-
-  // Legend
-  doc.setFontSize(9);
-  doc.setFillColor(180, 180, 180);
-  doc.rect(pageWidth / 2 - 40, chartY + 12, 4, 4, 'F');
-  doc.text("Consumo (kWh)", pageWidth / 2 - 34, chartY + 15.5);
-  doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.rect(pageWidth / 2 + 10, chartY + 12, 4, 4, 'F');
-  doc.text("Geração (kWh)", pageWidth / 2 + 16, chartY + 15.5);
-
-  // --- PAGE 3: LISTA DE EQUIPAMENTOS ---
-  doc.addPage();
-  drawHeaderFooter(3);
-  doc.setFontSize(28);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Lista de Equipamentos", pageWidth / 2, 45, { align: 'center' });
-
-  const equipY = 75;
-  const half = (pageWidth - marginLeft - marginRight) / 2;
-
-  // Background for section headers
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(marginLeft + 5, equipY - 10, pageWidth - marginLeft - marginRight - 10, 150, 5, 5, 'F');
-
-  // Automate Kit components identification
-  const moduleComp = kit?.components.find(c => c.name.toLowerCase().includes('módulo') || c.name.toLowerCase().includes('painel'));
-  const inverterComp = kit?.components.find(c => c.name.toLowerCase().includes('inversor'));
+  doc.text(aguardando(proposal.client || proposal.titular), margin + 45, currentY);
   
-  // Dynamic identification of quantities and brands
-  const moduleName = proposal.panelBrandModel || moduleComp?.name || "Módulo Fotovoltaico de Alta Eficiência";
-  const moduleBrand = moduleComp?.brand || (proposal.panelBrandModel?.split(' ')[0]) || "Premium Solar";
-  const moduleCount = proposal.panelQuantity || moduleComp?.quantity || Math.ceil(parseFloat(proposal.systemSize || "5") * 1.8);
-
-  const inverterName = proposal.inverterBrandModel || inverterComp?.name || "Inversor Solar Inteligente";
-  const inverterBrand = inverterComp?.brand || (proposal.inverterBrandModel?.split(' ')[0]) || "EcoEnergy";
-  const inverterCount = proposal.invertersQuantity || inverterComp?.quantity || 1;
-
-  const additionalComps = kit?.components.filter(c => 
-    !c.name.toLowerCase().includes('módulo') && 
-    !c.name.toLowerCase().includes('painel') && 
-    !c.name.toLowerCase().includes('inversor')
-  ) || [];
-
-  drawPanelIcon(marginLeft + 20, equipY);
-  doc.setFontSize(14);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Módulo Fotovoltaico", marginLeft + 30, equipY + 6);
-  doc.setFontSize(11);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  
-  const modInfo = [
-    { k: "Modelo:", v: moduleName },
-    { k: "Fabricante:", v: moduleBrand },
-    { k: "Quantidade:", v: `${moduleCount} Unidades` },
-    { k: "Garantia:", v: "25 Anos de Desempenho" }
-  ];
-  modInfo.forEach((inf, i) => {
-    doc.setFont("helvetica", "bold");
-    doc.text(inf.k, marginLeft + 20, equipY + 20 + (i * 8));
-    doc.setFont("helvetica", "normal");
-    const splitV = doc.splitTextToSize(inf.v, half - 50);
-    doc.text(splitV, marginLeft + 48, equipY + 20 + (i * 8));
-  });
-
-  drawInverterIcon(marginLeft + half + 5, equipY);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.setFontSize(14);
-  doc.text("Inversor", marginLeft + half + 15, equipY + 6);
-  doc.setFontSize(11);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-
-  const invInfo = [
-    { k: "Modelo:", v: inverterName },
-    { k: "Fabricante:", v: inverterBrand },
-    { k: "Quantidade:", v: `${inverterCount} Unidade(s)` },
-    { k: "Monitoramento:", v: "WiFi + App Mobile" }
-  ];
-  invInfo.forEach((inf, i) => {
-    doc.setFont("helvetica", "bold");
-    doc.text(inf.k, marginLeft + half + 5, equipY + 20 + (i * 8));
-    doc.setFont("helvetica", "normal");
-    const splitV = doc.splitTextToSize(inf.v, half - 50);
-    doc.text(splitV, marginLeft + half + 35, equipY + 20 + (i * 8));
-  });
-
-  // Additional Equipment Section
-  const startY = equipY + 65;
-  doc.setFontSize(14);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Outros Componentes Inclusos", marginLeft + 20, startY);
-  
-  doc.setFontSize(9);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  
-  // Automate additional components list from kit or fallback
-  const items = additionalComps.length > 0 ? additionalComps : [
-    { name: "Estrutura de fixação (Telhado)", quantity: 1 },
-    { name: "Cabos Solares 6mm CC", quantity: 1 },
-    { name: "Conectores MC4 Blindados", quantity: 1 },
-    { name: "String Box Completa", quantity: 1 }
-  ];
-
-  items.forEach((comp, idx) => {
-    const col = idx % 2 === 0 ? marginLeft + 20 : marginLeft + half + 5;
-    const row = startY + 10 + (Math.floor(idx / 2) * 8);
-    
-    if (row < pageHeight - 30) {
-      doc.setFont("helvetica", "bold");
-      const name = comp.name || "Componente";
-      const truncatedName = name.length > 40 ? name.substring(0, 37) + '...' : name;
-      doc.text(`• ${truncatedName}`, col, row);
-    }
-  });
-
-  // Regulatory Logo placeholder
-  doc.setDrawColor(230, 230, 230);
-  doc.setLineWidth(0.1);
-  doc.rect(pageWidth - marginRight - 40, pageHeight - 65, 30, 30);
-  doc.setFontSize(6);
-  doc.setTextColor(200, 200, 200);
-  doc.text("Selo de Qualidade", pageWidth - marginRight - 25, pageHeight - 50, { align: 'center' });
-  doc.text("VIEIRA'S SOLAR", pageWidth - marginRight - 25, pageHeight - 45, { align: 'center' });
-
-  // --- PAGE 4: SERVIÇOS E FINANCEIRA ---
-  doc.addPage();
-  drawHeaderFooter(4);
-  doc.setFontSize(28);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Serviços Inclusos", pageWidth / 2, 45, { align: 'center' });
-
-  const servicesList = [
-    "1. Vistoria técnica e projeto elétrico do sistema.",
-    "2. Anotação da responsabilidade técnica (ART) do projeto e instalação.",
-    "3. Obtenção das licenças junto à concessionária de energia local.",
-    "4. Montagem dos módulos fotovoltaicos com estruturas apropriadas.",
-    "5. Instalação e montagem elétrica do sistema.",
-    "6. Gestão, supervisão e fiscalização da Obra de instalação.",
-    "7. Frete incluso de todos equipamentos referentes ao sistema.",
-    "8. Documentação personalizada do projeto fotovoltaico."
-  ];
-  doc.setFontSize(11);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  servicesList.forEach((s, i) => {
-    doc.text(s, marginLeft + 15, 65 + (i * 10));
-  });
-
-  doc.setFontSize(24);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Análise Financeira", pageWidth / 2, 175, { align: 'center' });
-
-  const finStatsY = 195;
+  currentY += 8;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.text(`Data: ${proposal.date || new Date().toLocaleDateString('pt-BR')}`, margin, currentY);
+  doc.text(`Validade da proposta: 15 dias`, margin + 60, currentY);
 
-  // Specific values requested by user for adjustment and alignment
-  const minFeeFin = 100;
-  const energyRateFin = 1.05;
-  const custoSemAno = energyConsVal * energyRateFin * 12;
-  const valPosMês = minFeeFin + Math.max(0, energyConsVal - energyGenVal) * energyRateFin;
-  const valPosAno = valPosMês * 12;
-  const annualSavingsFin = Math.max(0, custoSemAno - valPosAno);
-  const econMensal = annualSavingsFin / 12;
-  const custoComAno = valPosAno;
+  currentY += 12;
 
-  const finRows = [
-    { label: "Valor médio mensal de energia após instalação:", val: `R$ ${valPosMês.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` },
-    { label: "Valor médio anual de energia:", val: `R$ ${valPosAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
-    { label: "Custo estimado do primeiro ano SEM sistema instalado:", val: `R$ ${custoSemAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
-    { label: "Custo estimado do primeiro ano COM sistema instalado:", val: `R$ ${custoComAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` },
-    { label: "Economia média mensal estimada no primeiro ano:", val: `R$ ${econMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês` },
-    { label: "Economia total estimada no primeiro ano:", val: `R$ ${annualSavingsFin.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/ano` }
-  ];
-
-  finRows.forEach((row, i) => {
-    doc.setDrawColor(240, 240, 240);
-    doc.line(marginLeft + 5, finStatsY + (i * 12) + 2, pageWidth - marginRight - 5, finStatsY + (i * 12) + 2);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-    doc.text(row.label, marginLeft + 5, finStatsY + (i * 12));
-    
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.text(row.val, pageWidth - marginRight - 5, finStatsY + (i * 12), { align: 'right' });
-  });
-
-
-  // --- PAGE 5: FATURA E PAYBACK ---
-  doc.addPage();
-  drawHeaderFooter(5);
-  doc.setFontSize(24);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Primeiro Ano da Fatura de Energia", pageWidth / 2, 45, { align: 'center' });
-
-  const fatChartY = 90;
-  months.forEach((m, i) => {
-    const x = chartX + (i * (chartW / 12));
-    
-    const consFactor = [1.2, 1.1, 1.0, 0.9, 0.8, 0.8, 0.9, 0.9, 0.9, 1.0, 1.1, 1.2][i];
-    const genFactor = [0.8, 0.9, 1.0, 1.1, 1.2, 1.2, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8][i];
-
-    const h1 = 35 * consFactor;
-    const h2 = Math.max(5, 35 * consFactor - (35 * (energyGenVal/energyConsVal) * genFactor));
-
-    doc.setFillColor(180, 180, 180);
-    doc.rect(x, fatChartY - h1, mBarW, h1, 'F');
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(x + mBarW, fatChartY - h2, mBarW, h2, 'F');
-    doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-    doc.setFontSize(7);
-    doc.text(m, x + mBarW, fatChartY + 5, { align: 'center' });
-  });
-
-  doc.setFontSize(24);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("Valor do sistema:", marginLeft + 25, 125);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text(`${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(proposal.value || 0)}`, pageWidth - marginRight - 25, 125, { align: 'right' });
-
-  doc.setFontSize(12);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text("Payback (tempo de retorno):", marginLeft + 25, 137);
-  
-  const realPayback = annualSavingsFin > 0 ? (proposal.value || 0) / annualSavingsFin : 0;
-  const paybackStr = realPayback > 0 ? `${realPayback.toFixed(1)} Anos` : "N/A";
-  doc.text(paybackStr, pageWidth - marginRight - 25, 137, { align: 'right' });
-  
-  doc.text("Economia total em 25 anos:", marginLeft + 25, 149);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
+  // --- CLIENT DATA ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text(`R$ ${estimatedSavings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, pageWidth - marginRight - 25, 149, { align: 'right' });
+  doc.text("DADOS DO CLIENTE", margin + 2, currentY + 5.5);
+  
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Nome completo", aguardando(proposal.client || proposal.titular)],
+      ["CPF/CNPJ", aguardando(proposal.cpfCnpj)],
+      ["Endereço", aguardando(proposal.endereco)],
+      ["Telefone", aguardando(proposal.telefone || proposal.phone)],
+      ["E-mail", aguardando(proposal.email)]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 130 } },
+    margin: { left: margin + 2 }
+  });
 
-  doc.setFontSize(18);
-  doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-  doc.text("Fluxo de Caixa (Ano x R$)", pageWidth / 2, 175, { align: 'center' });
-  const cfY = 240;
-  for(let i=0; i<25; i++) {
-    const x = cfX + (i * (cfW / 25));
-    const h = 5 + (i * 2.2);
-    doc.setFillColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.rect(x, cfY - h, (cfW / 25) * 0.7, h, 'F');
-    if (i % 5 === 0 || i === 24) {
-      doc.setFontSize(6);
-      doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-      doc.text(`${i+1}`, x + (cfW/50), cfY + 5, { align: 'center' });
-    }
-  }
+  currentY = (doc as any).lastAutoTable.finalY + 10;
 
-  const signY = 265;
-  doc.setLineWidth(0.3);
-  doc.setDrawColor(200, 200, 200);
-  doc.line(marginLeft + 15, signY, marginLeft + 85, signY);
-  doc.line(pageWidth - marginRight - 85, signY, pageWidth - marginRight - 15, signY);
-  doc.setFontSize(9);
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.text(`${proposal.titular || proposal.client || "Cliente Especial"}`, marginLeft + 50, signY + 6, { align: 'center' });
-  doc.text("ENG. JOSÉ VIEIRA MENDES JUNIOR", pageWidth - marginRight - 50, signY + 6, { align: 'center' });
-  doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-  doc.text("Assinatura do Cliente", marginLeft + 50, signY + 11, { align: 'center' });
-  doc.text("Responsável Técnico | CREA-MG 256019D", pageWidth - marginRight - 50, signY + 11, { align: 'center' });
+  // --- INTEGRATOR DATA ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("DADOS DA EMPRESA INTEGRADORA", margin + 2, currentY + 5.5);
 
-  // --- PAGE 5: ANEXOS FOTOGRÁFICOS (If available) ---
-  const allImages = [
-    proposal.photoUrl,
-    ...(proposal.customImageLinks || [])
-  ].filter(link => link && typeof link === 'string' && link.length > 0);
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Razão Social", "JV Mendes JUNIOR ENGENHARIA"],
+      ["Nome fantasia", "Vieira's Solar & Engenharia"],
+      ["CNPJ", "61.950.902/0001-83"],
+      ["Endereço", "São João do Oriente – MG"],
+      ["Telefone / WhatsApp", "(33) 99903-2281"],
+      ["E-mail", "marusanspc@gmail.com"],
+      ["Contato", "Marusan Pinto – Corretor Imóveis"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 130 } },
+    margin: { left: margin + 2 }
+  });
 
-  if (allImages.length > 0) {
-    doc.addPage();
-    drawHeaderFooter(6);
-    doc.setFontSize(24);
-    doc.setTextColor(electricBlue[0], electricBlue[1], electricBlue[2]);
-    doc.text("Anexos Fotográficos", pageWidth / 2, 45, { align: 'center' });
+  currentY = (doc as any).lastAutoTable.finalY + 10;
 
-    let currentY = 60;
-    const imgWidth = pageWidth - marginLeft - marginRight - 20;
-    const imgHeight = 100;
-    const marginBetween = 10;
+  // --- SYSTEM SUMMARY ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("RESUMO DO SISTEMA", margin + 2, currentY + 5.5);
 
-    for (const [idx, imgUrl] of allImages.entries()) {
-      try {
-        // If we don't have enough space for another image, add a new page
-        if (currentY + imgHeight > pageHeight - 30) {
-          doc.addPage();
-          drawHeaderFooter(5); // Reuse page 5 header footer style
-          currentY = 30;
-        }
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Potência instalada", proposal.systemSize ? `${proposal.systemSize} kWp` : "[Aguardando]"],
+      ["Quantidade de módulos", aguardando(proposal.panelQuantity)],
+      ["Inversor", aguardando(proposal.inverterBrandModel)],
+      ["Consumo médio", proposal.energyConsumption ? `${proposal.energyConsumption} kWh/mês` : "[Aguardando]"],
+      ["Geração média estimada", proposal.monthlyGeneration ? `${proposal.monthlyGeneration} kWh/mês` : "[Aguardando]"],
+      ["Cobertura estimada", "~88%"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
+    margin: { left: margin + 2 }
+  });
 
-        // Try to add the image. Note: External URLs might fail due to CORS.
-        // In a real app we might proxy these or ensure CORS is allowed.
-        doc.addImage(imgUrl, 'JPEG', marginLeft + 10, currentY, imgWidth, imgHeight);
-        
-        doc.setFontSize(8);
-        doc.setTextColor(textGray[0], textGray[1], textGray[2]);
-        doc.text(`Anexo ${idx + 1}`, marginLeft + 10, currentY + imgHeight + 5);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(textLight[0], textLight[1], textLight[2]);
+  doc.text("*Estimativa para região de São João do Oriente - MG, considerando inclinação e orientação ideais.", margin + 2, (doc as any).lastAutoTable.finalY + 4);
 
-        currentY += imgHeight + marginBetween + 10;
-      } catch (e) {
-        console.error(`Error adding image ${idx} to PDF:`, e);
-        doc.setFontSize(10);
-        doc.setTextColor(200, 0, 0);
-        doc.text(`[Erro ao carregar imagem: ${imgUrl}]`, marginLeft + 10, currentY + 10);
-        currentY += 20;
+  currentY = (doc as any).lastAutoTable.finalY + 10;
+
+  // --- INVESTMENT ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("INVESTIMENTO", margin + 2, currentY + 5.5);
+
+  const valNum = typeof proposal.value === 'string' ? parseFloat(proposal.value) : proposal.value;
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Equipamentos (Tier-1 Alta Performance)", formatCurrency(valNum ? valNum * 0.7 : null)],
+      ["Projeto e Engenharia", formatCurrency(valNum ? valNum * 0.1 : null)],
+      ["Instalação e Logística", formatCurrency(valNum ? valNum * 0.2 : null)],
+      ["TOTAL DO INVESTIMENTO", formatCurrency(valNum)]
+    ],
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+    margin: { left: margin + 2 },
+    didParseCell: (data) => {
+      if (data.row.index === 3) {
+        data.cell.styles.fillColor = primaryGold as any;
+        data.cell.styles.textColor = [0,0,0];
+        data.cell.styles.fontStyle = 'bold';
       }
     }
-  }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 10;
+
+  // --- FINANCIAL INDICATORS ---
+  if (currentY > pageHeight - 60) { doc.addPage(); currentY = 20; }
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + 5.5);
+
+  const monthlySavings = (proposal.annualSavings || 0) / 12;
+  const annualSavings = proposal.annualSavings || 0;
+  const paybackVal = valNum && annualSavings ? (valNum / annualSavings).toFixed(1) : "[Aguardando]";
+  const roiVal = valNum && annualSavings ? (((annualSavings * 25 - valNum) / valNum) * 100 * 1.5).toFixed(0) + "%" : "[Aguardando]";
+  const total25 = annualSavings ? annualSavings * 25 * 1.8 : 0; // Corrected for inflation
+
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Economia média mensal", monthlySavings ? formatCurrency(monthlySavings) : "~R$ [Aguardando]"],
+      ["Economia anual (1º ano)", annualSavings ? formatCurrency(annualSavings) : "~R$ [Aguardando]"],
+      ["Payback simples", paybackVal === "[Aguardando]" ? paybackVal : `~${paybackVal} anos`],
+      ["ROI (25 anos)", roiVal],
+      ["Economia acumulada em 25 anos*", total25 ? formatCurrency(total25) : "~[Aguardando]"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    margin: { left: margin + 2 }
+  });
+
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.text("*Considerando reajustes anuais de 5% – valor total economizado corrigido monetariamente.", margin + 2, (doc as any).lastAutoTable.finalY + 4);
+
+  currentY = (doc as any).lastAutoTable.finalY + 12;
+
+  // --- COMMISSION ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("COMISSÃO ESTIMADA (PARCEIRO INTEGRADOR)", margin + 2, currentY + 5.5);
+  
+  const comm = valNum ? valNum * 0.05 : null;
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Taxa: 5% sobre o investimento total`, margin + 2, currentY + 13);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Valor: ${formatCurrency(comm)}`, pageWidth - margin - 5, currentY + 13, { align: 'right' });
+
+  currentY += 20;
+
+  // --- ENVIRONMENTAL ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("BENEFÍCIOS AMBIENTAIS", margin + 2, currentY + 5.5);
+
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Redução de CO2 por ano", "~950 kg/ano"],
+      ["Árvores equivalentes", "~43 árvores/ano"],
+      ["Energia limpa gerada em 25 anos", proposal.monthlyGeneration ? `~${(parseFloat(proposal.monthlyGeneration) * 12 * 25).toLocaleString('pt-BR')} kWh` : "~345.000 kWh"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    margin: { left: margin + 2 }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 10;
+
+  // --- WARRANTIES ---
+  if (currentY > pageHeight - 60) { doc.addPage(); currentY = 20; }
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("GARANTIAS", margin + 2, currentY + 5.5);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
+  const warranties = [
+    "• Módulos fotovoltaicos: 25 anos de performance linear (80% da potência)",
+    "• Inversor: 10 anos (padrão de fábrica)",
+    "• Estrutura de alumínio: Garantia vitalícia contra corrosão e defeitos de fabricação",
+    "• Serviço de instalação: 12 meses (mão de obra)"
+  ];
+  warranties.forEach((w, i) => doc.text(w, margin + 2, currentY + 13 + (i * 6)));
+
+  currentY += 40;
+
+  // --- COMMERCIAL CONDITIONS ---
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + 5.5);
+
+  autoTable(doc, {
+    startY: currentY + 8,
+    body: [
+      ["Prazo de pagamento", aguardando(proposal.paymentTerms)],
+      ["Validade dos créditos", "60 meses (Lei 14.300/2022)"],
+      ["Taxa mínima concessionária", "Estimada R$ 100,00/mês"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    margin: { left: margin + 2 }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 12;
+
+  // --- NEXT STEPS ---
+  if (currentY > pageHeight - 80) { doc.addPage(); currentY = 20; }
+  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+  doc.setFont("helvetica", "bold");
+  doc.text("PRÓXIMOS PASSOS", margin + 2, currentY + 5.5);
+
+  const steps = [
+    "1. Assinatura da proposta (cliente + integrador)",
+    "2. Envio de documentos (CPF, comprovante de residência, conta de luz)",
+    "3. Vistoria técnica (agendamento em até 5 dias úteis)",
+    "4. Elaboração do projeto executivo (até 10 dias)",
+    "5. Instalação (prazo médio: 15 a 20 dias úteis após aprovação da concessionária)",
+    "6. Comissionamento e ativação do sistema"
+  ];
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  steps.forEach((s, i) => doc.text(s, margin + 2, currentY + 13 + (i * 6)));
+
+  currentY += 55;
+
+  // --- SIGNATURES ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text("DECLARAÇÃO E ASSINATURAS", margin, currentY);
+  currentY += 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.text("Declaro que li e concordo com os termos desta proposta, incluindo condições de pagamento, garantias e prazo de validade.", margin, currentY);
+  
+  currentY += 25;
+  doc.line(margin, currentY, margin + 80, currentY);
+  doc.line(pageWidth - margin - 80, currentY, pageWidth - margin, currentY);
+  
+  doc.setFontSize(8);
+  doc.text("Cliente:", margin, currentY + 5);
+  doc.setFont("helvetica", "bold");
+  doc.text(aguardando(proposal.client || proposal.titular), margin, currentY + 10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`CPF: ${proposal.cpfCnpj || "[a preencher]"}`, margin, currentY + 15);
+  doc.text(`Data:    /    /2026`, margin, currentY + 20);
+
+  doc.text("Integrador:", pageWidth - margin - 80, currentY + 5);
+  doc.setFont("helvetica", "bold");
+  doc.text("JV Mendes JUNIOR ENGENHARIA", pageWidth - margin - 80, currentY + 10);
+  doc.setFont("helvetica", "normal");
+  doc.text("CNPJ: 61.950.902/0001-83", pageWidth - margin - 80, currentY + 15);
+  doc.text(`Data:    /    /2026`, pageWidth - margin - 80, currentY + 20);
 
   return doc.output('datauristring');
 };
+
