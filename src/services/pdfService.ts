@@ -250,7 +250,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   currentY += 8;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(`Data: ${proposal.date || new Date().toLocaleDateString('pt-BR')}`, margin, currentY);
+  const proposalDate = proposal.date ? (proposal.date.includes('T') ? new Date(proposal.date).toLocaleDateString('pt-BR') : proposal.date) : new Date().toLocaleDateString('pt-BR');
+  doc.text(`Data: ${proposalDate}`, margin, currentY);
   doc.text(`Validade da proposta: 15 dias`, margin + 60, currentY);
 
   currentY += 12;
@@ -315,12 +316,12 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Potência instalada", proposal.systemSize ? `${proposal.systemSize} kWp` : "[Aguardando]"],
+      ["Potência instalada", proposal.systemSize ? (proposal.systemSize.includes('kWp') ? proposal.systemSize : `${proposal.systemSize} kWp`) : "[Aguardando]"],
       ["Quantidade de módulos", aguardando(proposal.panelQuantity)],
       ["Inversor", aguardando(proposal.inverterBrandModel)],
       ["Consumo médio", proposal.energyConsumption ? `${proposal.energyConsumption} kWh/mês` : "[Aguardando]"],
       ["Geração média estimada", proposal.monthlyGeneration ? `${proposal.monthlyGeneration} kWh/mês` : "[Aguardando]"],
-      ["Cobertura estimada", "~88%"]
+      ["Cobertura estimada", proposal.energyConsumption && proposal.monthlyGeneration ? `${Math.min(100, Math.round((parseFloat(proposal.monthlyGeneration) / parseFloat(proposal.energyConsumption)) * 100))}%` : "~88%"]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
@@ -374,11 +375,11 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + 5.5);
 
-  const monthlySavings = (proposal.annualSavings || 0) / 12;
+  const monthlySavings = proposal.annualSavings ? proposal.annualSavings / 12 : 0;
   const annualSavings = proposal.annualSavings || 0;
-  const paybackVal = valNum && annualSavings ? (valNum / annualSavings).toFixed(1) : "[Aguardando]";
-  const roiVal = valNum && annualSavings ? (((annualSavings * 25 - valNum) / valNum) * 100 * 1.5).toFixed(0) + "%" : "[Aguardando]";
-  const total25 = annualSavings ? annualSavings * 25 * 1.8 : 0; // Corrected for inflation
+  const paybackVal = valNum && annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : (proposal.payback ? proposal.payback.replace(' Anos', '') : "[Aguardando]");
+  const roiVal = proposal.roi || (valNum && annualSavings > 0 ? (((annualSavings * 47.727 - valNum) / valNum) * 100).toFixed(0) + "%" : "[Aguardando]");
+  const total25 = annualSavings ? annualSavings * 47.727 : 0; // Updated to match 25y 5% inflation factor
 
   autoTable(doc, {
     startY: currentY + 8,

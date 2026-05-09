@@ -38,7 +38,9 @@ import {
   TrendingUp,
   BrainCircuit,
   MessageSquare,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MapPin,
+  Crosshair
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -80,7 +82,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
-  const [efficiency, setEfficiency] = useState<number>(108.34); // Updated for 1300 kWh/kWp specific yield (16809/12.93/12)
+  const [hsp, setHsp] = useState<number>(4.8); // Generic MG Value (~4.8)
+  const [pr, setPr] = useState<number>(0.78); // Performance Ratio (~0.78)
+  const [energyTariff, setEnergyTariff] = useState<number>(0.92); // R$/kWh
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAIInput, setShowAIInput] = useState(false);
   const [pastedText, setPastedText] = useState('');
@@ -279,6 +283,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     additionalCost: initialData?.additionalCost?.toString() || '',
     installationStartDate: initialData?.installationStartDate || '',
     estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
+    assignedTechnician: initialData?.assignedTechnician || '',
+    installationNotes: initialData?.installationNotes || '',
     photoUrl: initialData?.photoUrl || '',
     customImageLinks: initialData?.customImageLinks || [],
     paymentTerms: initialData?.paymentTerms || '30/60/90 dias',
@@ -287,8 +293,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     titular: initialData?.titular || '',
     cpfCnpj: initialData?.cpfCnpj || '',
     endereco: initialData?.endereco || '',
+    neighborhood: (initialData as any)?.neighborhood || '',
+    city: (initialData as any)?.city || '',
+    state: (initialData as any)?.state || '',
     cep: initialData?.cep || '',
     telefone: initialData?.telefone || '',
+    latitude: initialData?.latitude || undefined,
+    longitude: initialData?.longitude || undefined,
     distribuidora: initialData?.distribuidora || 'CEMIG',
     tensaoFornecimento: initialData?.tensaoFornecimento || 'Trifásico',
 
@@ -328,6 +339,58 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   }, [isOpen]);
 
+  const [isValidatingCep, setIsValidatingCep] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const handleCepChange = async (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    const masked = cleaned.length > 5 ? `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}` : cleaned;
+    setFormData(prev => ({ ...prev, cep: masked }));
+
+    if (cleaned.length === 8) {
+      setIsValidatingCep(true);
+      try {
+        const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleaned}`);
+        if (res.ok) {
+          const data = await res.json();
+          setFormData(prev => ({
+            ...prev,
+            endereco: data.street || prev.endereco,
+            neighborhood: data.neighborhood || prev.neighborhood,
+            city: data.city || prev.city,
+            state: data.state || prev.state
+          }));
+        }
+      } catch (err) {
+        console.error('CEP lookup error:', err);
+      } finally {
+        setIsValidatingCep(false);
+      }
+    }
+  };
+
+  const handleGeocode = async () => {
+    if (!formData.endereco?.trim()) return;
+    setIsGeocoding(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.endereco)}&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Geocoding error:', err);
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   // Unified Sync Effect for all Derived Data (Calculations, Panels, Sizes)
   useEffect(() => {
     setFormData(prev => {
@@ -345,26 +408,22 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       const expectedSz = (currentQtyNum * power) / 1000;
       const expectedQty = Math.ceil((currentSzNum * 1000) / power);
 
-      // We need to decide which one to trust. 
-      // Rule: If current size doesn't match the quantity * power, one of them must move.
-      // We'll use a small tolerance for floating point issues.
       const szIsConsistent = !isNaN(currentSzNum) && Math.abs(currentSzNum - expectedSz) < 0.01;
       const qtyIsConsistent = !isNaN(currentQtyNum) && currentQtyNum === expectedQty;
 
       if (!szIsConsistent) {
-        // If they aren't consistent, we update size to match quantity by default 
-        // (assuming quantity is the primary driver for "physical" systems)
         newSz = expectedSz.toFixed(2);
       } else if (!qtyIsConsistent) {
         newQty = expectedQty.toString();
       }
 
-      // 2. Financial & Technical Calculations
+      // 2. Technical Calculations (Generation)
+      // Formula: kWp * HSP * 30 days * PR
       const szNum = parseFloat(newSz);
-      const consumption = parseFloat(prev.energyConsumption);
-      
-      const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * efficiency).toFixed(0) : prev.monthlyGeneration;
+      const generationEfficiency = hsp * 30 * pr; 
+      const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * generationEfficiency).toFixed(0) : prev.monthlyGeneration;
 
+      // 3. Pricing
       const equip = parseFloat(prev.equipmentCost || '0');
       const inst = parseFloat(prev.installationCost || '0');
       const proj = parseFloat(prev.projectCost || '0');
@@ -380,18 +439,28 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       const totalVal = Math.max(0, valWithMargin - discountVal);
       const valNum = parseFloat(totalVal.toFixed(2));
 
+      // 4. Financial Indicators
       let pb = prev.payback;
       let r = prev.roi;
+      const consumption = parseFloat(prev.energyConsumption);
 
       if (!isNaN(valNum) && !isNaN(szNum) && valNum > 0 && szNum > 0 && !isNaN(consumption)) {
-        const energyRate = 1.05; 
-        const minFee = 100;
-        const billBefore = consumption * energyRate;
+        const minFee = prev.tensaoFornecimento === 'Trifásico' ? 100 : prev.tensaoFornecimento === 'Bifásico' ? 50 : 30;
+        
         const genNum = parseFloat(monGen);
-        const billAfter = Math.max(minFee, (consumption - genNum) * energyRate + minFee);
-        const monthlySavings = Math.max(0, billBefore - billAfter);
+        
+        // ECONOMY CALCULATION
+        // Savings = (Energy effectively compensated) * Tariff
+        // To be conservative, we cap savings at the consumption minus min fee
+        const energyToCompensate = Math.min(consumption - minFee, genNum);
+        const monthlySavings = Math.max(0, energyToCompensate * energyTariff);
         const annualSavings = monthlySavings * 12;
+        
+        // Payback = Total Investment / Annual Savings
         pb = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : '0';
+        
+        // ROI over 25 years (considering energy inflation of ~5%)
+        // Multiplier for 25 years with 5% inflation is Sum(1.05^k) for k=0 to 24 ~= 47.7
         const totalSavings25 = annualSavings * 47.727; 
         r = `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%`;
       }
@@ -433,7 +502,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     formData.additionalCost,
     formData.margin,
     formData.discount,
-    efficiency
+    energyTariff,
+    hsp,
+    pr
   ]);
 
 
@@ -444,6 +515,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       if (!formData.titular?.trim()) errors.titular = 'Titular é obrigatório';
       if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
       if (!formData.cpfCnpj?.trim()) errors.cpfCnpj = 'CPF/CNPJ é obrigatório';
+
+      const consumption = parseFloat(formData.energyConsumption);
+      if (isNaN(consumption) || consumption <= 0) {
+        errors.energyConsumption = 'Consumo deve ser um número positivo';
+      }
       
       // Email validation
       if (!formData.email) {
@@ -759,7 +835,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         showToast(`Cliente ${formData.client} cadastrado com sucesso!`);
       }
 
-      const monthlyGenerationValue = formData.monthlyGeneration || (parseFloat(formData.systemSize) * efficiency).toFixed(0);
+      const generationEfficiency = hsp * 30 * pr;
+      const monthlyGenerationValue = formData.monthlyGeneration || (parseFloat(formData.systemSize) * generationEfficiency).toFixed(0);
+
+      // Calculate annual savings for PDF
+      const szNum = parseFloat(formData.systemSize);
+      const consumption = parseFloat(formData.energyConsumption);
+      const minFee = formData.tensaoFornecimento === 'Trifásico' ? 100 : formData.tensaoFornecimento === 'Bifásico' ? 50 : 30;
+      const energyToCompensate = Math.min(consumption - minFee, parseFloat(monthlyGenerationValue));
+      const annualSavingsValue = energyToCompensate * energyTariff * 12;
 
       const proposalData: Proposal = {
         ...formData,
@@ -768,13 +852,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         value: totalVal,
         date: initialData?.date || new Date().toISOString(),
         status: initialData?.status || 'pending',
-        systemSize: `${formData.systemSize} kWp`,
+        systemSize: formData.systemSize.includes('kWp') ? formData.systemSize : `${formData.systemSize} kWp`,
         representative: formData.representative || user?.name || 'Vendedor',
         representativeId: initialData?.representativeId || user?.id || null,
         representativeEmail: initialData?.representativeEmail || user?.email || null,
         roi: formData.roi || null,
         payback: formData.payback ? `${formData.payback} Anos` : null,
         monthlyGeneration: monthlyGenerationValue,
+        annualSavings: annualSavingsValue,
         commission: parseFloat(formData.commission) || 0,
         commissionStatus: initialData?.commissionStatus || 'pending',
         expiryDate: formData.expiryDate || null,
@@ -802,6 +887,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
         additionalCost: parseFloat(formData.additionalCost) || 0,
         installationStartDate: formData.installationStartDate || null,
         estimatedCompletionDate: formData.estimatedCompletionDate || null,
+        assignedTechnician: formData.assignedTechnician || null,
+        installationNotes: formData.installationNotes || null,
+        latitude: formData.latitude || null,
+        longitude: formData.longitude || null,
         calculatedCommission: commissionValue || 0,
         margin: parseFloat(formData.margin) || 0,
         financingRate: parseFloat(formData.financingRate) || 0,
@@ -1175,26 +1264,102 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Endereço</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Logradouro</label>
                     <input 
                       type="text" 
                       value={formData.endereco || ''}
                       onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-                      placeholder="Rua, número, bairro, cidade - UF"
+                      placeholder="Rua, número, etc."
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">CEP</label>
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">CEP</label>
+                      {isValidatingCep && <Loader2 className="w-3 h-3 animate-spin text-[#00A86B]" />}
+                    </div>
                     <input 
                       type="text" 
                       value={formData.cep || ''}
-                      onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                      onChange={(e) => handleCepChange(e.target.value)}
                       placeholder="00000-000"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Bairro</label>
+                    <input 
+                      type="text" 
+                      value={formData.neighborhood || ''}
+                      onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                      placeholder="Bairro"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Cidade</label>
+                    <input 
+                      type="text" 
+                      value={formData.city || ''}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="Cidade"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">UF</label>
+                    <input 
+                      type="text" 
+                      value={formData.state || ''}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      maxLength={2}
+                      placeholder="UF"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all uppercase"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleGeocode}
+                      disabled={isGeocoding}
+                      className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-[#00A86B]/10 hover:text-[#00A86B] transition-all flex items-center justify-center gap-2"
+                    >
+                      {isGeocoding ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
+                      Validar no Mapa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition((pos) => {
+                            setFormData(prev => ({ ...prev, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+                            showToast("Localização capturada via GPS");
+                          });
+                        }
+                      }}
+                      className="flex-1 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-[#00A86B]/10 hover:text-[#00A86B] transition-all flex items-center justify-center gap-2"
+                    >
+                      <Crosshair className="w-3 h-3" />
+                      Usar GPS
+                    </button>
+                  </div>
+
+                  {(formData.latitude && formData.longitude) && (
+                    <div className="md:col-span-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-xl flex items-center justify-between animate-in fade-in zoom-in duration-300">
+                      <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold">Instalação Georeferenciada</span>
+                      </div>
+                      <span className="text-[9px] font-medium text-slate-400">
+                        {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail</label>
@@ -1237,9 +1402,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                         value={formData.energyConsumption || ''}
                         onChange={(e) => setFormData({ ...formData, energyConsumption: e.target.value })}
                         placeholder="1357"
-                        className="w-full pl-12 pr-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/20 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                        className={cn(
+                          "w-full pl-12 pr-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold",
+                          validationErrors.energyConsumption ? "border-rose-500" : "border-[#fdb612]/20"
+                        )}
                       />
                     </div>
+                    {validationErrors.energyConsumption && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.energyConsumption}</p>}
                     <p className="text-[10px] text-slate-400 font-medium italic">Baseado nas últimas 12 faturas do cliente</p>
                   </div>
 
@@ -1255,6 +1424,46 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <option value="Trifásico">Trifásico</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="p-6 bg-slate-100/50 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Calculator className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Parâmetros de Dimensionamento</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">HSP da Região (h/dia)</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={hsp}
+                        onChange={(e) => setHsp(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tarifa de Energia (R$/kWh)</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={energyTariff}
+                        onChange={(e) => setEnergyTariff(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">PR (Eficiência do Sistema)</label>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        value={pr}
+                        onChange={(e) => setPr(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#fdb612]"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-medium italic">Valores padrão baseados em Minas Gerais (~4.8 HSP / R$ 0.92 / 78% PR)</p>
                 </div>
 
                 <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
@@ -1296,14 +1505,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Sugestão Técnica</p>
                       <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                        Baseado no consumo de <span className="text-[#fdb612]">{formData.energyConsumption} kWh</span>, sugerimos <span className="text-[#00A86B]">{(parseFloat(formData.energyConsumption) / efficiency).toFixed(2)} kWp</span>
+                        Baseado no consumo de <span className="text-[#fdb612]">{formData.energyConsumption} kWh</span>, sugerimos <span className="text-[#00A86B]">{(parseFloat(formData.energyConsumption) / (hsp * 30 * pr)).toFixed(2)} kWp</span>
                       </p>
                     </div>
                   </div>
                   <button 
                     type="button"
                     onClick={() => {
-                      const suggestedSz = (parseFloat(formData.energyConsumption) / efficiency).toFixed(2);
+                      const suggestedSz = (parseFloat(formData.energyConsumption) / (hsp * 30 * pr)).toFixed(2);
                       setFormData(prev => ({ ...prev, systemSize: suggestedSz }));
                       showToast(`Dimensionamento ajustado para ${suggestedSz} kWp`);
                     }}
@@ -1314,12 +1523,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                 </div>
 
                 {/* Over-sizing Warning */}
-                {parseFloat(formData.systemSize) * efficiency > parseFloat(formData.energyConsumption) * 1.2 && (
+                {parseFloat(formData.systemSize) * (hsp * 30 * pr) > parseFloat(formData.energyConsumption) * 1.2 && (
                   <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-800 flex items-center gap-3 text-rose-600">
                     <AlertCircle className="w-5 h-5 shrink-0" />
                     <p className="text-xs font-bold leading-tight">
-                      Atenção: O sistema está gerando <span className="font-black">{(parseFloat(formData.systemSize) * efficiency).toFixed(0)} kWh</span>/mês. 
-                      Isso é {( (parseFloat(formData.systemSize) * efficiency) / parseFloat(formData.energyConsumption) * 100 - 100).toFixed(0)}% ACIMA do consumo do cliente.
+                      Atenção: O sistema está gerando <span className="font-black">{(parseFloat(formData.systemSize) * (hsp * 30 * pr)).toFixed(0)} kWh</span>/mês. 
+                      Isso é {( (parseFloat(formData.systemSize) * (hsp * 30 * pr)) / parseFloat(formData.energyConsumption) * 100 - 100).toFixed(0)}% ACIMA do consumo do cliente.
                     </p>
                   </div>
                 )}
@@ -1744,6 +1953,27 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     </div>
                     {validationErrors.margin && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.margin}</p>}
                     <p className="text-[10px] text-slate-400 font-medium italic">Margem aplicada sobre o custo total</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Técnico Responsável</label>
+                    <input 
+                      type="text"
+                      value={formData.assignedTechnician || ''}
+                      onChange={(e) => setFormData({ ...formData, assignedTechnician: e.target.value })}
+                      placeholder="Nome do técnico"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Notas de Instalação</label>
+                    <textarea 
+                      value={formData.installationNotes || ''}
+                      onChange={(e) => setFormData({ ...formData, installationNotes: e.target.value })}
+                      placeholder="Observações importantes sobre a instalação ou site survey..."
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all h-24"
+                    />
                   </div>
 
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">

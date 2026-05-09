@@ -485,7 +485,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minHeight={200}>
                 <BarChart data={consultantData} layout="vertical" margin={{ left: 40, right: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis type="number" hide />
@@ -527,7 +527,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minHeight={200}>
                 <LineChart data={barChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis 
@@ -588,7 +588,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minHeight={200}>
                 <AreaChart data={dynamicChartData}>
                   <defs>
                     <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
@@ -646,7 +646,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
               <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100 mb-6">Funil de Vendas</h4>
               <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={260} minHeight={200}>
                   <BarChart layout="vertical" data={funnelData} margin={{ left: 40 }}>
                     <XAxis type="number" hide />
                     <YAxis 
@@ -670,7 +670,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
               <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100 mb-6">Status dos Projetos</h4>
               <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={260} minHeight={200}>
                   <PieChart>
                     <Pie
                       data={projectStatusData}

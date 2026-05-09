@@ -6,6 +6,8 @@ import { syncCollection, updateDocument, createDocument, deleteDocument } from '
 import { motion, AnimatePresence } from 'motion/react';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
+import { generateProposalPDF } from '../services/pdfService';
+import { sendProposalEmail } from '../services/emailService';
 
 interface SalesViewProps {
   proposals: Proposal[];
@@ -60,9 +62,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setIsSendingEmail(proposal.id);
     try {
       const kit = kits.find(k => k.id === proposal.kitId);
-      const { generateProposalPDF } = await import('../services/pdfService');
-      const { sendProposalEmail } = await import('../services/emailService');
-
+      
       const pdfBase64 = await generateProposalPDF(proposal, kit);
       const result = await sendProposalEmail({
         to: proposal.email || proposal.cpfCnpj || '', // Fallback or prompt for email
@@ -87,7 +87,6 @@ export const SalesView: React.FC<SalesViewProps> = ({
 
   const handleDownloadPDF = async (proposal: Proposal) => {
     try {
-      const { generateProposalPDF } = await import('../services/pdfService');
       const kit = kits.find(k => k.id === proposal.kitId);
       const pdfDataUri = await generateProposalPDF(proposal, kit);
       const link = document.createElement('a');

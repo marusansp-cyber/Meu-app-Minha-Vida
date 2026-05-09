@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize, CheckCircle2, ScrollText, History, Plus, AlertCircle, Activity } from 'lucide-react';
 import { Client, Lead, User as UserType, Interaction } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
 import { cn } from '../lib/utils';
 
@@ -22,6 +23,9 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
     address: '',
     addressNumber: '',
     addressComplement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
     cep: '',
     cnpj: '',
     cpf: '',
@@ -31,6 +35,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
   });
   const [activeTab, setActiveTab] = useState<'info' | 'history'>('info');
   const [newNote, setNewNote] = useState('');
+  const [selectedInteraction, setSelectedInteraction] = useState<Interaction | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -113,10 +118,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           const data = await response.json();
           setFormData(prev => ({
             ...prev,
-            address: data.street || '',
-            type: prev.type || 'residential' // Keep current type
+            address: data.street || prev.address,
+            neighborhood: data.neighborhood || prev.neighborhood,
+            city: data.city || prev.city,
+            state: data.state || prev.state,
+            type: prev.type || 'residential'
           }));
-          // Focus number field if possible? 
         }
       } catch (error) {
         console.error('Error fetching CEP:', error);
@@ -487,6 +494,41 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Cidade</label>
+                <input
+                  type="text"
+                  value={formData.city || ''}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="Ex: São Paulo"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">UF / Estado</label>
+                <input
+                  type="text"
+                  value={formData.state || ''}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  placeholder="Ex: SP"
+                  maxLength={2}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all uppercase"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Bairro</label>
+              <input
+                type="text"
+                value={formData.neighborhood || ''}
+                onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                placeholder="Ex: Centro"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              />
+            </div>
+
             <div className="flex gap-2">
               <button
                 type="button"
@@ -717,8 +759,12 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 <div className="space-y-3">
                   {(formData.interactions || []).length > 0 ? (
                     formData.interactions?.map((it) => (
-                      <div key={it.id} className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex gap-4">
-                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
+                      <div 
+                        key={it.id} 
+                        onClick={() => setSelectedInteraction(it)}
+                        className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex gap-4 cursor-pointer hover:border-[#fdb612]/30 hover:shadow-lg hover:shadow-[#fdb612]/5 transition-all group"
+                      >
+                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0 group-hover:scale-110 transition-transform">
                           {it.type === 'note' ? <ScrollText className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                         </div>
                         <div className="space-y-1">
@@ -727,7 +773,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                             <span className="size-1 rounded-full bg-slate-300" />
                             <span className="text-[10px] font-medium text-slate-400">{it.date}</span>
                           </div>
-                          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 font-medium">{it.description}</p>
+                          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 font-medium line-clamp-2">{it.description}</p>
                         </div>
                       </div>
                     ))
@@ -758,6 +804,66 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
           </div>
         </form>
       </div>
+
+      <AnimatePresence>
+        {selectedInteraction && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+            onClick={() => setSelectedInteraction(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-[#1a160d] w-full max-w-sm rounded-[2.5rem] shadow-2xl border border-[#fdb612]/20 overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-8 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="size-12 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612]">
+                    {selectedInteraction.type === 'note' ? <ScrollText className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                  </div>
+                  <button 
+                    onClick={() => setSelectedInteraction(null)}
+                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">{selectedInteraction.userName}</span>
+                      <span className="size-1 rounded-full bg-slate-200" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{selectedInteraction.date}</span>
+                    </div>
+                    <h4 className="text-xl font-bold font-display text-slate-900 dark:text-slate-100">
+                      {selectedInteraction.type === 'note' ? 'Nota Interna' : 'Atividade do Sistema'}
+                    </h4>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap italic">
+                      "{selectedInteraction.description}"
+                    </p>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedInteraction(null)}
+                  className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:shadow-xl transition-all"
+                >
+                  Fechar Detalhes
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

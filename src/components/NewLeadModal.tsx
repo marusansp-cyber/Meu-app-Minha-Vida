@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Zap, DollarSign, AlertCircle, Phone, MessageCircle, Mail, CheckCircle2, Calendar } from 'lucide-react';
+import { X, User, Zap, DollarSign, AlertCircle, Phone, MessageCircle, Mail, CheckCircle2, Calendar, Loader2 } from 'lucide-react';
 import { Lead } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,14 +23,76 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     urgent: false,
     cpfCnpj: '',
     address: '',
+    neighborhood: '',
+    city: '',
+    state: '',
     cep: '',
     ucNumber: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
     scheduledDate: ''
   });
 
+  const [isValidatingCep, setIsValidatingCep] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   if (!isOpen) return null;
+
+  const handleCepChange = async (value: string) => {
+    const masked = maskCep(value);
+    setFormData(prev => ({ ...prev, cep: masked }));
+    
+    const cleaned = masked.replace(/\D/g, '');
+    if (cleaned.length === 8) {
+      setIsValidatingCep(true);
+      try {
+        const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleaned}`);
+        if (response.ok) {
+          const data = await response.json();
+          setFormData(prev => ({
+            ...prev,
+            address: data.street || prev.address,
+            neighborhood: data.neighborhood || prev.neighborhood,
+            city: data.city || prev.city,
+            state: data.state || prev.state
+          }));
+        }
+      } catch (error) {
+        console.error('CEP lookup error:', error);
+      } finally {
+        setIsValidatingCep(false);
+      }
+    }
+  };
+
+  const handleGeocode = async () => {
+    if (!formData.address?.trim()) {
+      setErrors(prev => ({ ...prev, address: 'Informe um endereço para buscar as coordenadas' }));
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.address)}&limit=1`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+          }));
+        } else {
+          setErrors(prev => ({ ...prev, address: 'Endereço não localizado' }));
+        }
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   const validateName = (name: string) => {
     if (!name) return "Nome completo é obrigatório";
@@ -62,15 +124,16 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
   const validateEmail = (email: string) => {
     if (!email) return "E-mail é obrigatório";
-    const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!regex.test(email.trim())) return "Formato de e-mail inválido";
+    const regex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
+    if (!regex.test(email.trim())) return "Por favor, insira um e-mail válido (ex: nome@dominio.com)";
     return null;
   };
 
   const validatePhone = (phone: string) => {
-    if (!phone) return "Campo obrigatório";
+    if (!phone) return "Telefone/WhatsApp é obrigatório";
     const numbers = phone.replace(/\D/g, '');
-    if (numbers.length < 10 || numbers.length > 11) return "Número incompleto";
+    if (numbers.length < 10) return "O número deve ter pelo menos 10 dígitos (com DDD)";
+    if (numbers.length > 11) return "O número deve ter no máximo 11 dígitos";
     return null;
   };
 
@@ -406,28 +469,110 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Endereço Completo</label>
-              <input
-                type="text"
-                placeholder="Rua, número, bairro, cidade - UF"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Endereço Completo</label>
+                {isGeocoding && <Loader2 className="w-3 h-3 animate-spin text-[#fdb612]" />}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Rua, número, bairro, cidade - UF"
+                  className={cn(
+                    "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all",
+                    errors.address ? "border-red-500" : "border-slate-200 dark:border-slate-800"
+                  )}
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                />
+                {errors.address && <p className="text-[9px] font-bold text-red-500 mt-1">{errors.address}</p>}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">CEP</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">CEP</label>
+                  {isValidatingCep && <Loader2 className="w-3 h-3 animate-spin text-[#fdb612]" />}
+                </div>
                 <input
                   type="text"
                   placeholder="00000-000"
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
                   value={formData.cep}
-                  onChange={(e) => setFormData({ ...formData, cep: maskCep(e.target.value) })}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Bairro</label>
+                <input
+                  type="text"
+                  placeholder="Bairro"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                  value={formData.neighborhood}
+                  onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Cidade</label>
+                <input
+                  type="text"
+                  placeholder="Cidade"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">UF</label>
+                <input
+                  type="text"
+                  placeholder="UF"
+                  maxLength={2}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-[#fdb612] outline-none transition-all uppercase"
+                  value={formData.state}
+                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleGeocode}
+                disabled={isGeocoding}
+                className="py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all flex items-center justify-center gap-2"
+              >
+                {isGeocoding ? <Loader2 className="w-3 h-3 animate-spin" /> : "Validar Mapa"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                      setFormData(prev => ({ ...prev, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+                    });
+                  }
+                }}
+                className="py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all"
+              >
+                Usar GPS
+              </button>
+            </div>
+
+            {(formData.latitude && formData.longitude) && (
+              <div className="px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-xl flex items-center justify-between animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold">Localização OK</span>
+                </div>
+                <span className="text-[9px] font-medium text-slate-400">
+                  {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                </span>
+              </div>
+            )}
           </div>
 
           <AnimatePresence>

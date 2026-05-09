@@ -90,10 +90,62 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   const [leadModalTab, setLeadModalTab] = useState<'info' | 'history' | 'files'>('info');
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [newNote, setNewNote] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [editErrors, setEditErrors] = useState<Record<string, string | null>>({});
+  const [isValidatingCep, setIsValidatingCep] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  const handleCepChange = async (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    const masked = cleaned.length > 5 ? `${cleaned.slice(0, 5)}-${cleaned.slice(5, 8)}` : cleaned;
+    setEditForm(prev => ({ ...prev, cep: masked }));
+
+    if (cleaned.length === 8) {
+      setIsValidatingCep(true);
+      try {
+        const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleaned}`);
+        if (res.ok) {
+          const data = await res.json();
+          setEditForm(prev => ({
+            ...prev,
+            address: data.street || prev.address,
+            neighborhood: data.neighborhood || prev.neighborhood,
+            city: data.city || prev.city,
+            state: data.state || prev.state
+          }));
+        }
+      } catch (err) {
+        console.error('CEP lookup error:', err);
+      } finally {
+        setIsValidatingCep(false);
+      }
+    }
+  };
+
+  const handleGeocode = async () => {
+    if (!editForm.address?.trim()) return;
+    setIsGeocoding(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(editForm.address)}&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          setEditForm(prev => ({
+            ...prev,
+            latitude: parseFloat(data[0].lat),
+            longitude: parseFloat(data[0].lon)
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Geocoding error:', err);
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   const maskCurrency = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -146,6 +198,13 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     if (!phone) return "Telefone é obrigatório";
     const regex = /^\(\d{2}\) 9\d{4}-\d{4}$/;
     if (!regex.test(phone)) return "Formato inválido: (XX) 9XXXX-XXXX";
+    return null;
+  };
+
+  const validateSystemSize = (val: string) => {
+    if (!val) return "Potência é obrigatória";
+    const num = parseFloat(val.replace(',', '.'));
+    if (isNaN(num) || num <= 0) return "Potência deve ser positiva";
     return null;
   };
 
@@ -355,25 +414,33 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     setIsEditing(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (selectedLead && editForm) {
       const emailErr = validateEmail(editForm.email || '');
       const phoneErr = validatePhone(editForm.phone || '');
       const valueErr = validateValue(editForm.value || '');
+      const szErr = validateSystemSize(editForm.systemSize || '');
       
-      if (emailErr || phoneErr || valueErr) {
+      if (emailErr || phoneErr || valueErr || szErr) {
         setEditErrors({
           email: emailErr,
           phone: phoneErr,
-          value: valueErr
+          value: valueErr,
+          systemSize: szErr
         });
         return;
       }
+
+      setIsSaving(true);
+      
+      // Simulate network request
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       const updatedLead = { ...selectedLead, ...editForm } as Lead;
       onUpdateLead(updatedLead);
       setSelectedLead(updatedLead);
       setIsEditing(false);
+      setIsSaving(false);
       setEditErrors({});
       showToast('Lead atualizado com sucesso!');
     }
@@ -580,9 +647,10 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
+                    {leads.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filtrar por Data</label>
                         <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg">
                           <button 
                             onClick={() => setDateFilterType('created')}
@@ -625,8 +693,9 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    <div className="space-y-3">
+                  <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representantes</label>
                         <div className="flex gap-4">
@@ -937,6 +1006,10 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                                     lead={lead} 
                                     onDelete={() => setLeadToDelete(lead)}
                                     onClick={() => setSelectedLead(lead)}
+                                    onEdit={() => handleEditLead(lead)}
+                                    onStartSimulation={() => {
+                                      if (onCreateProposal) onCreateProposal(lead);
+                                    }}
                                   />
                                 </div>
                               )}
@@ -1055,12 +1128,12 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                showToast('Funcionalidade de edição em breve');
+                                handleEditLead(lead);
                                 setActiveActionMenu(null);
                               }}
                               className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
                             >
-                              <Plus className="w-4 h-4 text-slate-400" />
+                              <Edit2 className="w-4 h-4 text-slate-400" />
                               Editar
                             </button>
                             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
@@ -1261,12 +1334,22 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sistema (kWp)</label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sistema (kWp)</label>
+                          {editErrors.systemSize && <span className="text-[9px] font-bold text-red-500 animate-in fade-in slide-in-from-right-1">{editErrors.systemSize}</span>}
+                        </div>
                         <input 
                           type="text"
                           value={editForm.systemSize || ''}
-                          onChange={(e) => setEditForm({ ...editForm, systemSize: e.target.value })}
-                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setEditForm({ ...editForm, systemSize: val });
+                            setEditErrors(prev => ({ ...prev, systemSize: validateSystemSize(val) }));
+                          }}
+                          className={cn(
+                            "w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]",
+                            editErrors.systemSize ? "border-red-500 bg-red-50/50 dark:bg-red-900/10" : "border-slate-200 dark:border-slate-800"
+                          )}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1319,17 +1402,90 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                         className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
                       />
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CEP</label>
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CEP</label>
+                          {isValidatingCep && <Loader2 className="w-3 h-3 animate-spin text-[#fdb612]" />}
+                        </div>
                         <input 
                           type="text"
                           value={editForm.cep || ''}
-                          onChange={(e) => setEditForm({ ...editForm, cep: maskCep(e.target.value) })}
+                          onChange={(e) => handleCepChange(e.target.value)}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bairro</label>
+                        <input 
+                          type="text"
+                          value={editForm.neighborhood || ''}
+                          onChange={(e) => setEditForm({ ...editForm, neighborhood: e.target.value })}
                           className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
                         />
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cidade</label>
+                        <input 
+                          type="text"
+                          value={editForm.city || ''}
+                          onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612]"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">UF</label>
+                        <input 
+                          type="text"
+                          value={editForm.state || ''}
+                          onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                          maxLength={2}
+                          className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold outline-none focus:ring-2 focus:ring-[#fdb612] uppercase"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleGeocode}
+                        disabled={isGeocoding}
+                        className="py-2 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-800"
+                      >
+                        {isGeocoding ? <Loader2 className="w-3 h-3 animate-spin" /> : "Validar no Mapa"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition((pos) => {
+                              setEditForm(prev => ({ ...prev, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+                              setToast("GPS capturado");
+                            });
+                          }
+                        }}
+                        className="py-2 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-all border border-slate-200 dark:border-slate-800"
+                      >
+                        Usar GPS
+                      </button>
+                    </div>
+
+                    {(editForm.latitude && editForm.longitude) && (
+                      <div className="px-3 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Geolocalização Ativa
+                        </div>
+                        <span className="text-[9px] font-medium text-slate-400">
+                          {editForm.latitude.toFixed(4)}, {editForm.longitude.toFixed(4)}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Representante</label>
                       <select 
@@ -1671,10 +1827,20 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                     </button>
                     <button 
                       onClick={handleSaveEdit}
-                      className="flex-1 px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-bold text-sm hover:bg-[#fdb612]/90 transition-colors flex items-center justify-center gap-2"
+                      disabled={isSaving}
+                      className="flex-1 px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-bold text-sm hover:bg-[#fdb612]/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      <Save className="w-4 h-4" />
-                      Salvar
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Salvar
+                        </>
+                      )}
                     </button>
                   </>
                 ) : (
@@ -1712,7 +1878,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   );
 };
 
-const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void; onStartSimulation: () => void }> = ({ lead, onDelete, onClick, onStartSimulation }) => {
+const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void; onEdit: () => void; onStartSimulation: () => void }> = ({ lead, onDelete, onClick, onEdit, onStartSimulation }) => {
   return (
     <div 
       onClick={onClick}
@@ -1722,6 +1888,16 @@ const LeadCard: React.FC<{ lead: Lead; onDelete: () => void; onClick: () => void
       lead.status === 'closed' ? "border-green-500/30" : "border-slate-200 dark:border-slate-700 hover:border-[#fdb612]"
     )}>
       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          className="p-1.5 text-slate-300 hover:text-[#fdb612] rounded-md hover:bg-[#fdb612]/10 transition-all"
+          title="Editar"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
         <button 
           onClick={(e) => {
             e.stopPropagation();

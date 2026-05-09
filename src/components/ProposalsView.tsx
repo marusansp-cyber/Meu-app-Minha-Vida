@@ -3,7 +3,7 @@ import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Cloc
 import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
-import { Proposal, User as UserType, Lead, Client } from '../types';
+import { Proposal, User as UserType, Lead, Client, History } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { SMTPHelpModal } from './SMTPHelpModal';
@@ -94,6 +94,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => {
     // Simulate loading or wait for proposals
@@ -216,16 +217,63 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
   const handleAddProposal = async (proposalData: Proposal) => {
     if (proposalData.id && proposals.find(p => p.id === proposalData.id)) {
+      const original = proposals.find(p => p.id === proposalData.id);
       const { id, ...data } = proposalData;
+      
+      // Calculate changes for history
+      const changes: any[] = [];
+      if (original) {
+        Object.keys(data).forEach(key => {
+          if (JSON.stringify((data as any)[key]) !== JSON.stringify((original as any)[key])) {
+            changes.push({
+              field: key,
+              oldValue: (original as any)[key],
+              newValue: (data as any)[key]
+            });
+          }
+        });
+      }
+
       await updateDocument('proposals', id, data);
+
+      if (changes.length > 0) {
+        await createDocument('history', {
+          type: 'update',
+          collection: 'proposals',
+          docId: id,
+          data: { changes },
+          user: {
+            uid: user?.id,
+            email: user?.email,
+            displayName: user?.name
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
       showToast('Proposta atualizada com sucesso!');
     } else {
       const proposalNumber = await getNextProposalNumber();
-      await createDocument('proposals', {
+      const newProposal = {
         ...proposalData,
         proposalNumber,
         date: new Date().toISOString()
+      };
+      const createdId = await createDocument('proposals', newProposal);
+      
+      await createDocument('history', {
+        type: 'create',
+        collection: 'proposals',
+        docId: createdId,
+        data: { proposal: newProposal },
+        user: {
+          uid: user?.id,
+          email: user?.email,
+          displayName: user?.name
+        },
+        timestamp: new Date().toISOString()
       });
+
       showToast('Simulação criada com sucesso!');
     }
     setSelectedProposal(null);
@@ -250,7 +298,22 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
   const confirmDelete = async () => {
     if (proposalToDelete) {
-      await deleteDocument('proposals', proposalToDelete.id);
+      const id = proposalToDelete.id;
+      await deleteDocument('proposals', id);
+      
+      await createDocument('history', {
+        type: 'delete',
+        collection: 'proposals',
+        docId: id,
+        data: { proposal: proposalToDelete },
+        user: {
+          uid: user?.id,
+          email: user?.email,
+          displayName: user?.name
+        },
+        timestamp: new Date().toISOString()
+      });
+
       setIsDeleteModalOpen(false);
       setProposalToDelete(null);
       showToast('Simulação excluída permanentemente.');
@@ -335,7 +398,28 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       });
 
       if (result.success) {
+        const oldStatus = proposal.status;
         await updateDocument('proposals', id, { status: 'sent' });
+        
+        await createDocument('history', {
+          type: 'update',
+          collection: 'proposals',
+          docId: id,
+          data: { 
+            changes: [{
+              field: 'status',
+              oldValue: oldStatus,
+              newValue: 'sent'
+            }] 
+          },
+          user: {
+            uid: user?.id,
+            email: user?.email,
+            displayName: user?.name
+          },
+          timestamp: new Date().toISOString()
+        });
+
         showToast('Proposta enviada ao cliente com sucesso!', 'success', true);
       } else {
         showToast(`Erro ao enviar: ${result.message}`, 'info', true);
@@ -549,7 +633,28 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         });
 
         if (result.success) {
+          const oldStatus = proposal.status;
           await updateDocument('proposals', id, { status: 'sent' });
+          
+          await createDocument('history', {
+            type: 'update',
+            collection: 'proposals',
+            docId: id,
+            data: { 
+              changes: [{
+                field: 'status',
+                oldValue: oldStatus,
+                newValue: 'sent'
+              }] 
+            },
+            user: {
+              uid: user?.id,
+              email: user?.email,
+              displayName: user?.name
+            },
+            timestamp: new Date().toISOString()
+          });
+
           successCount++;
         } else {
           failCount++;
@@ -746,9 +851,30 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     setIsUpdatingCommission(proposal.id);
     try {
       const newStatus = proposal.commissionStatus === 'paid' ? 'pending' : 'paid';
+      const oldStatus = proposal.commissionStatus || 'pending';
       await updateDocument('proposals', proposal.id, { 
         commissionStatus: newStatus 
       });
+
+      await createDocument('history', {
+        type: 'update',
+        collection: 'proposals',
+        docId: proposal.id,
+        data: { 
+          changes: [{
+            field: 'commissionStatus',
+            oldValue: oldStatus,
+            newValue: newStatus
+          }] 
+        },
+        user: {
+          uid: user?.id,
+          email: user?.email,
+          displayName: user?.name
+        },
+        timestamp: new Date().toISOString()
+      });
+
       showToast(`Comissão de ${proposal.client} marcada como ${newStatus === 'paid' ? 'Paga' : 'Pendente'}`);
     } catch (error) {
       console.error('Error updating commission status:', error);
@@ -1520,7 +1646,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                 Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               ) : filteredProposals.length > 0 ? (
                 <AnimatePresence>
-                  {filteredProposals.map((prop, index) => (
+                  {filteredProposals.slice(0, visibleCount).map((prop, index) => (
                     <motion.tr 
                       key={prop.id || `prop-${index}`} 
                       layout
@@ -1601,7 +1727,28 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 if (prop.id) {
+                                  const oldStatus = prop.status;
                                   await updateDocument('proposals', prop.id, { status: s });
+                                  
+                                  await createDocument('history', {
+                                    type: 'update',
+                                    collection: 'proposals',
+                                    docId: prop.id,
+                                    data: { 
+                                      changes: [{
+                                        field: 'status',
+                                        oldValue: oldStatus,
+                                        newValue: s
+                                      }] 
+                                    },
+                                    user: {
+                                      uid: user?.id,
+                                      email: user?.email,
+                                      displayName: user?.name
+                                    },
+                                    timestamp: new Date().toISOString()
+                                  });
+
                                   showToast(`Status atualizado para ${s}`);
                                 }
                               }}
@@ -1672,10 +1819,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           e.stopPropagation();
                           handleEdit(prop);
                         }}
-                        className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
+                        className="px-3 py-1.5 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors flex items-center gap-1.5 group" 
                         title="Editar"
                       >
-                        <FileText className="w-4 h-4" />
+                        <FileText className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold uppercase hidden group-hover:inline">Editar</span>
                       </button>
                       {prop.status === 'accepted' && onConvertToInstallation && (
                         <button 
@@ -1683,10 +1831,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                             e.stopPropagation();
                             onConvertToInstallation(prop);
                           }}
-                          className="p-2 hover:bg-emerald-50 text-emerald-500 hover:text-emerald-600 rounded-lg transition-colors" 
+                          className="px-3 py-1.5 hover:bg-emerald-50 text-emerald-500 hover:text-emerald-600 rounded-lg transition-colors flex items-center gap-1.5 group font-bold text-[10px] uppercase" 
                           title="Converter para Instalação"
                         >
                           <HardHat className="w-4 h-4" />
+                          <span>Instalar</span>
                         </button>
                       )}
                       <button 
@@ -1704,10 +1853,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           e.stopPropagation();
                           handleDeleteClick(prop);
                         }}
-                        className="p-2 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg transition-colors" 
+                        className="px-3 py-1.5 hover:bg-rose-50 text-rose-500 hover:text-rose-600 rounded-lg transition-colors flex items-center gap-1.5 group" 
                         title="Excluir"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold uppercase hidden group-hover:inline">Excluir</span>
                       </button>
                       <div className="w-px h-4 bg-slate-200 dark:bg-slate-800 mx-1" />
                       <button 
@@ -1834,6 +1984,18 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
             </tbody>
           </table>
         </div>
+        
+        {filteredProposals.length > visibleCount && (
+          <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-center">
+            <button
+              onClick={() => setVisibleCount(prev => prev + 20)}
+              className="px-8 py-3 bg-slate-100 dark:bg-white/5 hover:bg-[#fdb612]/10 hover:text-[#fdb612] text-slate-600 dark:text-slate-400 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center gap-2 group"
+            >
+              <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+              Carregar Mais ({filteredProposals.length - visibleCount} restantes)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

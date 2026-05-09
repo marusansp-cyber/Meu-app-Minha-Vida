@@ -55,6 +55,9 @@ export interface Client {
   email: string;
   phone: string;
   address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
   cnpj?: string;
   cpf?: string;
   createdAt: string;
@@ -116,6 +119,9 @@ export interface Lead {
   // New Fields
   cpfCnpj?: string;
   address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
   cep?: string;
   ucNumber?: string;
   
@@ -216,11 +222,18 @@ export interface Proposal {
   installationStartDate?: string;
   estimatedCompletionDate?: string;
   calculatedCommission?: number | null;
+  latitude?: number;
+  longitude?: number;
+  assignedTechnician?: string;
+  installationNotes?: string;
   
   // Step 1: UCS
   titular?: string;
   cpfCnpj?: string;
   endereco?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
   cep?: string;
   telefone?: string;
   distribuidora?: string;

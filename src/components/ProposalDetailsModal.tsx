@@ -26,12 +26,18 @@ import {
   ArrowRight,
   Rocket,
   Image as ImageIcon,
-  Eye
+  Eye,
+  MapPin,
+  HardHat,
+  Loader2
 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
-import { Proposal, User as UserType } from '../types';
+import { Proposal, User as UserType, History } from '../types';
 
 import { generateProposalPDF } from '../services/pdfService';
+import { createDocument } from '../firestoreUtils';
+import { db } from '../firebase';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 
 interface ProposalDetailsModalProps {
   isOpen: boolean;
@@ -55,6 +61,31 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [history, setHistory] = useState<History[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (proposal?.id && isOpen) {
+      setIsLoadingHistory(true);
+      const q = query(
+        collection(db, 'history'),
+        where('collection', '==', 'proposals'),
+        where('docId', '==', proposal.id),
+        orderBy('timestamp', 'desc')
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as History));
+        setHistory(logs);
+        setIsLoadingHistory(false);
+      }, (error) => {
+        console.error("Error loading history:", error);
+        setIsLoadingHistory(false);
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [proposal?.id, isOpen]);
 
   useEffect(() => {
     if (proposal) {
@@ -66,10 +97,33 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
 
   if (!isOpen || !proposal) return null;
 
-  const handleSave = () => {
-    if (onUpdate && editForm) {
+  const handleSave = async () => {
+    if (onUpdate && editForm && proposal) {
+      const changes: Record<string, { old: any, new: any }> = {};
+      Object.keys(editForm).forEach(key => {
+        const k = key as keyof Proposal;
+        if (JSON.stringify(editForm[k]) !== JSON.stringify(proposal[k])) {
+          changes[key] = { old: proposal[k], new: editForm[k] };
+        }
+      });
+
+      if (Object.keys(changes).length > 0) {
+        // Log activity
+        await createDocument('history', {
+          type: 'update',
+          collection: 'proposals',
+          docId: proposal.id,
+          data: { changes },
+          user: {
+            uid: user?.uid || user?.id,
+            email: user?.email,
+            displayName: user?.name
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+
       onUpdate({ ...proposal, ...editForm } as Proposal);
-      setIsEditing(true); // Keep editing or close? Let's stay in edit mode for confirmation or close
       setIsEditing(false);
     }
   };
@@ -506,6 +560,38 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Técnico Responsável</label>
+                  <input 
+                    type="text" 
+                    value={editForm.assignedTechnician || ''}
+                    onChange={(e) => setEditForm({ ...editForm, assignedTechnician: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    placeholder="Nome do técnico"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Latitude</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={editForm.latitude || ''}
+                      onChange={(e) => setEditForm({ ...editForm, latitude: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Longitude</label>
+                    <input 
+                      type="number" 
+                      step="any"
+                      value={editForm.longitude || ''}
+                      onChange={(e) => setEditForm({ ...editForm, longitude: parseFloat(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Estudo de Viabilidade</label>
@@ -754,6 +840,80 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       <p className="font-bold text-xl">{proposal.representative}</p>
                     </div>
                   </div>
+
+                  <div className="p-6 bg-slate-100/50 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <HardHat className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Resumo da Instalação</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-medium tracking-tight">Técnico Responsável:</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{proposal.assignedTechnician || 'Não atribuído'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-medium tracking-tight">Data de Início:</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{proposal.installationStartDate ? formatDate(proposal.installationStartDate) : 'A definir'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500 font-medium tracking-tight">Prazo Estimado:</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{proposal.estimatedCompletionDate ? formatDate(proposal.estimatedCompletionDate) : 'A definir'}</span>
+                      </div>
+                      {proposal.latitude && proposal.longitude && (
+                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500 font-medium tracking-tight flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              Localização:
+                            </span>
+                            <button 
+                              onClick={() => window.open(`https://www.google.com/maps?q=${proposal.latitude},${proposal.longitude}`, '_blank')}
+                              className="text-[10px] font-black text-blue-500 hover:underline uppercase"
+                            >
+                              Ver no Mapa
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-medium text-right mt-1">{proposal.latitude.toFixed(6)}, {proposal.longitude.toFixed(6)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <HistoryIcon className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Histórico de Alterações</span>
+                  </div>
+                  {isLoadingHistory && <Loader2 className="w-3 h-3 animate-spin text-[#fdb612]" />}
+                </div>
+                <div className="space-y-3">
+                  {history.length > 0 ? (
+                    history.map((log) => (
+                      <div key={log.id} className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-slate-800 text-[10px]">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-black text-slate-700 dark:text-slate-300 uppercase tracking-tighter">{log.user?.displayName || log.user?.email || 'Sistema'}</span>
+                          <span className="text-slate-400">{formatDate(log.timestamp)}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {log.data?.changes && Object.entries(log.data.changes).map(([field, delta]: [string, any]) => (
+                            <div key={field} className="flex flex-wrap gap-1 items-center">
+                              <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded font-black text-[9px] uppercase">{field}</span>
+                              <span className="text-rose-500 line-through opacity-60">{String(delta.old)}</span>
+                              <ArrowRight className="w-2.5 h-2.5 text-slate-300" />
+                              <span className="text-emerald-500 font-bold">{String(delta.new)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center border-2 border-dashed border-slate-100 dark:border-slate-800/50 rounded-2xl">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Nenhum histórico registrado</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
