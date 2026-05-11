@@ -74,3 +74,76 @@ export function formatDate(date: any): string {
     return new Date().toLocaleDateString('pt-BR');
   }
 }
+
+/**
+ * Fixes oklch color functions in a cloned document for html2canvas compatibility.
+ * html2canvas currently crashes when encountering oklch colors used by Tailwind 4.
+ */
+export function fixOklch(clonedDoc: Document) {
+  const elements = clonedDoc.getElementsByTagName('*');
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i] as HTMLElement;
+    if (!el.style) continue;
+
+    // Properties likely to have oklch colors from Tailwind 4
+    const props = ['color', 'backgroundColor', 'borderColor', 'fill', 'stroke', 'outlineColor', 'textDecorationColor'];
+    
+    // Check computed style if inline style doesn't have it
+    // But modifying the inline style is what html2canvas will pick up
+    const style = window.getComputedStyle(el);
+    
+    props.forEach(prop => {
+      const value = style.getPropertyValue(prop.replace(/[A-Z]/g, m => "-" + m.toLowerCase()));
+      if (value && value.includes('oklch')) {
+        // Fallback to a simple hex/rgb if it's oklch
+        // For slate/gray colors (common in Tailwind), we'll use a neutral gray
+        if (value.includes('0.9') || value.includes('0.8')) { // Dark colors (L is low)
+           el.style.setProperty(prop.replace(/[A-Z]/g, m => "-" + m.toLowerCase()), '#1e293b', 'important');
+        } else if (value.includes('0.1') || value.includes('0.2')) { // Light colors
+           el.style.setProperty(prop.replace(/[A-Z]/g, m => "-" + m.toLowerCase()), '#f1f5f9', 'important');
+        } else {
+           el.style.setProperty(prop.replace(/[A-Z]/g, m => "-" + m.toLowerCase()), '#64748b', 'important');
+        }
+      }
+    });
+  }
+}
+
+export function validateEmail(email: string): string | null {
+  if (!email) return 'E-mail é obrigatório';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return 'Formato de e-mail inválido';
+  return null;
+}
+
+export function validatePhone(phone: string): string | null {
+  if (!phone) return 'Telefone é obrigatório';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return 'Telefone deve ter ao menos 10 dígitos';
+  if (digits.length > 11) return 'Telefone deve ter no máximo 11 dígitos';
+  return null;
+}
+
+export function maskPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (!digits) return '';
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+export function maskCurrency(value: string): string {
+  const numbers = value.replace(/\D/g, '');
+  if (!numbers) return 'R$ 0,00';
+  const amount = parseInt(numbers) / 100;
+  return amount.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+export function currencyToNumber(value: string): number {
+  if (!value) return 0;
+  return parseFloat(value.replace(/\D/g, '')) / 100;
+}

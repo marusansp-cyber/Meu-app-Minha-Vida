@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid, Calculator, Zap, TrendingUp, DollarSign } from 'lucide-react';
+import { FileText, Plus, Search, Filter, MoreVertical, Download, Send, Eye, Clock, CheckCircle2, AlertCircle, X, XCircle, CheckCircle, Printer, Share2, Copy, Calendar, User, ArrowUpRight, Trash2, HardHat, LayoutGrid, Calculator, Zap, TrendingUp, DollarSign, History as HistoryIcon } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Proposal, User as UserType, Lead, Client, History } from '../types';
 import { NewProposalModal } from './NewProposalModal';
+import { NewProposalView } from './NewProposalView';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { SMTPHelpModal } from './SMTPHelpModal';
 import { HelpCircle } from 'lucide-react';
@@ -22,9 +23,9 @@ interface ProposalsViewProps {
   kits: any[];
   leads: Lead[];
   clients: Client[];
-  preFill?: Partial<Proposal> | null;
+  preFillData?: Partial<Proposal> | null;
   isDarkMode?: boolean;
-  onPreFillComplete?: () => void;
+  onClearPreFill?: () => void;
   onConvertToInstallation?: (proposal: Proposal) => void;
 }
 
@@ -58,9 +59,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   kits, 
   leads, 
   clients,
-  preFill,
+  preFillData,
   isDarkMode = false,
-  onPreFillComplete,
+  onClearPreFill,
   onConvertToInstallation
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,20 +96,19 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [activeTab, setActiveTab] = useState<'history' | 'new'>('history');
+
+  useEffect(() => {
+    if (preFillData) {
+      setActiveTab('new');
+    }
+  }, [preFillData]);
 
   useEffect(() => {
     // Simulate loading or wait for proposals
     const timer = setTimeout(() => setIsLoading(false), 1200);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (preFill) {
-      setSelectedProposal(preFill as Proposal);
-      setIsModalOpen(true);
-      if (onPreFillComplete) onPreFillComplete();
-    }
-  }, [preFill]);
 
   const proposals = initialProposals;
 
@@ -332,7 +332,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         p.proposalNumber || p.id,
         p.client,
         p.email || 'N/A',
-        p.value?.toString() || '0', 
+        typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : (p.value || 'R$ 0,00'), 
         p.date,
         p.status,
         p.systemSize,
@@ -999,8 +999,55 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         </div>
       </header>
 
-      {/* Simulator Analytics Dashboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl w-full max-w-md">
+        <button
+          onClick={() => setActiveTab('history')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            activeTab === 'history'
+              ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm"
+              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          )}
+        >
+          <HistoryIcon className="w-4 h-4" />
+          Histórico
+        </button>
+        <button
+          onClick={() => setActiveTab('new')}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+            activeTab === 'new'
+              ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm"
+              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          )}
+        >
+          <Plus className="w-4 h-4" />
+          Nova Proposta
+        </button>
+      </div>
+
+      {activeTab === 'new' ? (
+        <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-[2rem] overflow-hidden min-h-[600px]">
+          <NewProposalView 
+            user={user}
+            leads={leads}
+            clients={clients}
+            initialData={preFillData as Proposal}
+            onCancel={() => {
+              setActiveTab('history');
+              onClearPreFill?.();
+            }}
+            onProposalAdded={() => {
+              setActiveTab('history');
+              onClearPreFill?.();
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Simulator Analytics Dashboard */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Real-time Savings Projection */}
         <div className="lg:col-span-2 p-8 bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-[2rem] space-y-8 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -1149,7 +1196,6 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           </div>
         </div>
       </div>
-
       <NewProposalModal 
         isOpen={isModalOpen}
         onClose={() => {
@@ -1997,6 +2043,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
           </div>
         )}
       </div>
+      </>
+    )}
     </div>
   );
 };
+
+export default ProposalsView;

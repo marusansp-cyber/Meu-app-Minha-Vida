@@ -42,7 +42,7 @@ import {
   MapPin,
   Crosshair
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, validateEmail, validatePhone, maskPhone, maskCurrency, currencyToNumber } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
@@ -56,6 +56,7 @@ interface NewProposalModalProps {
   user: UserType | null;
   leads?: Lead[];
   clients?: Client[];
+  isFullScreen?: boolean;
 }
 
 type Step = 'ucs' | 'kit' | 'pricing' | 'financing' | 'finalization';
@@ -68,7 +69,16 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'finalization', label: 'Status & Fechamento', icon: FileCheck },
 ];
 
-export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onClose, onAdd, initialData, user, leads = [], clients = [] }) => {
+export const NewProposalModal: React.FC<NewProposalModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onAdd, 
+  initialData, 
+  user, 
+  leads = [], 
+  clients = [], 
+  isFullScreen = false 
+}) => {
   const [currentStep, setCurrentStep] = useState<Step>('ucs');
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
@@ -539,6 +549,36 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       if (!formData.panelBrandModel?.trim()) {
         errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
       }
+
+      // Technical Validation for Kits
+      if (formData.kitId) {
+        const kit = kits.find(k => k.id === formData.kitId);
+        if (kit) {
+          const currentSz = parseFloat(formData.systemSize);
+          const currentCost = parseFloat(formData.equipmentCost);
+          
+          // Check if power matches kit power (with small tolerance)
+          if (Math.abs(currentSz - kit.power) > 0.05) {
+            errors.systemSize = `A potência (${currentSz} kWp) diverge da potência original do kit selecionado (${kit.power} kWp).`;
+          }
+
+          // Check if equipment cost matches kit price (with tolerance for discounts or adjustments if permitted, but user asked for consistency)
+          // We'll allow a 10% discrepancy before throwing a hard error, but maybe the user wants strict matching
+          if (kit.price > 0 && Math.abs(currentCost - kit.price) > kit.price * 0.15) {
+            errors.equipmentCost = `O custo do equipamento (R$ ${currentCost.toLocaleString()}) está muito diferente do preço base do kit (R$ ${kit.price.toLocaleString()}).`;
+          }
+
+          // Check panel consistency
+          const powerMatch = formData.panelBrandModel.match(/(\d+)\s*W/i);
+          const panelPower = powerMatch ? parseInt(powerMatch[1]) : 0;
+          if (panelPower > 0) {
+            const expectedSz = (parseInt(formData.panelQuantity) * panelPower) / 1000;
+            if (Math.abs(currentSz - expectedSz) > 0.1) {
+              errors.panelQuantity = `A quantidade de módulos (${formData.panelQuantity}) com potência ${panelPower}W não resulta na potência do sistema informada (${currentSz} kWp). Esperado: ${expectedSz.toFixed(2)} kWp.`;
+            }
+          }
+        }
+      }
     } else if (step === 'pricing') {
       const costs = ['equipmentCost', 'installationCost', 'projectCost', 'licensingCost', 'logisticCost'];
       costs.forEach(field => {
@@ -550,6 +590,17 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
       
       if (!formData.margin || parseFloat(formData.margin) < 0) {
         errors.margin = 'Margem de lucro não pode ser negativa';
+      }
+
+      // Tech Validation for Kit Price in Pricing Step
+      if (formData.kitId) {
+        const kit = kits.find(k => k.id === formData.kitId);
+        if (kit && kit.price > 0) {
+          const currentCost = parseFloat(formData.equipmentCost);
+          if (Math.abs(currentCost - kit.price) > kit.price * 0.15) {
+            errors.equipmentCost = `O custo do equipamento (R$ ${currentCost.toLocaleString()}) diverge significativamente do valor original do kit (R$ ${kit.price.toLocaleString()}).`;
+          }
+        }
       }
     } else if (step === 'finalization') {
       if (!formData.expiryDate) {
@@ -762,8 +813,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
   // The derived calculations are now handled by the unified sync effect at the top.
 
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -908,187 +957,190 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      {toast && (
-        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
-          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
-          <span className="font-bold text-sm">{toast}</span>
-        </div>
-      )}
+  if (!isOpen && !isFullScreen) return null;
 
-      <div className="bg-white dark:bg-[#231d0f] w-full max-w-4xl rounded-[40px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 shrink-0 relative overflow-hidden">
-          {/* Progress Bar Background */}
-          <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 dark:bg-slate-800" />
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
-            className="absolute top-0 left-0 h-1 bg-[#fdb612] shadow-[0_0_10px_#fdb612]"
-          />
+  const content = (
+    <div className={cn(
+      "bg-white dark:bg-[#231d0f] w-full border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col transition-all duration-300",
+      isFullScreen ? "h-full" : "max-w-4xl rounded-[40px] shadow-2xl max-h-[90vh] animate-in fade-in zoom-in"
+    )}>
+      <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-white/5 shrink-0 relative overflow-hidden">
+        {/* Progress Bar Background */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-slate-100 dark:bg-slate-800" />
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${((STEPS.findIndex(s => s.id === currentStep) + 1) / STEPS.length) * 100}%` }}
+          className="absolute top-0 left-0 h-1 bg-[#fdb612] shadow-[0_0_10px_#fdb612]"
+        />
 
-          <div className="flex items-center gap-4">
-            <div className="size-12 bg-[#fdb612]/20 rounded-2xl flex items-center justify-center text-[#fdb612]">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-black tracking-tight uppercase">
-                {initialData ? 'Ajustar Simulação' : 'Nova Simulação Técnica'}
-              </h3>
-              <p className="text-sm text-slate-500 font-medium">Fluxo guiado de alta conversão</p>
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="size-12 bg-[#fdb612]/20 rounded-2xl flex items-center justify-center text-[#fdb612]">
+            <Sparkles className="w-6 h-6" />
           </div>
-          <div className="flex items-center gap-4">
+          <div>
+            <h3 className="text-2xl font-black tracking-tight uppercase">
+              {initialData ? 'Ajustar Simulação' : 'Nova Simulação Técnica'}
+            </h3>
+            <p className="text-sm text-slate-500 font-medium">Fluxo guiado de alta conversão</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {!isFullScreen && (
             <button 
+              type="button" 
               onClick={onClose}
               className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Step Indicator */}
-        <div className="px-8 py-8 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="relative flex justify-between items-center max-w-4xl mx-auto">
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0" />
-            {STEPS.map((step, index) => {
-              const currentIndex = STEPS.findIndex(s => s.id === currentStep);
-              const stepIndex = index;
-              const isActive = currentStep === step.id;
-              const isCompleted = currentIndex > stepIndex;
+      {/* Step Indicator */}
+      <div className="px-8 py-8 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="relative flex justify-between items-center max-w-4xl mx-auto">
+          <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-200 dark:bg-slate-800 -translate-y-1/2 z-0" />
+          {STEPS.map((step, index) => {
+            const currentIndex = STEPS.findIndex(s => s.id === currentStep);
+            const stepIndex = index;
+            const isActive = currentStep === step.id;
+            const isCompleted = currentIndex > stepIndex;
 
-              return (
-                <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
-                  <div className="group relative">
-                    <button 
-                      onClick={() => {
-                        if (isCompleted || isActive) setCurrentStep(step.id);
-                      }}
-                      className={cn(
-                        "size-12 rounded-2xl flex items-center justify-center font-black text-xs transition-all border-2",
-                        isActive 
-                          ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f] shadow-xl shadow-[#fdb612]/20 scale-110" 
-                          : isCompleted 
-                            ? "bg-slate-900 border-slate-900 text-white" 
-                            : "bg-white dark:bg-[#201b10] border-slate-200 dark:border-slate-800 text-slate-400"
-                      )}
-                    >
-                      {isCompleted ? <Check className="w-6 h-6" /> : index + 1}
-                    </button>
-                    
-                    {/* Tooltip for step label */}
-                    <div className={cn(
-                      "absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 rounded-lg bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
-                      isActive && "opacity-100"
-                    )}>
-                      {step.label}
-                    </div>
-                  </div>
-                  <span className={cn(
-                    "text-[9px] font-black uppercase tracking-widest transition-colors",
-                    isActive ? "text-[#fdb612]" : isCompleted ? "text-slate-900 dark:text-white" : "text-slate-400"
-                  )}>
-                    Passo {index + 1}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
-          {/* AI Extraction Panel */}
-          <AnimatePresence>
-            {showAIInput && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="absolute inset-x-8 top-8 z-50 bg-[#1a160d] border border-[#fdb612]/30 rounded-3xl p-8 shadow-2xl flex flex-col gap-6"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="size-10 bg-[#fdb612]/20 rounded-xl flex items-center justify-center text-[#fdb612]">
-                      <BrainCircuit className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-black text-white uppercase tracking-tight">Extração Inteligente</h4>
-                      <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Powered by Vieiras AI</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setShowAIInput(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Cole abaixo os dados copiados do simulador, PDF ou rascunho técnico. A IA irá identificar automaticamente:
-                      <span className="text-white font-bold"> Cliente, Consumo, Potência, Equipamentos e Valores.</span>
-                    </p>
-                  </div>
-                  
-                  <textarea 
-                    value={pastedText}
-                    onChange={(e) => setPastedText(e.target.value)}
-                    placeholder="Cole os dados aqui... (Ex: Cliente João Silva, Consumo 500kWh, Sistema 5.5kWp...)"
-                    className="w-full h-48 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-[#fdb612] resize-none font-mono"
-                  />
-
-                  {aiErrors.length > 0 && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-2"
-                    >
-                      <div className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">
-                        <AlertCircle className="w-3 h-3" />
-                        Erros de Validação (Corrija o texto e tente novamente)
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
-                        {aiErrors.map((error, idx) => (
-                          <div key={idx} className="text-[10px] text-red-400 font-medium flex items-start gap-2">
-                            <span className="shrink-0 mt-1 size-1 bg-red-400 rounded-full" />
-                            {error}
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-
-                <div className="flex gap-4">
+            return (
+              <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
+                <div className="group relative">
                   <button 
-                    onClick={() => setShowAIInput(false)}
-                    className="flex-1 px-6 py-4 rounded-2xl border border-white/10 text-white font-bold text-sm uppercase tracking-widest hover:bg-white/5 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={handleAIExtraction}
-                    disabled={isProcessingAI || !pastedText.trim()}
-                    className="flex-3 px-6 py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                  >
-                    {isProcessingAI ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Processando Dados...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-5 h-5" />
-                        Alimentar Formulário
-                      </>
+                    type="button" 
+                    onClick={() => {
+                      if (isCompleted || isActive) setCurrentStep(step.id);
+                    }}
+                    className={cn(
+                      "size-12 rounded-2xl flex items-center justify-center font-black text-xs transition-all border-2",
+                      isActive 
+                        ? "bg-[#fdb612] border-[#fdb612] text-[#231d0f] shadow-xl shadow-[#fdb612]/20 scale-110" 
+                        : isCompleted 
+                          ? "bg-slate-900 border-slate-900 text-white" 
+                          : "bg-white dark:bg-[#201b10] border-slate-200 dark:border-slate-800 text-slate-400"
                     )}
+                  >
+                    {isCompleted ? <Check className="w-6 h-6" /> : index + 1}
                   </button>
+                  
+                  {/* Tooltip for step label */}
+                  <div className={cn(
+                    "absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 rounded-lg bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none",
+                    isActive && "opacity-100"
+                  )}>
+                    {step.label}
+                  </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <span className={cn(
+                  "text-[9px] font-black uppercase tracking-widest transition-colors",
+                  isActive ? "text-[#fdb612]" : isCompleted ? "text-slate-900 dark:text-white" : "text-slate-400"
+                )}>
+                  Passo {index + 1}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
+      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+        {/* AI Extraction Panel */}
+        <AnimatePresence>
+          {showAIInput && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="absolute inset-x-8 top-8 z-50 bg-[#1a160d] border border-[#fdb612]/30 rounded-3xl p-8 shadow-2xl flex flex-col gap-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-10 bg-[#fdb612]/20 rounded-xl flex items-center justify-center text-[#fdb612]">
+                    <BrainCircuit className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white uppercase tracking-tight">Extração Inteligente</h4>
+                    <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Powered by Vieiras AI</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setShowAIInput(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Cole abaixo os dados copiados do simulador, PDF ou rascunho técnico. A IA irá identificar automaticamente:
+                    <span className="text-white font-bold"> Cliente, Consumo, Potência, Equipamentos e Valores.</span>
+                  </p>
+                </div>
+                
+                <textarea 
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Cole os dados aqui... (Ex: Cliente João Silva, Consumo 500kWh, Sistema 5.5kWp...)"
+                  className="w-full h-48 bg-black/40 border border-white/10 rounded-2xl p-4 text-sm text-slate-300 outline-none focus:ring-2 focus:ring-[#fdb612] resize-none font-mono"
+                />
+
+                {aiErrors.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl space-y-2"
+                  >
+                    <div className="flex items-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Erros de Validação (Corrija o texto e tente novamente)
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                      {aiErrors.map((error, idx) => (
+                        <div key={idx} className="text-[10px] text-red-400 font-medium flex items-start gap-2">
+                          <span className="shrink-0 mt-1 size-1 bg-red-400 rounded-full" />
+                          {error}
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setShowAIInput(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl border border-white/10 text-white font-bold text-sm uppercase tracking-widest hover:bg-white/5 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleAIExtraction}
+                  disabled={isProcessingAI || !pastedText.trim()}
+                  className="flex-3 px-6 py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {isProcessingAI ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Processando Dados...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5" />
+                      Alimentar Formulário
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
             {currentStep === 'ucs' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -1248,17 +1300,27 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Telefone</label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Phone className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5", validationErrors.telefone ? "text-rose-400" : (formData.telefone && !validationErrors.telefone) ? "text-emerald-500" : "text-slate-400")} />
                       <input 
                         type="text" 
                         value={formData.telefone || ''}
-                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                        onChange={(e) => {
+                          const masked = maskPhone(e.target.value);
+                          setFormData({ ...formData, telefone: masked });
+                          const err = validatePhone(masked);
+                          setValidationErrors(prev => ({ ...prev, telefone: err || '' }));
+                        }}
                         placeholder="(00) 00000-0000"
                         className={cn(
-                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
-                          validationErrors.telefone ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          "w-full pl-12 pr-10 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.telefone ? "border-rose-500 bg-rose-50 dark:bg-rose-900/10" : 
+                          (formData.telefone && !validationErrors.telefone) ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10" :
+                          "border-slate-200 dark:border-slate-800"
                         )}
                       />
+                      {formData.telefone && !validationErrors.telefone && (
+                        <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 animate-in zoom-in duration-300" />
+                      )}
                     </div>
                     {validationErrors.telefone && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.telefone}</p>}
                   </div>
@@ -1362,19 +1424,29 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   )}
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">E-mail</label>
+                    <label className={cn("text-xs font-black uppercase tracking-widest transition-colors", validationErrors.email ? "text-rose-500" : "text-slate-400")}>E-mail</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <Mail className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors", validationErrors.email ? "text-rose-400" : (formData.email && !validationErrors.email) ? "text-emerald-500" : "text-slate-400")} />
                       <input 
                         type="email" 
                         value={formData.email || ''}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, email: val });
+                          const err = validateEmail(val);
+                          setValidationErrors(prev => ({ ...prev, email: err || '' }));
+                        }}
                         placeholder="cliente@email.com"
                         className={cn(
-                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
-                          validationErrors.email ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          "w-full pl-12 pr-10 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.email ? "border-rose-500 bg-rose-50 dark:bg-rose-900/10" : 
+                          (formData.email && !validationErrors.email) ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10" :
+                          "border-slate-200 dark:border-slate-800"
                         )}
                       />
+                      {formData.email && !validationErrors.email && (
+                        <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 animate-in zoom-in duration-300" />
+                      )}
                     </div>
                     {validationErrors.email && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.email}</p>}
                   </div>
@@ -1651,8 +1723,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       type="number" 
                       value={formData.panelQuantity || ''}
                       onChange={(e) => setFormData({ ...formData, panelQuantity: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.panelQuantity ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.panelQuantity && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.panelQuantity}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -1735,6 +1811,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                     />
                     <label htmlFor="cablesIncluded" className="text-sm font-bold text-slate-600 dark:text-slate-400">Cabos e conectores inclusos</label>
                   </div>
+
+                  {/* Price Consistency Indicator in Kit Step */}
+                  {formData.kitId && validationErrors.equipmentCost && (
+                    <div className="md:col-span-2 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-xl flex items-center gap-2 text-rose-600 animate-in fade-in slide-in-from-top-1">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <p className="text-[10px] font-bold">{validationErrors.equipmentCost}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-3 mt-8 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl">
@@ -1782,11 +1866,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo dos equipamentos (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo dos equipamentos</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.equipmentCost || ''}
-                      onChange={(e) => setFormData({ ...formData, equipmentCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, equipmentCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className={cn(
                         "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
                         validationErrors.equipmentCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
@@ -1796,11 +1881,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo da instalação (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo da instalação</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.installationCost || ''}
-                      onChange={(e) => setFormData({ ...formData, installationCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, installationCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className={cn(
                         "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
                         validationErrors.installationCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
@@ -1810,11 +1896,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de projetos e ART (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de projetos e ART</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.projectCost || ''}
-                      onChange={(e) => setFormData({ ...formData, projectCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, projectCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className={cn(
                         "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
                         validationErrors.projectCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
@@ -1824,11 +1911,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de licenciamento (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Custo de licenciamento</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.licensingCost || ''}
-                      onChange={(e) => setFormData({ ...formData, licensingCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, licensingCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className={cn(
                         "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
                         validationErrors.licensingCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
@@ -1838,11 +1926,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Frete e logística (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Frete e logística</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.logisticCost || ''}
-                      onChange={(e) => setFormData({ ...formData, logisticCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, logisticCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className={cn(
                         "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
                         validationErrors.logisticCost ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
@@ -1854,19 +1943,21 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-[#fdb612]">Custo Adicional (Imprevistos)</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.additionalCost || ''}
-                      onChange={(e) => setFormData({ ...formData, additionalCost: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, additionalCost: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className="w-full px-4 py-3 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 border border-[#fdb612]/20 rounded-2xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Desconto (R$)</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Desconto</label>
                     <input 
-                      type="number" 
+                      type="text" 
                       value={formData.discount || ''}
-                      onChange={(e) => setFormData({ ...formData, discount: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, discount: maskCurrency(e.target.value) })}
+                      placeholder="R$ 0,00"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
                   </div>
@@ -1888,15 +1979,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                           <label className="text-xs font-black uppercase tracking-widest text-emerald-600">Valor da Comissão (Calculado)</label>
                           <div className="w-full px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl font-black text-[#00A86B] shadow-inner">
                             {(() => {
-                              const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                           parseFloat(formData.installationCost || '0') + 
-                                           parseFloat(formData.projectCost || '0') + 
-                                           parseFloat(formData.licensingCost || '0') + 
-                                           parseFloat(formData.logisticCost || '0') +
-                                           parseFloat(formData.additionalCost || '0'));
+                              const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                           currencyToNumber(formData.installationCost || '0') + 
+                                           currencyToNumber(formData.projectCost || '0') + 
+                                           currencyToNumber(formData.licensingCost || '0') + 
+                                           currencyToNumber(formData.logisticCost || '0') +
+                                           currencyToNumber(formData.additionalCost || '0'));
                               const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                               const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                              const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
                               const comm = Math.max(0, total) * (parseFloat(formData.commission || '0') / 100);
                               return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                             })()}
@@ -1981,12 +2072,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Custos</label>
                       <p className="text-xl font-black text-slate-600 dark:text-slate-300">
                         {(() => {
-                          const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                       parseFloat(formData.installationCost || '0') + 
-                                       parseFloat(formData.projectCost || '0') + 
-                                       parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0') +
-                                       parseFloat(formData.additionalCost || '0'));
+                          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                       currencyToNumber(formData.installationCost || '0') + 
+                                       currencyToNumber(formData.projectCost || '0') + 
+                                       currencyToNumber(formData.licensingCost || '0') + 
+                                       currencyToNumber(formData.logisticCost || '0') +
+                                       currencyToNumber(formData.additionalCost || '0'));
                           return sub.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
@@ -1995,12 +2086,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Margem (R$)</label>
                       <p className="text-xl font-black text-[#fdb612]">
                         {(() => {
-                          const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                       parseFloat(formData.installationCost || '0') + 
-                                       parseFloat(formData.projectCost || '0') + 
-                                       parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0') +
-                                       parseFloat(formData.additionalCost || '0'));
+                          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                       currencyToNumber(formData.installationCost || '0') + 
+                                       currencyToNumber(formData.projectCost || '0') + 
+                                       currencyToNumber(formData.licensingCost || '0') + 
+                                       currencyToNumber(formData.logisticCost || '0') +
+                                       currencyToNumber(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
                           const marginVal = (sub * multiplier) - sub;
@@ -2012,15 +2103,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor de Venda</label>
                       <p className="text-2xl font-black text-[#00A86B]">
                         {(() => {
-                          const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                       parseFloat(formData.installationCost || '0') + 
-                                       parseFloat(formData.projectCost || '0') + 
-                                       parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0') +
-                                       parseFloat(formData.additionalCost || '0'));
+                          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                       currencyToNumber(formData.installationCost || '0') + 
+                                       currencyToNumber(formData.projectCost || '0') + 
+                                       currencyToNumber(formData.licensingCost || '0') + 
+                                       currencyToNumber(formData.logisticCost || '0') +
+                                       currencyToNumber(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                          const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                          const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
                           return Math.max(0, total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
                       </p>
@@ -2029,15 +2120,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
                       <label className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Comissão ({formData.commission}%)</label>
                       <p className="text-xl font-black text-emerald-600">
                         {(() => {
-                          const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                       parseFloat(formData.installationCost || '0') + 
-                                       parseFloat(formData.projectCost || '0') + 
-                                       parseFloat(formData.licensingCost || '0') + 
-                                       parseFloat(formData.logisticCost || '0') +
-                                       parseFloat(formData.additionalCost || '0'));
+                          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                       currencyToNumber(formData.installationCost || '0') + 
+                                       currencyToNumber(formData.projectCost || '0') + 
+                                       currencyToNumber(formData.licensingCost || '0') + 
+                                       currencyToNumber(formData.logisticCost || '0') +
+                                       currencyToNumber(formData.additionalCost || '0'));
                           const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                           const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                          const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                          const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
                           const comm = Math.max(0, total) * (parseFloat(formData.commission || '0') / 100);
                           return comm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                         })()}
@@ -2757,6 +2848,28 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({ isOpen, onCl
           </form>
         </div>
       </div>
+    );
+
+  return isFullScreen ? (
+    <div className="w-full h-full bg-slate-50 dark:bg-[#1a160d] relative overflow-hidden flex flex-col">
+      {toast && (
+        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
+          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
+          <span className="font-bold text-sm">{toast}</span>
+        </div>
+      )}
+      {content}
+    </div>
+  ) : (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      {toast && (
+        <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
+          <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
+          <span className="font-bold text-sm">{toast}</span>
+        </div>
+      )}
+
+      {content}
     </div>
   );
 };

@@ -989,32 +989,38 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             snapshot.isDraggingOver && "bg-[#fdb612]/5"
                           )}
                         >
-                          {columnLeads.map((lead, index) => (
-                            // @ts-ignore
-                            <Draggable draggableId={lead.id} index={index} key={lead.id}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    opacity: snapshot.isDragging ? 0.8 : 1
-                                  }}
-                                >
-                                  <LeadCard 
-                                    lead={lead} 
-                                    onDelete={() => setLeadToDelete(lead)}
-                                    onClick={() => setSelectedLead(lead)}
-                                    onEdit={() => handleEditLead(lead)}
-                                    onStartSimulation={() => {
-                                      if (onCreateProposal) onCreateProposal(lead);
+                          <AnimatePresence initial={false}>
+                            {columnLeads.map((lead, index) => (
+                              // @ts-ignore
+                              <Draggable draggableId={lead.id} index={index} key={lead.id}>
+                                {(provided, snapshot) => (
+                                  <motion.div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      opacity: snapshot.isDragging ? 0.8 : 1
                                     }}
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
+                                  >
+                                    <LeadCard 
+                                      lead={lead} 
+                                      onDelete={() => setLeadToDelete(lead)}
+                                      onClick={() => setSelectedLead(lead)}
+                                      onEdit={() => handleEditLead(lead)}
+                                      onStartSimulation={() => {
+                                        if (onCreateProposal) onCreateProposal(lead);
+                                      }}
+                                    />
+                                  </motion.div>
+                                )}
+                              </Draggable>
+                            ))}
+                          </AnimatePresence>
                           {provided.placeholder}
                         </div>
                       )}
@@ -1041,13 +1047,17 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredLeads.map((lead) => (
-                  <tr 
-                    key={lead.id} 
-                    onClick={() => setSelectedLead(lead)}
-                    title="Ver Detalhes"
-                    className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
-                  >
+                <AnimatePresence initial={false}>
+                  {filteredLeads.map((lead) => (
+                    <motion.tr 
+                      key={lead.id} 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setSelectedLead(lead)}
+                      title="Ver Detalhes"
+                      className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer group"
+                    >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] font-black text-xs">
@@ -1152,8 +1162,9 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                         )}
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
+                </AnimatePresence>
               </tbody>
             </table>
           </div>

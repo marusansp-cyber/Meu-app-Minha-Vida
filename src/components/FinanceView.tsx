@@ -33,7 +33,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { cn } from '../lib/utils';
+import { cn, fixOklch } from '../lib/utils';
 import { Proposal, User as UserType } from '../types';
 import { updateDocument } from '../firestoreUtils';
 import { jsPDF } from "jspdf";
@@ -266,7 +266,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
       if (chartRef.current) {
         const canvas = await html2canvas(chartRef.current, {
           scale: 2,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc) => {
+            fixOklch(clonedDoc);
+          }
         });
         const imgData = canvas.toDataURL('image/png');
         doc.setFontSize(14);

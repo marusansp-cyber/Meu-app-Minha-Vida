@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Zap, DollarSign, AlertCircle, Phone, MessageCircle, Mail, CheckCircle2, Calendar, Loader2 } from 'lucide-react';
 import { Lead } from '../types';
-import { cn } from '../lib/utils';
+import { cn, validateEmail, validatePhone, maskPhone, maskCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NewLeadModalProps {
@@ -122,21 +122,6 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
       .replace(/(-\d{3})\d+?$/, '$1');
   };
 
-  const validateEmail = (email: string) => {
-    if (!email) return "E-mail é obrigatório";
-    const regex = /^[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/;
-    if (!regex.test(email.trim())) return "Por favor, insira um e-mail válido (ex: nome@dominio.com)";
-    return null;
-  };
-
-  const validatePhone = (phone: string) => {
-    if (!phone) return "Telefone/WhatsApp é obrigatório";
-    const numbers = phone.replace(/\D/g, '');
-    if (numbers.length < 10) return "O número deve ter pelo menos 10 dígitos (com DDD)";
-    if (numbers.length > 11) return "O número deve ter no máximo 11 dígitos";
-    return null;
-  };
-
   const validateSystemSize = (size: string) => {
     if (!size) return "Obrigatório";
     const num = parseFloat(size.replace(',', '.'));
@@ -150,30 +135,6 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     const numbers = value.replace(/\D/g, '');
     if (!numbers || parseInt(numbers) === 0) return "Deve ser maior que zero";
     return null;
-  };
-
-  const maskPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 10) {
-      return numbers
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .replace(/(-\d{4})\d+?$/, '$1');
-    }
-    return numbers
-      .replace(/(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{5})(\d)/, '$1-$2')
-      .replace(/(-\d{4})\d+?$/, '$1');
-  };
-
-  const maskCurrency = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (!numbers) return 'R$ 0,00';
-    const amount = parseInt(numbers) / 100;
-    return amount.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {

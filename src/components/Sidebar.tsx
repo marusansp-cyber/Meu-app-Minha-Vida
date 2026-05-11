@@ -42,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard, roles: ['admin', 'sales', 'engineer', 'installer'] },
+    { id: 'proposals', label: 'Propostas', icon: FileText, roles: ['admin', 'sales', 'engineer', 'finance'] },
     { id: 'leads', label: 'Leads', icon: Users, roles: ['admin', 'sales'] },
     { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'sales', 'engineer', 'finance'] },
     { id: 'installations', label: 'Instalações', icon: Construction, roles: ['admin', 'engineer', 'installer'] },

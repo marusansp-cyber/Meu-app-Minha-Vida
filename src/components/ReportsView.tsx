@@ -31,7 +31,7 @@ import {
   ArrowUpRight,
   Printer
 } from 'lucide-react';
-import { cn, formatDate } from '../lib/utils';
+import { cn, formatDate, fixOklch } from '../lib/utils';
 import { Proposal, Installation, Lead, Client } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -181,7 +181,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          fixOklch(clonedDoc);
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');

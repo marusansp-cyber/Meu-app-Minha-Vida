@@ -7,6 +7,8 @@ import { TeamView } from './components/TeamView';
 import { SalesView } from './components/SalesView';
 import { NewProjectModal } from './components/NewProjectModal';
 import { NewLeadModal } from './components/NewLeadModal';
+import { NewProposalModal } from './components/NewProposalModal';
+import { NewProposalView } from './components/NewProposalView';
 import { ProposalsView } from './components/ProposalsView';
 import { SettingsView } from './components/SettingsView';
 import { PartnersView } from './components/PartnersView';
@@ -430,11 +432,11 @@ export default function App() {
     if (user.role === 'admin') return true;
     
     const permissions: Record<string, string[]> = {
-      sales: ['dashboard', 'leads', 'sales', 'clients', 'reports'],
-      engineer: ['dashboard', 'installations', 'clients'],
+      sales: ['dashboard', 'leads', 'sales', 'clients', 'reports', 'proposals'],
+      engineer: ['dashboard', 'installations', 'clients', 'proposals'],
       installer: ['dashboard', 'installations'],
-      finance: ['dashboard', 'finance', 'clients', 'reports'],
-      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'users', 'sales', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports']
+      finance: ['dashboard', 'finance', 'clients', 'reports', 'proposals'],
+      admin_staff: ['dashboard', 'leads', 'installations', 'team', 'users', 'sales', 'settings', 'partners', 'collaborators', 'kits', 'finance', 'clients', 'reports', 'proposals']
     };
 
     return permissions[user.role]?.includes(view) || false;
@@ -732,6 +734,19 @@ export default function App() {
                         startAtStep: 'kit'
                       } as any);
                     }}
+                  />
+                )}
+                {currentView === 'proposals' && (
+                  <ProposalsView 
+                    proposals={proposals} 
+                    user={user} 
+                    kits={kits}
+                    leads={leads}
+                    clients={clients}
+                    isDarkMode={isDarkMode}
+                    onConvertToInstallation={handleConvertToInstallation}
+                    preFillData={proposalPreFill}
+                    onClearPreFill={() => setProposalPreFill(null)}
                   />
                 )}
                 {currentView === 'leads' && (

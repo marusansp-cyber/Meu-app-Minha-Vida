@@ -27,7 +27,8 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
     brand: '',
     model: '',
     notes: '',
-    quantity: 1
+    quantity: 1,
+    verified: false
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,10 +72,10 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
     } else {
       setFormData(prev => ({
         ...prev,
-        components: [...(prev.components || []), { ...newComponent }]
+        components: [...(prev.components || []), { ...newComponent, verified: false }]
       }));
     }
-    setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
+    setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1, verified: false });
   };
 
   const editComponent = (index: number) => {
@@ -88,7 +89,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
   const removeComponent = (index: number) => {
     if (editingComponentIndex === index) {
       setEditingComponentIndex(null);
-      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
+      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1, verified: false });
     }
     setFormData(prev => {
       const newComponents = [...(prev.components || [])];
@@ -108,12 +109,37 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
       showToast('A potência do kit deve ser um número positivo maior que zero.');
       return;
     }
+
+    // Technical validation for power consistency
+    if (formData.power > 1000) {
+      showToast('Atenção: A potência informada (>' + formData.power + ' kWp) é incomum para sistemas residenciais/comerciais padrão. Verifique os dados.');
+    } else if (formData.power < 0.3) {
+      showToast('Atenção: A potência informada (<0.3 kWp) é muito baixa. Verifique os dados.');
+    }
+
     if (formData.price === undefined || formData.price <= 0) {
       showToast('O preço do kit deve ser um valor maior que zero.');
       return;
     }
+
+    // Price per kWp consistency check
+    const pricePerKwp = formData.price / formData.power;
+    if (pricePerKwp < 1500 || pricePerKwp > 4000) {
+      const confirmMsg = `O preço por kWp (R$ ${pricePerKwp.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}) está fora da média de mercado (R$ 1.500 - R$ 4.000/kWp). Deseja prosseguir mesmo assim?`;
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+    }
+
     if (!formData.components || formData.components.length === 0) {
       showToast('Adicione pelo menos um componente ao kit');
+      return;
+    }
+    
+    // Validate each component has name and quantity
+    const invalidComp = formData.components.some(c => !c.name?.trim() || !c.quantity || c.quantity <= 0);
+    if (invalidComp) {
+      showToast('Todos os componentes devem ter nome e quantidade válida.');
       return;
     }
 
@@ -266,6 +292,11 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                   )}
                 />
               </div>
+              {formData.price !== undefined && formData.price > 0 && formData.power !== undefined && formData.power > 0 && (
+                <p className="text-[10px] font-bold text-slate-400 ml-1 uppercase">
+                  Investimento: R$ {(formData.price / formData.power).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}/kWp
+                </p>
+              )}
               {formData.price !== undefined && formData.price <= 0 && (
                 <p className="text-[10px] font-bold text-rose-500 ml-1 uppercase">O preço deve ser maior que zero</p>
               )}
@@ -351,7 +382,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Marca</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Marca (Opcional)</span>
                     <input 
                       type="text" 
                       placeholder="Ex: Jinko"
@@ -405,7 +436,7 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
                     type="button"
                     onClick={() => {
                       setEditingComponentIndex(null);
-                      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1 });
+                      setNewComponent({ name: '', brand: '', model: '', notes: '', quantity: 1, verified: false });
                     }}
                     className="px-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl font-black text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all h-[46px]"
                   >
@@ -415,60 +446,92 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
               </div>
             </div>
 
-            <div className="space-y-3">
-              {formData.components?.map((comp, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl group hover:border-[#fdb612]/30 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="size-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-[#004a61] font-black text-sm">
-                      {comp.quantity}x
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-900 dark:text-slate-100">{comp.name}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.brand}</span>
-                        <div className="size-1 bg-slate-300 rounded-full" />
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.model}</span>
-                        {comp.notes && (
-                          <>
-                            <div className="size-1 bg-slate-300 rounded-full" />
-                            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest italic">{comp.notes}</span>
-                          </>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Checklist de Verificação</span>
+                {formData.components && formData.components.length > 0 && (
+                  <div className="text-[9px] font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded-full">
+                    {formData.components.filter(c => c.verified).length} / {formData.components.length} VERIFICADOS
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                {formData.components?.map((comp, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-2xl group hover:border-[#fdb612]/30 transition-all">
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newComponents = [...(formData.components || [])];
+                          newComponents[idx].verified = !newComponents[idx].verified;
+                          setFormData({ ...formData, components: newComponents });
+                        }}
+                        className={cn(
+                          "size-6 rounded-lg flex items-center justify-center border-2 transition-all",
+                          comp.verified 
+                            ? "bg-emerald-500 border-emerald-500 text-white" 
+                            : "border-slate-200 dark:border-slate-700 text-transparent"
                         )}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                      </button>
+                      <div className="size-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-[#004a61] font-black text-sm">
+                        {comp.quantity}x
+                      </div>
+                      <div>
+                        <p className={cn(
+                          "text-sm font-black transition-all",
+                          comp.verified ? "text-slate-400 line-through" : "text-slate-900 dark:text-slate-100"
+                        )}>
+                          {comp.name}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.brand}</span>
+                          <div className="size-1 bg-slate-300 rounded-full" />
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{comp.model}</span>
+                          {comp.notes && (
+                            <>
+                              <div className="size-1 bg-slate-300 rounded-full" />
+                              <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest italic">{comp.notes}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => editComponent(idx)}
+                        className={cn(
+                          "p-2 rounded-lg transition-all",
+                          editingComponentIndex === idx 
+                            ? "bg-[#fdb612] text-[#231d0f]" 
+                            : "text-slate-300 hover:text-[#fdb612] hover:bg-[#fdb612]/10"
+                        )}
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => removeComponent(idx)}
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      type="button"
-                      onClick={() => editComponent(idx)}
-                      className={cn(
-                        "p-2 rounded-lg transition-all",
-                        editingComponentIndex === idx 
-                          ? "bg-[#fdb612] text-[#231d0f]" 
-                          : "text-slate-300 hover:text-[#fdb612] hover:bg-[#fdb612]/10"
-                      )}
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => removeComponent(idx)}
-                      className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg transition-all"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                ))}
+                {(!formData.components || formData.components.length === 0) && (
+                  <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem] bg-slate-50/30">
+                    <div className="size-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-4">
+                      <Info className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Nenhum componente adicionado</p>
+                    <p className="text-xs text-slate-400 mt-1">Adicione os itens acima para compor o kit solar.</p>
                   </div>
-                </div>
-              ))}
-              {(!formData.components || formData.components.length === 0) && (
-                <div className="text-center py-12 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem] bg-slate-50/30">
-                  <div className="size-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-4">
-                    <Info className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Nenhum componente adicionado</p>
-                  <p className="text-xs text-slate-400 mt-1">Adicione os itens acima para compor o kit solar.</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
