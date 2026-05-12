@@ -9,6 +9,8 @@ import {
   Calendar, 
   ChevronRight, 
   ChevronLeft, 
+  ChevronDown,
+  ChevronUp,
   Check, 
   Search, 
   Info, 
@@ -36,6 +38,7 @@ import {
   Share2,
   Printer,
   TrendingUp,
+  Cpu,
   BrainCircuit,
   MessageSquare,
   Image as ImageIcon,
@@ -83,6 +86,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   const [kits, setKits] = useState<Kit[]>([]);
   const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showKitList, setShowKitList] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [searchDateStart, setSearchDateStart] = useState('');
   const [searchDateEnd, setSearchDateEnd] = useState('');
@@ -94,7 +98,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   const [losses, setLosses] = useState<number>(25);
   const [hsp, setHsp] = useState<number>(4.8); // Generic MG Value (~4.8)
   const [pr, setPr] = useState<number>(0.78); // Performance Ratio (~0.78)
-  const [energyTariff, setEnergyTariff] = useState<number>(0.92); // R$/kWh
+  const [energyTariff, setEnergyTariff] = useState<number>(0.89); // R$/kWh
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAIInput, setShowAIInput] = useState(false);
   const [pastedText, setPastedText] = useState('');
@@ -473,31 +477,36 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         // Multiplier for 25 years with 5% inflation is Sum(1.05^k) for k=0 to 24 ~= 47.7
         const totalSavings25 = annualSavings * 47.727; 
         r = `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%`;
-      }
+        
+        // Store computed values for display and persistence
+        const totalSavingsFinal = parseFloat(totalSavings25.toFixed(2));
 
-      // Check if anything actually changed before returning a new object
-      if (
-        prev.systemSize === newSz &&
-        prev.panelQuantity === newQty &&
-        prev.monthlyGeneration === monGen &&
-        prev.subtotal === costs.toString() &&
-        prev.value === valNum &&
-        prev.payback === pb &&
-        prev.roi === r
-      ) {
-        return prev;
-      }
+        // Check if anything actually changed before returning a new object
+        if (
+          prev.systemSize === newSz &&
+          prev.panelQuantity === newQty &&
+          prev.monthlyGeneration === monGen &&
+          prev.subtotal === costs.toString() &&
+          prev.value === valNum &&
+          prev.payback === pb &&
+          prev.roi === r &&
+          prev.totalSavings25Years === totalSavingsFinal
+        ) {
+          return prev;
+        }
 
-      return {
-        ...prev,
-        systemSize: newSz,
-        panelQuantity: newQty,
-        monthlyGeneration: monGen,
-        subtotal: costs.toString(),
-        value: valNum,
-        payback: pb,
-        roi: r
-      };
+        return {
+          ...prev,
+          systemSize: newSz,
+          panelQuantity: newQty,
+          monthlyGeneration: monGen,
+          subtotal: costs.toString(),
+          value: valNum,
+          payback: pb,
+          roi: r,
+          totalSavings25Years: totalSavingsFinal
+        };
+      }
     });
   }, [
     formData.panelQuantity,
@@ -520,7 +529,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
   const validateStep = (step: Step): boolean => {
     const errors: Record<string, string> = {};
-    
     if (step === 'ucs') {
       if (!formData.titular?.trim()) errors.titular = 'Titular é obrigatório';
       if (!formData.ucNumber?.trim()) errors.ucNumber = 'Número da UC é obrigatório';
@@ -528,7 +536,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
       const consumption = parseFloat(formData.energyConsumption);
       if (isNaN(consumption) || consumption <= 0) {
-        errors.energyConsumption = 'Consumo deve ser um número positivo';
+        errors.energyConsumption = 'Consumo deve ser um número positivo (500 kWh/mês recomendado)';
       }
       
       // Email validation
@@ -537,62 +545,57 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.email.trim())) {
         errors.email = 'Formato de e-mail inválido';
       }
-      
-      // Phone validation (simple regex for Brazilian formats)
-      if (formData.telefone && !/^(\(?\d{2}\)?\s?)?(\d{4,5}-?\d{4})$/.test(formData.telefone.replace(/\s/g, ''))) {
-        errors.telefone = 'Formato de telefone inválido. Use (00) 00000-0000';
-      }
     } else if (step === 'kit') {
       if (!formData.systemSize || parseFloat(formData.systemSize) <= 0) {
-        errors.systemSize = 'Potência do sistema deve ser maior que zero';
+        errors.systemSize = 'Selecione um Kit ou informe a potência manualmente';
       }
-      if (!formData.panelBrandModel?.trim()) {
-        errors.panelBrandModel = 'Marca/Modelo do painel é obrigatório';
-      }
-
-      // Technical Validation for Kits
-      if (formData.kitId) {
-        const kit = kits.find(k => k.id === formData.kitId);
-        if (kit) {
-          const currentSz = parseFloat(formData.systemSize);
-          const currentCost = parseFloat(formData.equipmentCost);
-          
-          // Check if power matches kit power (with small tolerance)
-          if (Math.abs(currentSz - kit.power) > 0.05) {
-            errors.systemSize = `A potência (${currentSz} kWp) diverge da potência original do kit selecionado (${kit.power} kWp).`;
-          }
-
-          // Check if equipment cost matches kit price (with tolerance for discounts or adjustments if permitted, but user asked for consistency)
-          // We'll allow a 10% discrepancy before throwing a hard error, but maybe the user wants strict matching
-          if (kit.price > 0 && Math.abs(currentCost - kit.price) > kit.price * 0.15) {
-            errors.equipmentCost = `O custo do equipamento (R$ ${currentCost.toLocaleString()}) está muito diferente do preço base do kit (R$ ${kit.price.toLocaleString()}).`;
-          }
-
-          // Check panel consistency
-          const powerMatch = formData.panelBrandModel.match(/(\d+)\s*W/i);
-          const panelPower = powerMatch ? parseInt(powerMatch[1]) : 0;
-          if (panelPower > 0) {
-            const expectedSz = (parseInt(formData.panelQuantity) * panelPower) / 1000;
-            if (Math.abs(currentSz - expectedSz) > 0.1) {
-              errors.panelQuantity = `A quantidade de módulos (${formData.panelQuantity}) com potência ${panelPower}W não resulta na potência do sistema informada (${currentSz} kWp). Esperado: ${expectedSz.toFixed(2)} kWp.`;
-            }
-          }
+      if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Módulos são obrigatórios';
+      if (!formData.inverterBrandModel?.trim()) errors.inverterBrandModel = 'Inversor é obrigatório';
+    } else if (step === 'financing') {
+      if (formData.paymentMethod === 'financing') {
+        if (!formData.financingBank?.trim()) errors.financingBank = 'Banco é obrigatório para financiamento';
+        if (!formData.financingInstallments || parseInt(formData.financingInstallments) <= 0) {
+          errors.financingInstallments = 'Número de parcelas inválido';
+        }
+        if (!formData.financingRate || parseFloat(formData.financingRate) <= 0) {
+          errors.financingRate = 'Taxa de juros mensal deve ser informada';
         }
       }
     } else if (step === 'pricing') {
       const costs = ['equipmentCost', 'installationCost', 'projectCost', 'licensingCost', 'logisticCost'];
       costs.forEach(field => {
-        const val = parseFloat((formData as any)[field]);
-        if (isNaN(val) || val < 0) { // Allow 0 but not negative/NaN
-          errors[field] = 'Este campo deve ser um valor numérico válido';
+        const val = currencyToNumber((formData as any)[field] || '0');
+        if (isNaN(val) || (val <= 0 && field === 'equipmentCost')) { 
+          errors[field] = 'Este campo deve ser um valor positivo';
         }
       });
       
-      if (!formData.margin || parseFloat(formData.margin) < 0) {
+      const marginVal = parseFloat(formData.margin || '0');
+      if (isNaN(marginVal) || marginVal < 0) {
         errors.margin = 'Margem de lucro não pode ser negativa';
       }
 
-      // Tech Validation for Kit Price in Pricing Step
+      // Validate payment terms (Commercial Conditions)
+      if (!formData.paymentTerms?.trim()) {
+        errors.paymentTerms = 'Prazo de pagamento é obrigatório';
+      } else {
+        const termsLower = formData.paymentTerms.toLowerCase();
+        // Check for formats like "30/60/90", "Entrada + 12x", "Vista", "30/60", "Financiamento", etc.
+        const hasNumbers = /\d+/.test(termsLower);
+        const hasKeywords = termsLower.includes('vista') || termsLower.includes('entrada') || termsLower.includes('dias') || termsLower.includes('x') || termsLower.includes('financiamento');
+        if (!hasNumbers && !hasKeywords) {
+          errors.paymentTerms = 'Formato sugerido: "30/60/90 dias" ou "Entrada + 12x"';
+        }
+      }
+
+      // If Financing button selected, validate financing step fields too (just in case they skip)
+      if (formData.paymentMethod === 'financing') {
+        if (!formData.financingBank?.trim()) errors.financingBank = 'Banco é obrigatório';
+        if (!formData.financingInstallments || parseInt(formData.financingInstallments) <= 0) errors.financingInstallments = 'Parcelas inválidas';
+        if (!formData.financingRate || parseFloat(formData.financingRate) <= 0) errors.financingRate = 'Taxa inválida';
+      }
+      
+      // Tech Validation for Kit Price
       if (formData.kitId) {
         const kit = kits.find(k => k.id === formData.kitId);
         if (kit && kit.price > 0) {
@@ -698,7 +701,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
       });
-      setCurrentStep((initialData as any).startAtStep || 'ucs');
+      setCurrentStep('ucs');
     } else {
       setFormData({
         client: '',
@@ -769,22 +772,32 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       const name = c.name.toLowerCase();
       return name.includes('painel') || name.includes('módulo') || name.includes('modulo');
     });
-    const inverter = kit.components.find(c => c.name.toLowerCase().includes('inversor'));
-    const structure = kit.components.find(c => c.name.toLowerCase().includes('estrutura'));
+    const inverter = kit.components.find(c => {
+      const name = c.name.toLowerCase();
+      return name.includes('inversor') || name.includes('microinversor') || name.includes('micro-inversor');
+    });
+    const structure = kit.components.find(c => {
+      const name = c.name.toLowerCase();
+      return name.includes('estrutura') || name.includes('suporte');
+    });
 
     setFormData(prev => ({
       ...prev,
       kitId: kit.id,
       systemSize: kit.power.toString(),
       equipmentCost: kit.price > 0 ? kit.price.toString() : '',
-      panelBrandModel: panel ? `${panel.brand || ''} ${panel.model || ''}`.trim() : prev.panelBrandModel,
+      panelBrandModel: panel ? `${panel.brand || ''} ${panel.model || ''}`.trim() : (panel ? `${panel.name}` : prev.panelBrandModel),
       panelQuantity: panel ? panel.quantity.toString() : '',
-      inverterBrandModel: inverter ? `${inverter.brand || ''} ${inverter.model || ''}`.trim() : prev.inverterBrandModel,
+      inverterBrandModel: inverter ? `${inverter.brand || ''} ${inverter.model || ''}`.trim() : (inverter ? `${inverter.name}` : prev.inverterBrandModel),
       invertersQuantity: inverter ? inverter.quantity.toString() : prev.invertersQuantity,
       structureQuantity: structure ? structure.quantity.toString() : prev.structureQuantity,
+      structureType: structure ? `${structure.brand || ''} ${structure.model || ''}`.trim() : (structure ? structure.name : prev.structureType),
+      // Auto-fill payment terms if appropriate
+      paymentTerms: prev.paymentTerms || 'Entrada + 2x (30/60)'
     }));
     
-    showToast(`Kit "${kit.name}" selecionado.`);
+    setShowKitList(false);
+    showToast(`Kit "${kit.name}" selecionado com sucesso.`);
   };
 
   const prevStep = () => {
@@ -793,6 +806,49 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       setCurrentStep(STEPS[currentIndex - 1].id);
     }
   };
+
+  const calculateSavings = () => {
+    const tariff = energyTariff; 
+    const consumption = parseFloat(formData.energyConsumption) || 0;
+    const minFee = formData.tensaoFornecimento === 'Trifásico' ? 100 : formData.tensaoFornecimento === 'Bifásico' ? 50 : 30;
+    
+    const monthlyGen = parseFloat(formData.monthlyGeneration) || (parseFloat(formData.systemSize) * hsp * 30 * pr);
+    const energyToCompensate = Math.min(consumption - minFee, monthlyGen);
+    const monthlyNetSaving = Math.max(0, energyToCompensate * tariff);
+    const annualSaving = monthlyNetSaving * 12;
+    
+    // Formula for sum of GP with 5% annual adjustment: S = A * ((1+r)^n - 1) / r
+    const r = 0.05;
+    const n = 25;
+    const totalSavings25Years = annualSaving * ((Math.pow(1 + r, n) - 1) / r);
+    
+    return {
+      monthly: monthlyNetSaving,
+      annual: annualSaving,
+      total25: totalSavings25Years
+    };
+  };
+
+  const calculateOversizing = () => {
+    // Extract power from brand model strings or quantity
+    const panelPowerMatch = formData.panelBrandModel.match(/(\d{3})\s*W/i);
+    const inverterPowerMatch = formData.inverterBrandModel.match(/(\d+(\.\d+)?)\s*(kW|K)/i);
+    
+    const panelPower = panelPowerMatch ? parseInt(panelPowerMatch[1]) : 540;
+    const panelQty = parseInt(formData.panelQuantity) || 0;
+    const inverterPower = inverterPowerMatch ? parseFloat(inverterPowerMatch[1]) : 5;
+    
+    const totalKwp = (panelPower * panelQty) / 1000;
+    const oversizing = inverterPower > 0 ? totalKwp / inverterPower : 0;
+    
+    return {
+      kwp: totalKwp,
+      ratio: oversizing
+    };
+  };
+
+  const savings = calculateSavings();
+  const tech = calculateOversizing();
 
   const nextStep = () => {
     if (!validateStep(currentStep)) {
@@ -905,10 +961,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         representative: formData.representative || user?.name || 'Vendedor',
         representativeId: initialData?.representativeId || user?.id || null,
         representativeEmail: initialData?.representativeEmail || user?.email || null,
-        roi: formData.roi || null,
-        payback: formData.payback ? `${formData.payback} Anos` : null,
+        roi: formData.roi || (totalVal > 0 ? `${(((savings.total25 - totalVal) / totalVal) * 100).toFixed(0)}%` : null),
+        payback: formData.payback ? `${formData.payback} Anos` : (savings.annual > 0 ? `${(totalVal / savings.annual).toFixed(1)} Anos` : null),
         monthlyGeneration: monthlyGenerationValue,
         annualSavings: annualSavingsValue,
+        monthlySavings: savings.monthly,
         commission: parseFloat(formData.commission) || 0,
         commissionStatus: initialData?.commissionStatus || 'pending',
         expiryDate: formData.expiryDate || null,
@@ -923,6 +980,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         email: formData.email || null,
         photoUrl: formData.photoUrl || null,
         customImageLinks: formData.customImageLinks || [],
+        
+        // Advanced Analytics and Savings
+        totalSavings25Years: savings.total25,
+        downPayment: parseFloat(formData.downPayment) || 0,
+        financingRate: parseFloat(formData.financingRate) || 0,
+        systemOversizing: tech.ratio,
 
         // Number conversions for custom fields
         panelQuantity: parseInt(formData.panelQuantity) || 0,
@@ -942,9 +1005,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         longitude: formData.longitude || null,
         calculatedCommission: commissionValue || 0,
         margin: parseFloat(formData.margin) || 0,
-        financingRate: parseFloat(formData.financingRate) || 0,
         financingCET: parseFloat(formData.financingCET) || 0,
-        downPayment: parseFloat(formData.downPayment) || 0,
       };
       
       await onAdd(proposalData);
@@ -1139,24 +1200,108 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
+        
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-4">
+          {STEPS.map((step, idx) => {
+            const Icon = step.icon;
+            const isActive = currentStep === step.id;
+            const currentIndex = STEPS.findIndex(s => s.id === currentStep);
+            const isCompleted = currentIndex > idx;
+            const isEnabled = idx <= currentIndex + 1;
 
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-8">
-            {currentStep === 'ucs' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            return (
+              <div 
+                key={step.id} 
+                className={cn(
+                  "border rounded-3xl transition-all duration-300 overflow-hidden shadow-sm",
+                  isActive ? "border-[#000000]/10 bg-white dark:bg-slate-900/40 shadow-xl shadow-[#00A86B]/5" : 
+                  isCompleted ? "border-emerald-200 dark:border-emerald-900/30 bg-emerald-50/10" :
+                  "border-slate-100 dark:border-slate-800 bg-slate-50/10"
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => isEnabled && setCurrentStep(step.id)}
+                  className={cn(
+                    "w-full flex items-center justify-between p-5 text-left transition-colors",
+                    isActive ? "bg-[#00A86B]/5" : "hover:bg-slate-50 dark:hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "size-8 rounded-xl flex items-center justify-center transition-all",
+                      isActive ? "bg-[#00A86B] text-white rotate-6 shadow-lg shadow-[#00A86B]/30" : 
+                      isCompleted ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600" : 
+                      "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                    )}>
+                      {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <h3 className={cn(
+                        "text-xs font-black uppercase tracking-widest",
+                        isActive ? "text-[#00A86B]" : isCompleted ? "text-emerald-600" : "text-slate-400"
+                      )}>
+                        {step.label}
+                      </h3>
+                      {isActive && <p className="text-[10px] text-slate-500 font-medium mt-0.5">Preencha as informações necessárias</p>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {isCompleted && (
+                      <span className="text-[8px] font-black uppercase text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">Concluído</span>
+                    )}
+                    <ChevronDown className={cn("w-4 h-4 text-slate-400 transition-transform", isActive && "rotate-180")} />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="p-8 pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                        {step.id === 'ucs' && (
+                          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-2 text-[#00A86B]">
                     <Building2 className="w-5 h-5" />
                     <h4 className="text-sm font-black uppercase tracking-widest">Unidade Consumidora</h4>
                   </div>
                   
-                  <button 
-                    type="button"
-                    onClick={() => setShowAIInput(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 group"
-                  >
-                    <BrainCircuit className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                    Importar via IA
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          titular: 'Itamar Peron da Silva',
+                          client: 'Itamar Peron da Silva',
+                          email: 'itamar.peron@exemplo.com.br',
+                          phone: '(31) 98877-6655',
+                          endereco: 'Rua das Flores, 123 - Centro, Belo Horizonte - MG',
+                          energyConsumption: '500',
+                          energyTariff: '0.89'
+                        }));
+                        showToast('Dados de Itamar Peron carregados.');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-[#00A86B]/20 text-[#00A86B] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#00A86B] hover:text-white transition-all active:scale-95 group"
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      Demo: Itamar
+                    </button>
+
+                    <button 
+                      type="button"
+                      onClick={() => setShowAIInput(true)}
+                      className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 group"
+                    >
+                      <BrainCircuit className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                      Importar via IA
+                    </button>
+                  </div>
                 </div>
                   
                   {/* Client/Lead Search */}
@@ -1553,22 +1698,21 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </button>
                 </div>
 
-                <div className="flex justify-end pt-6">
-                  <button 
-                    type="button"
-                    onClick={nextStep}
-                    className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
-                  >
-                    Próximo: KIT FV
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex justify-end pt-6">
+                    <button 
+                      type="button"
+                      onClick={nextStep}
+                      className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
+                    >
+                      Próximo: Configuração Técnica
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {currentStep === 'kit' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Sizing Recommendation Banner */}
+              )}
+              {step.id === 'kit' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Sizing Recommendation Banner */}
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="size-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600">
@@ -1613,6 +1757,18 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   
                   {/* Kit Search */}
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowKitList(!showKitList)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                        showKitList ? "bg-[#00A86B] text-white shadow-lg" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-[#00A86B]"
+                      )}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      {showKitList ? "Fechar Lista" : "Selecionar Kit da Base"}
+                    </button>
+
                     <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
                       <button
                         type="button"
@@ -1660,9 +1816,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                 </div>
 
                 {/* Kit Grid / Selection */}
-                {searchTerm && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 max-h-60 overflow-y-auto p-1">
-                    {filteredKits.map((kit) => (
+                {(searchTerm || showKitList) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8 max-h-80 overflow-y-auto p-1 py-4 custom-scrollbar bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-200 dark:border-slate-800">
+                    {filteredKits.length > 0 ? filteredKits.map((kit) => (
                       <button
                         key={kit.id}
                         type="button"
@@ -1696,7 +1852,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           </div>
                         </div>
                       </button>
-                    ))}
+                    )) : (
+                      <div className="col-span-full py-12 text-center">
+                        <p className="text-sm text-slate-400 font-bold italic">Nenhum kit encontrado para este filtro.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1850,14 +2010,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     onClick={nextStep}
                     className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo: PRECIFICAÇÃO
+                    Próximo: Engenharia de Custos
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
-
-            {currentStep === 'pricing' && (
+            {step.id === 'pricing' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-2 text-[#00A86B] mb-4">
                   <DollarSign className="w-5 h-5" />
@@ -2004,8 +2163,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       value={formData.paymentTerms || ''}
                       onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
                       placeholder="Ex: 30/60/90 dias ou Entrada + 12x"
-                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.paymentTerms ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
                     />
+                    {validationErrors.paymentTerms && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.paymentTerms}</p>}
                   </div>
 
                   <div className="space-y-2">
@@ -2205,18 +2368,54 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     onClick={nextStep}
                     className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo: FINANCIAMENTO
+                    Próximo: Plano Financeiro
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
-
-            {currentStep === 'financing' && (
+            {step.id === 'financing' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-2 text-[#00A86B] mb-4">
                   <CreditCard className="w-5 h-5" />
                   <h4 className="text-sm font-black uppercase tracking-widest">Modalidade de Pagamento</h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-2xl border border-emerald-500/20 space-y-3">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                      <TrendingUp className="w-4 h-4" />
+                      <h5 className="text-[10px] font-black uppercase tracking-widest">Economia Projetada (25 Anos)</h5>
+                    </div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300">
+                        {savings.total25.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                      </span>
+                      <span className="text-[10px] text-emerald-600 font-bold mb-1.5 uppercase">Acumulada</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] font-bold text-emerald-600/70">
+                      <span>Mensal: {savings.monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      <span>Anual: {savings.annual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-5 bg-amber-500/5 dark:bg-amber-500/10 rounded-2xl border border-amber-500/20 space-y-3">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Cpu className="w-4 h-4" />
+                      <h5 className="text-[10px] font-black uppercase tracking-widest">Configuração de Performance</h5>
+                    </div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-2xl font-black text-amber-700 dark:text-amber-300">
+                        {tech.ratio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-amber-600 font-bold mb-1.5 uppercase">Ratio (Oversizing)</span>
+                    </div>
+                    <p className="text-[10px] text-amber-600/70 leading-tight">
+                      {tech.ratio > 1.4 ? '🚨 Risco de Clipping (Limitação no pico do meio-dia).' : 
+                       tech.ratio > 1.1 ? '⚡ Ótimo: Máxima eficiência do inversor.' : 
+                       '📉 Subdimensionado: Inversor com folga excessiva.'}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -2253,14 +2452,19 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <select 
                           value={formData.financingBank}
                           onChange={(e) => setFormData({ ...formData, financingBank: e.target.value })}
-                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                          className={cn(
+                            "w-full px-4 py-3 bg-white dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]",
+                            validationErrors.financingBank ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          )}
                         >
+                          <option value="">Selecione um banco</option>
                           <option value="Credsol">Credsol</option>
                           <option value="Sicoob">Sicoob</option>
                           <option value="Sicredi">Sicredi</option>
                           <option value="BV Financeira">BV Financeira</option>
                           <option value="Santander">Santander</option>
                         </select>
+                        {validationErrors.financingBank && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.financingBank}</p>}
                       </div>
 
                       <div className="space-y-2">
@@ -2268,8 +2472,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <select 
                           value={formData.financingInstallments}
                           onChange={(e) => setFormData({ ...formData, financingInstallments: e.target.value })}
-                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                          className={cn(
+                            "w-full px-4 py-3 bg-white dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]",
+                            validationErrors.financingInstallments ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          )}
                         >
+                          <option value="0">Selecione as parcelas</option>
                           {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => {
                             const sub = (parseFloat(formData.equipmentCost || '0') + 
                                          parseFloat(formData.installationCost || '0') + 
@@ -2279,7 +2487,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                          parseFloat(formData.additionalCost || '0'));
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                            const downPay = parseFloat(formData.downPayment || '0');
+                            const total = (sub * multiplier) - parseFloat(formData.discount || '0') - downPay;
                             
                             const r = parseFloat(formData.financingRate) || 1.2;
                             const i = r / 100;
@@ -2300,6 +2509,20 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       </div>
 
                       <div className="space-y-2">
+                        <label className="text-xs font-black uppercase tracking-widest text-slate-400">Valor da Entrada (Opcional)</label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="text"
+                            value={maskCurrency(formData.downPayment || '')}
+                            onChange={(e) => setFormData({ ...formData, downPayment: e.target.value.replace(/\D/g, '') })}
+                            placeholder="R$ 0,00"
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
                         <label className="text-xs font-black uppercase tracking-widest text-slate-400">Taxa de Juros (% a.m.)</label>
                         <input 
                           type="number" 
@@ -2307,8 +2530,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           value={formData.financingRate || ''}
                           onChange={(e) => setFormData({ ...formData, financingRate: e.target.value })}
                           placeholder="1,29"
-                          className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                          className={cn(
+                            "w-full px-4 py-3 bg-white dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]",
+                            validationErrors.financingRate ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          )}
                         />
+                        {validationErrors.financingRate && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.financingRate}</p>}
                       </div>
 
                       <div className="space-y-2">
@@ -2375,11 +2602,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <div className="relative">
                           <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input 
-                            type="number" 
-                            step="0.01"
-                            value={formData.downPayment || ''}
-                            onChange={(e) => setFormData({ ...formData, downPayment: e.target.value })}
-                            placeholder="Ex: 5000.00"
+                            type="text" 
+                            value={maskCurrency(formData.downPayment?.toString() || '')}
+                            onChange={(e) => setFormData({ ...formData, downPayment: currencyToNumber(e.target.value) })}
+                            placeholder="R$ 0,00"
                             className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                           />
                         </div>
@@ -2501,16 +2727,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     onClick={nextStep}
                     className="px-8 py-3 bg-[#00A86B] text-white rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-[#00A86B]/20"
                   >
-                    Próximo: FINALIZAÇÃO
+                    Próximo: Status & Fechamento
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {currentStep === 'finalization' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-[#00A86B]/5 p-8 rounded-[40px] border border-[#00A86B]/10">
+                {step.id === 'finalization' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-[#00A86B]/5 p-8 rounded-[40px] border border-[#00A86B]/10">
                   <div className="flex items-center gap-4 mb-8">
                     <div className="size-16 bg-[#fdb612] text-[#231d0f] rounded-2xl flex items-center justify-center shadow-xl shadow-[#fdb612]/20">
                       <Calculator className="w-8 h-8" />
@@ -2647,6 +2873,57 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
                         <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Sistema</label>
                         <p className="font-bold">{formData.systemSize} kWp / {formData.panelQuantity} Módulos</p>
+                      </div>
+                      
+                      <div className="p-6 bg-[#00A86B]/10 rounded-2xl border border-[#00A86B]/20 space-y-4">
+                        <h5 className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Indicadores Financeiros (Realistas)</h5>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Economia Mensal</label>
+                            <p className="text-sm font-black text-slate-900 dark:text-slate-100">R$ {savings.monthly.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Economia Anual</label>
+                            <p className="text-sm font-black text-slate-900 dark:text-slate-100">R$ {savings.annual.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Payback</label>
+                            <p className="text-sm font-black text-slate-900 dark:text-slate-100">
+                              {(() => {
+                                const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                             parseFloat(formData.installationCost || '0') + 
+                                             parseFloat(formData.projectCost || '0') + 
+                                             parseFloat(formData.licensingCost || '0') + 
+                                             parseFloat(formData.logisticCost || '0') +
+                                             parseFloat(formData.additionalCost || '0'));
+                                const mPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                                const mult = mPerc >= 99 ? 100 : 1 / (1 - (mPerc / 100));
+                                const total = Math.max(0, (sub * mult) - parseFloat(formData.discount || '0'));
+                                return (total / (savings.annual || 1)).toFixed(1);
+                              })()} Anos
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">ROI (25 Anos)</label>
+                            <p className="text-sm font-black text-[#00A86B]">
+                              {(() => {
+                                const sub = (parseFloat(formData.equipmentCost || '0') + 
+                                             parseFloat(formData.installationCost || '0') + 
+                                             parseFloat(formData.projectCost || '0') + 
+                                             parseFloat(formData.licensingCost || '0') + 
+                                             parseFloat(formData.logisticCost || '0') +
+                                             parseFloat(formData.additionalCost || '0'));
+                                const mPerc = Math.min(99, parseFloat(formData.margin || '0'));
+                                const mult = mPerc >= 99 ? 100 : 1 / (1 - (mPerc / 100));
+                                const total = Math.max(0, (sub * mult) - parseFloat(formData.discount || '0'));
+                                return (( (savings.total25 - total) / (total || 1)) * 100).toFixed(0);
+                              })()}%
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">
+                          *Considerando reajuste de 5% ao ano. Fonte da Tarifa: CEMIG 2024.
+                        </p>
                       </div>
                     </div>
 
@@ -2845,7 +3122,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                 </div>
               </div>
             )}
-          </form>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
+})}
+</form>
         </div>
       </div>
     );

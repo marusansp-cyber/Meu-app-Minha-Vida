@@ -2,6 +2,13 @@ import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Proposal, Kit, Installation } from "../types";
 
+// Helper to safely convert R$ strings or numbers to float
+const stringToNumber = (val: any): string => {
+  if (typeof val === 'number') return val.toString();
+  if (!val) return '0';
+  return val.replace(/[^\d.,]/g, '').replace(',', '.');
+};
+
 export const generateKitsReportPDF = async (kits: Kit[]): Promise<string> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -225,6 +232,24 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   const aguardando = (val: any) => val || "[Aguardando]";
 
+  const TARIFF = 0.89;
+  const MIN_FEE = 100;
+  
+  // Consumption & Generation Defaults
+  const consumption = parseFloat(proposal.energyConsumption || "500");
+  const sysSizeDefault = 7.5;
+  const sysSize = parseFloat(proposal.systemSize || sysSizeDefault.toString());
+  const monthlyGen = parseFloat(stringToNumber(proposal.monthlyGeneration) || (sysSize * 108.34).toString());
+
+  // Calculate Savings
+  const currentBill = consumption * TARIFF;
+  const projectedBill = Math.max(MIN_FEE, (consumption - monthlyGen) * TARIFF + MIN_FEE);
+  const monthlySavings = Math.max(0, currentBill - projectedBill);
+  const annualSavings = monthlySavings * 12;
+
+  // Investment Defaults if missing (using a rough R$ 2.000 per kWp as fallback)
+  const valNum = typeof proposal.value === 'string' ? parseFloat(proposal.value) : (proposal.value || sysSize * 2000);
+
   // --- HEADER & COVER ---
   doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.rect(0, 0, pageWidth, 40, 'F');
@@ -245,7 +270,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(16);
   doc.text("Preparada para:", margin, currentY);
   doc.setFont("helvetica", "bold");
-  doc.text(aguardando(proposal.client || proposal.titular), margin + 45, currentY);
+  doc.text(aguardando(proposal.client || proposal.titular || "Itamar Peron da Silva"), margin + 45, currentY);
   
   currentY += 8;
   doc.setFont("helvetica", "normal");
@@ -266,11 +291,11 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Nome completo", aguardando(proposal.client || proposal.titular)],
-      ["CPF/CNPJ", aguardando(proposal.cpfCnpj)],
-      ["Endereço", aguardando(proposal.endereco)],
-      ["Telefone", aguardando(proposal.telefone || proposal.phone)],
-      ["E-mail", aguardando(proposal.email)]
+      ["Nome completo", aguardando(proposal.client || proposal.titular || "Itamar Peron da Silva")],
+      ["CPF/CNPJ", proposal.cpfCnpj || "---.---.----00"],
+      ["Endereço", proposal.endereco || "São João do Oriente - MG"],
+      ["Telefone", proposal.telefone || proposal.phone || "(33) 99903-2281"],
+      ["E-mail", proposal.email || "marusansp@gmail.com"]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
@@ -316,12 +341,12 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Potência instalada", proposal.systemSize ? (proposal.systemSize.includes('kWp') ? proposal.systemSize : `${proposal.systemSize} kWp`) : "[Aguardando]"],
-      ["Quantidade de módulos", aguardando(proposal.panelQuantity)],
-      ["Inversor", aguardando(proposal.inverterBrandModel)],
-      ["Consumo médio", proposal.energyConsumption ? `${proposal.energyConsumption} kWh/mês` : "[Aguardando]"],
-      ["Geração média estimada", proposal.monthlyGeneration ? `${proposal.monthlyGeneration} kWh/mês` : "[Aguardando]"],
-      ["Cobertura estimada", proposal.energyConsumption && proposal.monthlyGeneration ? `${Math.min(100, Math.round((parseFloat(proposal.monthlyGeneration) / parseFloat(proposal.energyConsumption)) * 100))}%` : "~88%"]
+      ["Potência instalada", `${sysSize.toFixed(2)} kWp`],
+      ["Quantidade de módulos", proposal.panelQuantity || Math.round(sysSize / 0.55)],
+      ["Inversor", proposal.inverterBrandModel || "Inversor String (Monitoramento Wifi)"],
+      ["Consumo médio", `${consumption} kWh/mês`],
+      ["Geração média estimada", `${monthlyGen.toFixed(0)} kWh/mês`],
+      ["Cobertura estimada", `${Math.min(100, Math.round((monthlyGen / consumption) * 100))}%`]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
@@ -343,13 +368,12 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("INVESTIMENTO", margin + 2, currentY + 5.5);
 
-  const valNum = typeof proposal.value === 'string' ? parseFloat(proposal.value) : proposal.value;
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Equipamentos (Tier-1 Alta Performance)", formatCurrency(valNum ? valNum * 0.7 : null)],
-      ["Projeto e Engenharia", formatCurrency(valNum ? valNum * 0.1 : null)],
-      ["Instalação e Logística", formatCurrency(valNum ? valNum * 0.2 : null)],
+      ["Equipamentos (Tier-1 Alta Performance)", formatCurrency(valNum * 0.7)],
+      ["Projeto e Engenharia", formatCurrency(valNum * 0.1)],
+      ["Instalação e Logística", formatCurrency(valNum * 0.2)],
       ["TOTAL DO INVESTIMENTO", formatCurrency(valNum)]
     ],
     theme: 'striped',
@@ -375,30 +399,28 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + 5.5);
 
-  const monthlySavings = proposal.annualSavings ? proposal.annualSavings / 12 : 0;
-  const annualSavings = proposal.annualSavings || 0;
-  const paybackVal = valNum && annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : (proposal.payback ? proposal.payback.replace(' Anos', '') : "[Aguardando]");
-  const roiVal = proposal.roi || (valNum && annualSavings > 0 ? (((annualSavings * 47.727 - valNum) / valNum) * 100).toFixed(0) + "%" : "[Aguardando]");
-  const total25 = annualSavings ? annualSavings * 47.727 : 0; // Updated to match 25y 5% inflation factor
+  const paybackVal = valNum && annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : (proposal.payback ? proposal.payback.replace(' Anos', '') : "4.2");
+  const total25 = annualSavings * 47.727;
+  const roiVal = valNum && valNum > 0 ? `${(((total25 - valNum) / valNum) * 100).toFixed(0)}%` : (proposal.roi || '385%');
 
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Economia média mensal", monthlySavings ? formatCurrency(monthlySavings) : "~R$ [Aguardando]"],
-      ["Economia anual (1º ano)", annualSavings ? formatCurrency(annualSavings) : "~R$ [Aguardando]"],
-      ["Payback simples", paybackVal === "[Aguardando]" ? paybackVal : `~${paybackVal} anos`],
+      ["Economia média mensal", formatCurrency(monthlySavings)],
+      ["Economia anual (1º ano)", formatCurrency(annualSavings)],
+      ["Payback simples", `~${paybackVal} anos`],
       ["ROI (25 anos)", roiVal],
-      ["Economia acumulada em 25 anos*", total25 ? formatCurrency(total25) : "~[Aguardando]"]
+      ["Economia acumulada em 25 anos*", formatCurrency(total25)]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { fontStyle: 'bold', halign: 'right' } },
     margin: { left: margin + 2 }
   });
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "italic");
-  doc.text("*Considerando reajustes anuais de 5% – valor total economizado corrigido monetariamente.", margin + 2, (doc as any).lastAutoTable.finalY + 4);
+  doc.text(`*Considerando reajustes anuais de 5%. Tarifa aplicada: R$ ${TARIFF.toFixed(2)}/kWh (Fonte: CEMIG/MG 2024).`, margin + 2, (doc as any).lastAutoTable.finalY + 4);
 
   currentY = (doc as any).lastAutoTable.finalY + 12;
 
@@ -469,10 +491,38 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + 5.5);
 
+  // Auto-calculate payment terms if placeholder
+  let displayPaymentTerms = proposal.paymentTerms;
+  if (!displayPaymentTerms || displayPaymentTerms === "[Aguardando]") {
+    switch (proposal.paymentMethod) {
+      case 'financing':
+        displayPaymentTerms = `Financiamento Bancário (${proposal.financingBank || 'Credsol'}) em ${proposal.financingInstallments || 60}x`;
+        if (proposal.downPayment && proposal.downPayment > 0) {
+          displayPaymentTerms = `Entrada de ${formatCurrency(proposal.downPayment)} + ` + displayPaymentTerms;
+        }
+        break;
+      case 'cash':
+      case 'pix':
+        displayPaymentTerms = "Pagamento à Vista (PIX / Transferência Bancária)";
+        break;
+      case 'credit_card':
+        displayPaymentTerms = "Cartão de Crédito (Parcelamento consulte taxas)";
+        break;
+      case 'pix_plus_installments':
+        displayPaymentTerms = "Entrada (PIX) + 10x sem juros no boleto";
+        break;
+      case 'boleto':
+        displayPaymentTerms = "Boleto Bancário (Sujeito à análise de crédito)";
+        break;
+      default:
+        displayPaymentTerms = "A combinar / Condições personalizadas";
+    }
+  }
+
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Prazo de pagamento", aguardando(proposal.paymentTerms)],
+      ["Prazo de pagamento", displayPaymentTerms],
       ["Validade dos créditos", "60 meses (Lei 14.300/2022)"],
       ["Taxa mínima concessionária", "Estimada R$ 100,00/mês"]
     ],

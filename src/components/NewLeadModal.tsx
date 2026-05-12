@@ -8,9 +8,15 @@ interface NewLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (lead: Lead) => void;
+  existingLeads?: Lead[];
 }
 
-export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onAdd }) => {
+export const NewLeadModal: React.FC<NewLeadModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onAdd,
+  existingLeads = []
+}) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,6 +41,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
 
   const [isValidatingCep, setIsValidatingCep] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
   if (!isOpen) return null;
@@ -137,7 +144,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const nameErr = validateName(formData.name);
@@ -156,26 +163,72 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
       value: valueErr
     };
 
+    // Check for duplicates (Phone only, as requested to allow duplicate emails)
+    if (!phoneErr && formData.phone) {
+      const cleanPhone = formData.phone.replace(/\D/g, '');
+      const duplicatePhone = existingLeads.find(l => l.phone?.replace(/\D/g, '') === cleanPhone);
+      if (duplicatePhone) newErrors.phone = 'Este telefone já está cadastrado em outro lead.';
+    }
+
     setErrors(newErrors);
 
     if (Object.values(newErrors).some(err => err !== null)) {
       return;
     }
 
-    const { id, ...leadData } = {
-      ...formData,
-      time: 'Agora',
-      createdAt: new Date().toISOString()
-    } as any;
-    
-    onAdd(leadData);
-    setFormData({ 
-      name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', 
-      representative: 'Marusan Pinto', status: 'new', urgent: false,
-      cpfCnpj: '', address: '', cep: '', ucNumber: ''
-    });
-    setErrors({});
-    onClose();
+    // Duplicate Check
+    setIsSubmitting(true);
+    try {
+      const { getDocs, query, collection, where } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      
+      const phoneQuery = query(collection(db, 'leads'), where('phone', '==', formData.phone));
+      const phoneSnap = await getDocs(phoneQuery);
+
+      if (!phoneSnap.empty) {
+        setErrors(prev => ({
+          ...prev,
+          submit: 'Já existe um lead cadastrado com este telefone.'
+        }));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check for incomplete data to flag
+      const isIncomplete = !formData.cpfCnpj || !formData.address || !formData.cep || !formData.ucNumber;
+
+      const { id, ...leadData } = {
+        ...formData,
+        time: 'Agora',
+        createdAt: new Date().toISOString(),
+        flagged: isIncomplete,
+        flagReason: isIncomplete ? 'Informações cadastrais incompletas (Endereço, CPF/CNPJ ou UC).' : null
+      } as any;
+      
+      onAdd(leadData);
+
+      // Trigger Notification (simulated ID lookup)
+      const { notifyLeadAssigned } = await import('../services/notificationService');
+      const repIdMap: Record<string, string> = {
+        'Marusan Pinto': 'marusan-id-123',
+        'Ana Silva': 'ana-id-456',
+        'Carlos Oliveira': 'carlos-id-789'
+      };
+      notifyLeadAssigned(formData.name, formData.representative, repIdMap[formData.representative] || 'system');
+      
+      setFormData({ 
+        name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', 
+        representative: 'Marusan Pinto', status: 'new', urgent: false,
+        cpfCnpj: '', address: '', cep: '', ucNumber: ''
+      });
+      setErrors({});
+      onClose();
+    } catch (error) {
+      console.error('Error checking duplicates:', error);
+      setErrors(prev => ({ ...prev, submit: 'Erro ao validar lead. Tente novamente.' }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -189,6 +242,12 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+          {errors.submit && (
+            <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl text-rose-600 dark:text-rose-400 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {errors.submit}
+            </div>
+          )}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className={cn("text-xs font-bold uppercase tracking-wider", errors.name ? "text-red-500" : "text-slate-500")}>
@@ -582,9 +641,11 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, onA
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
+              disabled={isSubmitting}
+              className="flex-1 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              Salvar Lead
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSubmitting ? 'Validando...' : 'Salvar Lead'}
             </button>
           </div>
         </form>

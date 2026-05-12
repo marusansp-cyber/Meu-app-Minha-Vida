@@ -19,6 +19,7 @@ import { ClientsView } from './components/ClientsView';
 import { ReportsView } from './components/ReportsView';
 import { UsersView } from './components/UsersView';
 import { GalleryView } from './components/GalleryView';
+import SolarLandingPage from './components/SolarLandingPage';
 import { LoginView } from './components/LoginView';
 import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
 import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
@@ -31,8 +32,12 @@ import { syncCollection, createDocument, updateDocument, deleteDocument, setDocu
 
 import { ToastProvider } from './context/ToastContext';
 
+import { TwoFactorModal } from './components/TwoFactorModal';
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [is2FAVerified, setIs2FAVerified] = useState(false);
+  const [pendingView, setPendingView] = useState<View | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -442,6 +447,26 @@ export default function App() {
     return permissions[user.role]?.includes(view) || false;
   };
 
+  const handleViewChange = (view: View) => {
+    const sensitiveViews: View[] = ['sales', 'finance', 'reports', 'users', 'settings', 'clients'];
+    
+    if (user?.twoFactorEnabled && !is2FAVerified && sensitiveViews.includes(view)) {
+      setPendingView(view);
+      return;
+    }
+    
+    setCurrentView(view);
+    setIsSidebarOpen(false);
+  };
+
+  const handle2FAVerify = (code: string) => {
+    setIs2FAVerified(true);
+    if (pendingView) {
+      setCurrentView(pendingView);
+      setPendingView(null);
+    }
+  };
+
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center">
@@ -594,10 +619,7 @@ export default function App() {
         )}>
           <Sidebar 
             currentView={currentView} 
-            onViewChange={(view) => {
-              setCurrentView(view);
-              setIsSidebarOpen(false);
-            }} 
+            onViewChange={handleViewChange} 
             onLogout={handleLogout}
             user={user}
             companyLogo={companyLogo}
@@ -606,6 +628,12 @@ export default function App() {
           />
         </div>
         
+        <TwoFactorModal 
+          isOpen={pendingView !== null}
+          onVerify={handle2FAVerify}
+          onCancel={() => setPendingView(null)}
+        />
+
         <main className="flex-1 min-w-0 overflow-y-auto">
           {/* Mobile Header */}
           <header className="lg:hidden flex items-center justify-between p-4 border-b border-[#fdb612]/10 bg-white dark:bg-[#231d0f] sticky top-0 z-30">
@@ -730,8 +758,7 @@ export default function App() {
                         endereco: 'Pampulha, Belo Horizonte - MG',
                         energyConsumption: '1450',
                         systemSize: '12.85',
-                        value: 45800,
-                        startAtStep: 'kit'
+                        value: 45800
                       } as any);
                     }}
                   />
@@ -752,12 +779,14 @@ export default function App() {
                 {currentView === 'leads' && (
                   <LeadsView 
                     leads={leads} 
+                    clients={clients}
                     onOpenNewLead={() => setIsLeadModalOpen(true)} 
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}
                     onAddLead={addLead}
                     onLogout={handleLogout}
                     onConvertToClient={handleConvertToClient}
+                    onViewLanding={() => setCurrentView('landing')}
                     onCreateProposal={(lead) => {
                       handleOpenProposalsWithPreFill({
                         client: lead.name,
@@ -845,6 +874,9 @@ export default function App() {
                 {currentView === 'gallery' && (
                   <GalleryView user={user} />
                 )}
+                {currentView === 'landing' && (
+                  <SolarLandingPage onBack={() => setCurrentView('dashboard')} />
+                )}
               </>
             )}
 
@@ -892,6 +924,7 @@ export default function App() {
           isOpen={isLeadModalOpen} 
           onClose={() => setIsLeadModalOpen(false)} 
           onAdd={addLead} 
+          existingLeads={leads}
         />
 
         <footer className="fixed bottom-0 right-0 p-4 pointer-events-none">

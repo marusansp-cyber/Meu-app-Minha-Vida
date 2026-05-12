@@ -12,7 +12,7 @@ export interface User {
   createdAt?: string;
 }
 
-export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports' | 'gallery';
+export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports' | 'gallery' | 'landing';
 
 export interface GalleryItem {
   id: string;
@@ -136,6 +136,14 @@ export interface Lead {
     date: string;
     url?: string;
   }[];
+  flagged?: boolean;
+  flagReason?: string;
+  notes?: {
+    id: string;
+    text: string;
+    author: string;
+    date: string;
+  }[];
 }
 
 export interface InstallationStage {
@@ -177,6 +185,7 @@ export interface Installation {
   estimatedDeadline?: string;
   projectDeadline?: string | null;
   address?: string;
+  representativeId?: string;
   stages?: InstallationStage[];
   tasks?: {
     id: string;
@@ -215,6 +224,11 @@ export interface Proposal {
   phone?: string | null;
   paymentTerms?: string | null;
   annualSavings?: number | null;
+  totalSavings25Years?: number;
+  monthlySavings?: number;
+  downPayment?: number;
+  financingRate?: number;
+  systemOversizing?: number;
   internalNotes?: string | null;
   
   // Advanced Wizard Fields
@@ -261,9 +275,7 @@ export interface Proposal {
   // Step 4: FINANCIAMENTO
   paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto' | 'pix_plus_installments';
   pixInstallmentType?: 'credit_card' | 'boleto';
-  financingRate?: number;
   financingCET?: number;
-  downPayment?: number;
   
   // Step 5: FINALIZAÇÃO
   signatureUrl?: string;

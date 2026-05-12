@@ -96,6 +96,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     paymentMethod: "Cartão de Crédito (**** 4242)",
     newPassword: "",
     confirmPassword: "",
+    twoFactorEnabled: user?.twoFactorEnabled || false,
     invoices: [
       { id: '1', date: '14/03/2026', amount: 'R$ 499,00', status: 'Pago' },
       { id: '2', date: '14/02/2026', amount: 'R$ 499,00', status: 'Pago' },
@@ -137,7 +138,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
         role: profile.role as any,
         avatar: profile.photo || undefined,
         phone: profile.phone,
-        address: profile.address
+        address: profile.address,
+        twoFactorEnabled: securityData.twoFactorEnabled
       };
 
       await updateDocument('users', user.id, updatedUser);
@@ -533,6 +535,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
           {activeTab === 'system' && (
             <div className="space-y-8">
+              <div className="space-y-4">
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Segurança Avançada</h3>
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-xl bg-orange-100 dark:bg-orange-500/20 flex items-center justify-center text-orange-600">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Autenticação em Duas Etapas (2FA)</h4>
+                      <p className="text-xs text-slate-500">Exigir código de verificação ao fazer login</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const newState = !securityData.twoFactorEnabled;
+                      setSecurityData(prev => ({ ...prev, twoFactorEnabled: newState }));
+                      showToast(`2FA ${newState ? 'habilitado' : 'desabilitado'}! Clique em Salvar para confirmar.`);
+                    }}
+                    className={cn(
+                      "w-12 h-6 rounded-full transition-colors relative",
+                      securityData.twoFactorEnabled ? "bg-orange-500" : "bg-slate-300 dark:bg-slate-700"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-1 size-4 bg-white rounded-full transition-all",
+                      securityData.twoFactorEnabled ? "left-7" : "left-1"
+                    )} />
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Controle de Acesso</h3>
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">

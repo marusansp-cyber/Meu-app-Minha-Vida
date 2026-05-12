@@ -300,6 +300,10 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         stage: stageName,
         lastUpdated: new Date().toISOString()
       });
+
+      const { notifyInstallationUpdate } = await import('../services/notificationService');
+      notifyInstallationUpdate(item.name, stageName, item.representativeId || 'system', id);
+
       showToast('Status do projeto atualizado com sucesso!');
     } catch (error) {
       showToast('Erro ao atualizar status do projeto.');
@@ -324,6 +328,10 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         stages,
         lastUpdated: new Date().toISOString()
       });
+
+      const { notifyInstallationUpdate } = await import('../services/notificationService');
+      notifyInstallationUpdate(item.name, item.stage, item.representativeId || 'system', item.id);
+
       showToast('Relatório da etapa salvo com sucesso!');
       setReportModal({ isOpen: false, stageIndex: null, installationId: null });
     } catch (error) {

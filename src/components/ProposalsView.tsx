@@ -141,6 +141,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       expiredProposals.forEach(p => {
         processingRef.current.add(p.id);
         updateDocument('proposals', p.id, { status: 'expired' })
+          .then(async () => {
+            const { notifyProposalStatusChange } = await import('../services/notificationService');
+            notifyProposalStatusChange(p.client, 'expired', p.representativeId || 'system', p.id);
+          })
           .finally(() => {
             // Note: we don't necessarily need to remove from processingRef 
             // since the next render will have status === 'expired'
@@ -401,6 +405,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         const oldStatus = proposal.status;
         await updateDocument('proposals', id, { status: 'sent' });
         
+        const { notifyProposalStatusChange } = await import('../services/notificationService');
+        notifyProposalStatusChange(proposal.client, 'sent', proposal.representativeId || user?.id || 'system', id);
+
         await createDocument('history', {
           type: 'update',
           collection: 'proposals',

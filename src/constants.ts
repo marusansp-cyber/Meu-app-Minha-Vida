@@ -163,6 +163,44 @@ export const LEADS: Lead[] = [
       { date: '2026-03-10 14:00', action: 'Contrato assinado', user: 'Ana Paula' }
     ]
   },
+  {
+    id: '7',
+    name: 'Ana Souza',
+    email: 'ana.souza@email.com',
+    phone: '(31) 98888-0011',
+    whatsapp: '(31) 98888-0011',
+    systemSize: 'Sistema de 6.0 kWp',
+    value: 'R$ 13.500',
+    status: 'new',
+    createdAt: '2026-03-15',
+    representative: 'Ricardo Sales',
+    history: [
+      { date: '2026-03-15 09:00', action: 'Lead criado via Instagram', user: 'Sistema' }
+    ]
+  },
+  {
+    id: '8',
+    name: 'Pedro da Silva',
+    email: 'pedro.silva@email.com',
+    phone: '(31) 99988-7766',
+    whatsapp: '(31) 99988-7766',
+    systemSize: 'Sistema de 7.5 kWp',
+    value: 'R$ 14.800',
+    status: 'new',
+    createdAt: '2026-03-14',
+    representative: 'Ricardo Sales',
+    history: [
+      { date: '2026-03-14 10:00', action: 'Lead criado via Indicação', user: 'Sistema' }
+    ],
+    notes: [
+      {
+        id: 'n1',
+        text: 'Cliente interessado em financiamento em 60x. Aguardando retorno sobre taxas.',
+        author: 'Sistema',
+        date: '2026-03-14'
+      }
+    ]
+  },
 ];
 
 export const INSTALLATIONS: Installation[] = [

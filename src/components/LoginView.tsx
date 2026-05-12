@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sun, Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Sun, Mail, Lock, ArrowRight, Loader2, AlertCircle, Shield } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { auth } from '../firebase';
 import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
@@ -59,6 +59,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
   };
 
+  const [is2FAStep, setIs2FAStep] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [pendingUserEmail, setPendingUserEmail] = useState<string | null>(null);
+
+  const handle2FAVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    // Simulation: accept '123456' as the code
+    if (verificationCode === '123456') {
+      if (pendingUserEmail) onLogin(pendingUserEmail);
+    } else {
+      setError('Código inválido. Tente "123456" para este teste.');
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -66,7 +82,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
     try {
       if (isSignUp) {
-        // Best practices: length >= 8, mixed case, number, special char
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         
         if (password.length < 8) {
@@ -89,7 +104,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       } else {
         const result = await signInWithEmailAndPassword(auth, email, password);
         if (result.user.email) {
-          onLogin(result.user.email);
+          // Check if 2FA is enabled for this user
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('../firebase');
+          const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+          
+          if (userDoc.exists() && userDoc.data().twoFactorEnabled) {
+            setPendingUserEmail(result.user.email);
+            setIs2FAStep(true);
+            setIsLoading(false);
+          } else {
+            onLogin(result.user.email);
+          }
         }
       }
     } catch (err: any) {
@@ -116,6 +142,70 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       setIsLoading(false);
     }
   };
+
+  if (is2FAStep) {
+    return (
+      <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="flex flex-col items-center mb-8">
+            <Logo className="scale-125 mb-2" />
+          </div>
+
+          <div className="bg-white dark:bg-[#231d0f]/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-xl backdrop-blur-sm">
+            <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-slate-100">Verificação em Duas Etapas</h2>
+            <p className="text-sm text-slate-500 mb-6">Um código de verificação foi solicitado. Digite o código gerado pelo seu aplicativo autenticador.</p>
+            
+            <form onSubmit={handle2FAVerification} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-black uppercase tracking-widest text-slate-400">Código de Verificação</label>
+                <div className="relative">
+                  <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="text" 
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000 000"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 transition-all font-mono text-2xl tracking-[0.5em] text-center"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-400 text-sm font-medium">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-orange-500/20 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <>
+                    Verificar e Entrar
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+              
+              <button 
+                type="button"
+                onClick={() => setIs2FAStep(false)}
+                className="w-full text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                Voltar para o login
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center p-4">

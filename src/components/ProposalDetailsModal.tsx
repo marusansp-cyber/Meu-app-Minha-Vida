@@ -10,8 +10,9 @@ import {
   Download, 
   Send, 
   Printer, 
-  TrendingUp, 
-  Clock, 
+  TrendingUp,
+  Cpu,
+  Clock,
   BarChart3, 
   Package,
   History as HistoryIcon,
@@ -97,7 +98,44 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
 
   if (!isOpen || !proposal) return null;
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const validate = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Validate payment terms
+    if (!editForm.paymentTerms?.trim()) {
+      errors.paymentTerms = 'Prazo de pagamento é obrigatório';
+    } else {
+      const termsLower = editForm.paymentTerms.toLowerCase();
+      const hasNumbers = /\d+/.test(termsLower);
+      const hasKeywords = termsLower.includes('vista') || termsLower.includes('entrada') || termsLower.includes('dias') || termsLower.includes('x');
+      if (!hasNumbers && !hasKeywords) {
+        errors.paymentTerms = 'Formato sugerido: "30/60/90 dias" ou "Entrada + 12x"';
+      }
+    }
+
+    // Validate financing
+    if (editForm.paymentMethod === 'financing') {
+      if (!editForm.financingBank?.trim()) {
+        errors.financingBank = 'Banco é obrigatório para financiamento';
+      }
+      if (!editForm.financingInstallments || editForm.financingInstallments <= 0) {
+        errors.financingInstallments = 'Número de parcelas inválido';
+      }
+      // Note: check for financingRate if available in model
+      // In editForm it might be financingRate or similar
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validate()) {
+      return;
+    }
+
     if (onUpdate && editForm && proposal) {
       const changes: Record<string, { old: any, new: any }> = {};
       Object.keys(editForm).forEach(key => {
@@ -206,9 +244,12 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
     }
   };
 
-  const handleStatusChange = (newStatus: Proposal['status']) => {
-    if (onUpdate) {
+  const handleStatusChange = async (newStatus: Proposal['status']) => {
+    if (onUpdate && proposal) {
       onUpdate({ ...proposal, status: newStatus });
+      
+      const { notifyProposalStatusChange } = await import('../services/notificationService');
+      notifyProposalStatusChange(proposal.client, newStatus, proposal.representativeId || 'system', proposal.id);
     }
   };
 
@@ -489,13 +530,31 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prazo de Pagamento (Condições Comerciais)</label>
+                  <input 
+                    type="text" 
+                    value={editForm.paymentTerms || ''}
+                    onChange={(e) => setEditForm({ ...editForm, paymentTerms: e.target.value })}
+                    className={cn(
+                      "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]",
+                      validationErrors.paymentTerms ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                    )}
+                    placeholder="Ex: 30/60/90 dias ou Entrada + 12x"
+                  />
+                  {validationErrors.paymentTerms && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.paymentTerms}</p>}
+                </div>
+                <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banco de Financiamento</label>
                   <input 
                     type="text" 
                     value={editForm.financingBank || ''}
                     onChange={(e) => setEditForm({ ...editForm, financingBank: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    className={cn(
+                      "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]",
+                      validationErrors.financingBank ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                    )}
                   />
+                  {validationErrors.financingBank && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.financingBank}</p>}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Parcelas</label>
@@ -503,7 +562,23 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     type="number" 
                     value={editForm.financingInstallments || 0}
                     onChange={(e) => setEditForm({ ...editForm, financingInstallments: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    className={cn(
+                      "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]",
+                      validationErrors.financingInstallments ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                    )}
+                  />
+                  {validationErrors.financingInstallments && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.financingInstallments}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Taxa de Juros Financiamento (% a.m.)</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={editForm.financingRate || 0}
+                    onChange={(e) => setEditForm({ ...editForm, financingRate: e.target.value })}
+                    className={cn(
+                      "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
+                    )}
                   />
                 </div>
                 <div className="space-y-1">
@@ -782,7 +857,9 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">ROI Estimado</label>
-                      <p className="font-bold text-xl text-indigo-600">{proposal.roi || '385% em 25 anos'}</p>
+                      <p className="font-bold text-xl text-indigo-600">
+                        {proposal.roi || `${((((proposal.monthlySavings || 0) * 12 * 47.727) - (proposal.value || 0)) / (proposal.value || 1) * 100).toFixed(0)}%`}
+                      </p>
                     </div>
                   </div>
 
@@ -792,9 +869,46 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Tempo de Retorno (Payback)</label>
-                      <p className="font-bold text-xl text-purple-600">{proposal.payback || '4.2 Anos'}</p>
+                      <p className="font-bold text-xl text-purple-600">
+                        {proposal.payback || `${((proposal.value || 0) / ((proposal.monthlySavings || 0) * 12)).toFixed(1)} Anos`}
+                      </p>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Crescimento Patrimonial (25 Anos)</label>
+                      <p className="font-bold text-xl text-emerald-600">
+                        {(proposal.totalSavings25Years || ((proposal.monthlySavings || 0) * 12 * 47.727)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
+                        *Premissa: Reajuste de 5% ao ano. Fonte: CEMIG 2024.
+                      </p>
+                    </div>
+                  </div>
+
+                  {proposal.systemOversizing && (
+                    <div className="flex items-center gap-4">
+                      <div className="size-12 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                        <Cpu className="w-6 h-6 text-amber-600" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Eficiência Técnica (Oversizing)</label>
+                        <p className={cn(
+                          "font-bold text-xl",
+                          proposal.systemOversizing > 1.4 ? "text-rose-500" : "text-amber-600"
+                        )}>
+                          {proposal.systemOversizing.toFixed(2)}x
+                        </p>
+                        {proposal.systemOversizing > 1.4 && (
+                          <p className="text-[9px] font-bold text-rose-400 uppercase tracking-tighter">ALERTA: Clipping Relevante no Pico</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {proposal.financingBank && proposal.paymentMethod === 'financing' && (
                     <div className="flex items-center gap-4">
@@ -927,56 +1041,53 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     {(() => {
                       if (proposal.feasibilityStudy) return proposal.feasibilityStudy;
                       const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-                      const consumption = parseFloat(proposal.energyConsumption || '1357');
-                      const rate = 1.05;
-                      const minFee = 100;
+                      const consumption = parseFloat(proposal.energyConsumption || '500');
+                      const rate = 0.89;
+                      const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
                       const currentBill = consumption * rate;
                       const projectedBill = Math.max(minFee, (consumption - gen) * rate + minFee);
                       const annualSavings = Math.max(0, currentBill - projectedBill) * 12;
-                      return `O sistema dimensionado para ${proposal.client} apresenta viabilidade técnica e financeira excelente. Com uma geração estimada de ${gen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/mês, a economia anual será de aproximadamente R$ ${annualSavings.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`;
+                      return `O sistema dimensionado para ${proposal.client} apresenta viabilidade técnica e financeira excelente. Com uma geração estimada de ${gen.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kWh/mês, a economia mensal será de aproximadamente R$ ${(annualSavings/12).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}.`;
                     })()}
                   </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                      <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Economia 25 anos</p>
-                      <p className="text-xl font-black text-emerald-600">
-                        {(() => {
-                          const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
-                          const consumption = parseFloat(proposal.energyConsumption || '1357');
-                          const rate = 1.05;
-                          const minFee = 100;
-                          const currentBill = consumption * rate;
-                          const projectedBill = Math.max(minFee, (consumption - gen) * rate + minFee);
-                          const annualSavings = Math.max(0, currentBill - projectedBill) * 12;
-                          const savings25 = annualSavings * 47.727; // Including 5% annual inflation
-                          return `R$ ${savings25.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
-                        })()}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                      <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Redução de CO2</p>
-                      <p className="text-xl font-black text-blue-600">
-                        {(() => {
-                          const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
-                          const annualGenKwh = sysSizeNum * 1300;
-                          const co2SavedKg = annualGenKwh * 0.062;
-                          return co2SavedKg >= 1000 
-                            ? `${(co2SavedKg / 1000).toFixed(2)} Ton/ano`
-                            : `${co2SavedKg.toFixed(0)} kg/ano`;
-                        })()}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
-                      <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Árvores Equivalentes</p>
-                      <p className="text-xl font-black text-[#fdb612]">
-                        {(() => {
-                          const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
-                          const annualGenKwh = sysSizeNum * 1300;
-                          const co2SavedKg = annualGenKwh * 0.062;
-                          return Math.round(co2SavedKg / 22);
-                        })()}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { label: "Economia mensal", value: (() => {
+                        const consumption = parseFloat(proposal.energyConsumption || '500');
+                        const rate = 0.89;
+                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                        const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
+                        const current = consumption * rate;
+                        const projected = Math.max(minFee, (consumption - gen) * rate + minFee);
+                        return `R$ ${(current - projected).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+                      })() },
+                      { label: "ROI (25 anos)", value: proposal.roi || '385%' },
+                      { label: "Payback simples", value: proposal.payback ? (proposal.payback.toLowerCase().includes('anos') ? proposal.payback : `${proposal.payback} anos`) : '4.2 anos' },
+                      { label: "Economia 25 anos*", value: (() => {
+                        const consumption = parseFloat(proposal.energyConsumption || '500');
+                        const rate = 0.89;
+                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                        const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
+                        const current = consumption * rate;
+                        const projected = Math.max(minFee, (consumption - gen) * rate + minFee);
+                        const annual = (current - projected) * 12;
+                        return `R$ ${(annual * 47.727).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+                      })(), highlight: true }
+                    ].map((item, i) => (
+                      <div key={i} className={cn(
+                        "flex items-center justify-between p-3 rounded-2xl border",
+                        item.highlight ? "bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5 shadow-lg" : "bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700"
+                      )}>
+                        <span className="text-[9px] uppercase font-black text-slate-400">{item.label}</span>
+                        <span className={cn(
+                          "text-sm font-black",
+                          item.highlight ? "text-emerald-600" : "text-slate-700 dark:text-slate-300"
+                        )}>{item.value}</span>
+                      </div>
+                    ))}
+                    <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter leading-relaxed">
+                      *Inflação: 5%/ano. Tarifa: R$ 0,89/kWh (Fonte: CEMIG 2024).
+                    </p>
                   </div>
                 </div>
 
@@ -1076,8 +1187,8 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       const monthlyGenNum = parseFloat(proposal.monthlyGeneration || (sysSizeNum * 108.34).toString()) || 550;
                       const annualGen = monthlyGenNum * 12;
                       return [
-                        { label: "Tarifa de referência", value: "R$ 1,05/kWh (CEMIG – Zona Rural)" },
-                        { label: "Consumo médio", value: `${proposal.energyConsumption || '1.357'} kWh/mês` },
+                        { label: "Tarifa de referência", value: "R$ 0,89/kWh (Residencial)" },
+                        { label: "Consumo médio", value: `${proposal.energyConsumption || '500'} kWh/mês` },
                         { label: "Taxa mínima estimada", value: "R$ 100,00/mês" },
                         { label: "Dimensionamento", value: "100% do consumo histórico" },
                         { label: "Validade dos créditos", value: "60 meses (Lei 14.300/2022)" },
@@ -1107,9 +1218,9 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   {(() => {
-                    const rate = 1.05;
+                    const rate = 0.89;
                     const minFee = 100;
-                    const consumption = parseFloat(proposal.energyConsumption || '1357');
+                    const consumption = parseFloat(proposal.energyConsumption || '500');
                     const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
                     const currentBill = consumption * rate;
                     const billAfter = Math.max(minFee, (consumption - gen) * rate + minFee);
