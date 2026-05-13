@@ -64,6 +64,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [history, setHistory] = useState<History[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (proposal?.id && isOpen) {
@@ -97,8 +98,6 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   }, [proposal, isOpen]);
 
   if (!isOpen || !proposal) return null;
-
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};

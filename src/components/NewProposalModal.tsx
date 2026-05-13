@@ -273,28 +273,28 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
   const [formData, setFormData] = useState({
     // Standard fields
-    client: initialData?.client || '',
-    email: initialData?.email || '',
+    client: initialData?.client || 'Itamar Peron da Silva',
+    email: initialData?.email || 'marusansp@gmail.com',
     value: initialData?.value || 0,
-    systemSize: initialData?.systemSize?.replace(' kWp', '') || '',
+    systemSize: initialData?.systemSize?.replace(' kWp', '') || '5.5',
     representative: initialData?.representative || 'Marusan Pinto',
-    roi: initialData?.roi || '385%',
-    payback: initialData?.payback?.replace(' Anos', '') || '4.5',
+    roi: initialData?.roi || '',
+    payback: initialData?.payback?.replace(' Anos', '') || '',
     commission: initialData?.commission?.toString() || '5',
     commissionStatus: initialData?.commissionStatus || 'pending',
     expiryDate: initialData?.expiryDate || new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    ucNumber: initialData?.ucNumber || '',
-    energyConsumption: initialData?.energyConsumption || '1357',
+    ucNumber: initialData?.ucNumber || 'MG-12345678',
+    energyConsumption: initialData?.energyConsumption || '500',
     monthlyGeneration: initialData?.monthlyGeneration || '',
     kitId: initialData?.kitId || '',
     discount: initialData?.discount?.toString() || '0',
-    margin: initialData?.margin?.toString() || '0',
+    margin: initialData?.margin?.toString() || '15',
     financingBank: initialData?.financingBank || 'Credsol',
     financingInstallments: initialData?.financingInstallments?.toString() || '60',
     financingInstallmentValue: initialData?.financingInstallmentValue || 0,
     internalNotes: initialData?.internalNotes || '',
-    proposalNumber: initialData?.proposalNumber || '',
-    additionalCost: initialData?.additionalCost?.toString() || '',
+    proposalNumber: initialData?.proposalNumber || `PROPOSTA ${new Date().getFullYear()}/00${Math.floor(Math.random() * 100)}`,
+    additionalCost: initialData?.additionalCost?.toString() || '0',
     installationStartDate: initialData?.installationStartDate || '',
     estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
     assignedTechnician: initialData?.assignedTechnician || '',
@@ -302,16 +302,18 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     photoUrl: initialData?.photoUrl || '',
     customImageLinks: initialData?.customImageLinks || [],
     paymentTerms: initialData?.paymentTerms || '30/60/90 dias',
+    annualSavings: initialData?.annualSavings || 0,
+    totalSavings25Years: initialData?.totalSavings25Years || 0,
     
     // Step 1: UCS
-    titular: initialData?.titular || '',
-    cpfCnpj: initialData?.cpfCnpj || '',
-    endereco: initialData?.endereco || '',
-    neighborhood: (initialData as any)?.neighborhood || '',
-    city: (initialData as any)?.city || '',
-    state: (initialData as any)?.state || '',
-    cep: initialData?.cep || '',
-    telefone: initialData?.telefone || '',
+    titular: initialData?.titular || 'Itamar Peron da Silva',
+    cpfCnpj: initialData?.cpfCnpj || '000.000.000-00',
+    endereco: initialData?.endereco || 'São João do Oriente - MG',
+    neighborhood: (initialData as any)?.neighborhood || 'Centro',
+    city: (initialData as any)?.city || 'São João do Oriente',
+    state: (initialData as any)?.state || 'MG',
+    cep: initialData?.cep || '35146-000',
+    telefone: initialData?.telefone || '(33) 99903-2281',
     latitude: initialData?.latitude || undefined,
     longitude: initialData?.longitude || undefined,
     distribuidora: initialData?.distribuidora || 'CEMIG',
@@ -487,10 +489,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
           prev.panelQuantity === newQty &&
           prev.monthlyGeneration === monGen &&
           prev.subtotal === costs.toString() &&
-          prev.value === valNum &&
+          prev.value === totalVal &&
           prev.payback === pb &&
           prev.roi === r &&
-          prev.totalSavings25Years === totalSavingsFinal
+          prev.totalSavings25Years === totalSavingsFinal &&
+          prev.annualSavings === annualSavings
         ) {
           return prev;
         }
@@ -501,12 +504,24 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
           panelQuantity: newQty,
           monthlyGeneration: monGen,
           subtotal: costs.toString(),
-          value: valNum,
+          value: totalVal,
           payback: pb,
           roi: r,
-          totalSavings25Years: totalSavingsFinal
+          totalSavings25Years: totalSavingsFinal,
+          annualSavings: annualSavings
         };
       }
+      
+      // If validation fails (NaNs), still check if sz or qty need adjusting and return prev or adjusted
+      if (prev.systemSize !== newSz || prev.panelQuantity !== newQty) {
+        return {
+          ...prev,
+          systemSize: newSz,
+          panelQuantity: newQty
+        };
+      }
+
+      return prev;
     });
   }, [
     formData.panelQuantity,
@@ -1271,33 +1286,34 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     <h4 className="text-sm font-black uppercase tracking-widest">Unidade Consumidora</h4>
                   </div>
                   
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          titular: 'Itamar Peron da Silva',
-                          client: 'Itamar Peron da Silva',
-                          email: 'itamar.peron@exemplo.com.br',
-                          phone: '(31) 98877-6655',
-                          endereco: 'Rua das Flores, 123 - Centro, Belo Horizonte - MG',
-                          energyConsumption: '500',
-                          energyTariff: '0.89'
-                        }));
-                        showToast('Dados de Itamar Peron carregados.');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 border border-[#00A86B]/20 text-[#00A86B] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#00A86B] hover:text-white transition-all active:scale-95 group"
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      Demo: Itamar
-                    </button>
-
-                    <button 
-                      type="button"
-                      onClick={() => setShowAIInput(true)}
-                      className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 group"
-                    >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            titular: 'Itamar Peron da Silva',
+                            client: 'Itamar Peron da Silva',
+                            email: 'marusansp@gmail.com',
+                            phone: '(33) 99903-2281',
+                            endereco: 'Centro - São João do Oriente - MG',
+                            neighborhood: 'Centro',
+                            city: 'São João do Oriente',
+                            state: 'MG',
+                            energyConsumption: '500',
+                          }));
+                          showToast('Simulação para Itamar Peron carregada (500 kWh/mês).');
+                        }}
+                        className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        Carregar Perfil: Itamar Peron
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setShowAIInput(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95 group"
+                      >
                       <BrainCircuit className="w-4 h-4 group-hover:rotate-12 transition-transform" />
                       Importar via IA
                     </button>
@@ -2761,6 +2777,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       </div>
                       <div className="p-4 bg-emerald-50 dark:bg-emerald-500/5 rounded-2xl border border-emerald-100 dark:border-emerald-500/20">
                         <label className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-500 block mb-3 tracking-widest">Documentação</label>
+                        
+                        {/* Tarifa Citation */}
+                        <div className="mb-4 p-3 bg-white/50 dark:bg-white/5 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                          <p className="text-[9px] text-slate-500 leading-relaxed font-medium">
+                            * Tarifa: <span className="font-bold">R$ 0,89/kWh</span> (Homologação ANEEL / CEMIG 2024). 
+                            Reajuste anual de 5,0% aplicado nos cálculos de ROI (25 anos).
+                          </p>
+                        </div>
+
                         <button 
                           type="button"
                           onClick={async () => {
@@ -2773,16 +2798,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                             try {
                               // Create a temporary proposal object for the PDF
                               const proposalForPdf: Proposal = {
-                                id: 'preview',
-                                client: formData.client || formData.titular || 'Cliente',
+                                id: initialData?.id || 'preview',
+                                client: formData.titular || formData.client || 'Cliente',
                                 titular: formData.titular || formData.client || 'Cliente',
-                                value: formData.value || 0,
+                                value: formData.value,
                                 systemSize: formData.systemSize || "0",
-                                energyConsumption: formData.energyConsumption || "1298",
-                                monthlyGeneration: formData.monthlyGeneration || "1343",
-                                date: formData.date || new Date().toLocaleDateString('pt-BR'),
+                                energyConsumption: formData.energyConsumption || "500",
+                                monthlyGeneration: formData.monthlyGeneration || (parseFloat(formData.systemSize) * hsp * 30 * pr).toFixed(0),
+                                date: initialData?.date || new Date().toISOString(),
                                 expiryDate: formData.expiryDate || "",
-                                representative: formData.representative || "Representante",
+                                representative: formData.representative || user?.name || "Representante",
                                 status: 'pending',
                                 email: formData.email,
                                 telefone: formData.telefone || formData.phone || formData.whatsapp,
@@ -2790,11 +2815,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                 cpfCnpj: formData.cpfCnpj,
                                 paymentTerms: formData.paymentTerms,
                                 proposalNumber: formData.proposalNumber || "2026/001",
-                                annualSavings: formData.annualSavings || 15155,
+                                annualSavings: formData.annualSavings,
                                 panelBrandModel: formData.panelBrandModel,
                                 inverterBrandModel: formData.inverterBrandModel,
-                                panelQuantity: formData.panelQuantity,
-                                invertersQuantity: formData.invertersQuantity
+                                panelQuantity: parseInt(formData.panelQuantity) || 0,
+                                invertersQuantity: parseInt(formData.invertersQuantity) || 1,
+                                roi: formData.roi,
+                                payback: formData.payback,
+                                totalSavings25Years: formData.totalSavings25Years
                               };
 
                               const pdfDataUri = await generateProposalPDF(proposalForPdf, selectedKit);
