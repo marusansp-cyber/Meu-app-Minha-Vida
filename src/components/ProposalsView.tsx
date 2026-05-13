@@ -70,7 +70,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [proposalToDelete, setProposalToDelete] = useState<Proposal | null>(null);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilters, setStatusFilters] = useState<string[]>(['accepted']);
+  const [statusFilters, setStatusFilters] = useState<string[]>(['pending', 'sent']);
   const [representativeFilter, setRepresentativeFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState<{ key: keyof Proposal | 'value_num'; direction: 'asc' | 'desc' } | null>({ key: 'date', direction: 'desc' });
   const [showFilters, setShowFilters] = useState(false);
@@ -795,16 +795,26 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       
       let matchesDate = true;
       if (filters.startDate || filters.endDate) {
-        const [day, month, year] = p.date.split('/').map(Number);
-        const propDate = new Date(year, month - 1, day);
+        let propDate: Date | null = null;
         
-        if (filters.startDate) {
-          const start = new Date(filters.startDate);
-          if (propDate < start) matchesDate = false;
+        if (p.date.includes('/')) {
+          const [day, month, year] = p.date.split('/').map(Number);
+          propDate = new Date(year, month - 1, day);
+        } else {
+          propDate = new Date(p.date);
         }
-        if (filters.endDate) {
-          const end = new Date(filters.endDate);
-          if (propDate > end) matchesDate = false;
+
+        if (propDate && !isNaN(propDate.getTime())) {
+          if (filters.startDate) {
+            const start = new Date(filters.startDate);
+            start.setHours(0, 0, 0, 0);
+            if (propDate < start) matchesDate = false;
+          }
+          if (filters.endDate) {
+            const end = new Date(filters.endDate);
+            end.setHours(23, 59, 59, 999);
+            if (propDate > end) matchesDate = false;
+          }
         }
       }
 
@@ -1379,6 +1389,19 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
             <div className="flex flex-wrap gap-2 items-center bg-slate-50/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 px-2 hidden lg:block">Filtrar por Status:</span>
+              <button
+                onClick={() => setStatusFilters(['pending', 'sent'])}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border",
+                  statusFilters.length === 2 && statusFilters.includes('pending') && statusFilters.includes('sent')
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 shadow-md"
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 shadow-sm"
+                )}
+              >
+                <Zap className="w-3 h-3" />
+                <span className="hidden sm:inline">Abertas</span>
+              </button>
+              <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:block" />
               {[
                 { id: 'pending', label: 'Pendente', icon: Clock },
                 { id: 'sent', label: 'Enviada', icon: Send },
@@ -1504,21 +1527,48 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               </div>
               <div className="md:col-span-2 space-y-1">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intervalo de Datas</label>
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-[#fdb612] transition-all">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <input 
-                    type="date" 
-                    value={filters.startDate || ''}
-                    onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                    className="flex-1 bg-transparent border-none text-sm outline-none py-1"
-                  />
-                  <span className="text-slate-400 text-xs font-bold">até</span>
-                  <input 
-                    type="date" 
-                    value={filters.endDate || ''}
-                    onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                    className="flex-1 bg-transparent border-none text-sm outline-none py-1"
-                  />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-[#fdb612] transition-all flex-1">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <input 
+                      type="date" 
+                      value={filters.startDate || ''}
+                      onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                      className="flex-1 bg-transparent border-none text-sm outline-none py-1"
+                    />
+                    <span className="text-slate-400 text-xs font-bold">até</span>
+                    <input 
+                      type="date" 
+                      value={filters.endDate || ''}
+                      onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                      className="flex-1 bg-transparent border-none text-sm outline-none py-1"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        setFilters({ ...filters, startDate: start.toISOString().split('T')[0], endDate: now.toISOString().split('T')[0] });
+                      }}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-[8px] font-bold uppercase rounded border border-slate-200 dark:border-slate-700 hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-colors"
+                    >
+                      Mês Atual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const start = new Date();
+                        start.setDate(now.getDate() - 30);
+                        setFilters({ ...filters, startDate: start.toISOString().split('T')[0], endDate: now.toISOString().split('T')[0] });
+                      }}
+                      className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-[8px] font-bold uppercase rounded border border-slate-200 dark:border-slate-700 hover:bg-[#fdb612]/10 hover:text-[#fdb612] transition-colors"
+                    >
+                      30 Dias
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="space-y-1">

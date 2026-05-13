@@ -1273,6 +1273,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         client={editingClient}
         leads={leads}
         clients={clients}
+        proposals={proposals}
+        installations={installations}
         user={user}
       />
 

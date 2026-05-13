@@ -93,6 +93,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   const [showClientSuggestions, setShowClientSuggestions] = useState(false);
   const [selectedKitId, setSelectedKitId] = useState<string>('');
   const [filterInverterType, setFilterInverterType] = useState<'all' | 'inverter' | 'microinverter'>('all');
+  const [filterPanelBrand, setFilterPanelBrand] = useState('all');
+  const [filterInverterBrand, setFilterInverterBrand] = useState('all');
+  const searchResultsCache = React.useRef<Record<string, Kit[]>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [losses, setLosses] = useState<number>(25);
@@ -642,19 +645,59 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     }
   };
 
+  const panelBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(kit => {
+      const panel = kit.components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'));
+      if (panel?.brand) brands.add(panel.brand);
+      if (kit.panelBrand) brands.add(kit.panelBrand);
+    });
+    return Array.from(brands).sort();
+  }, [kits]);
+
+  const inverterBrands = useMemo(() => {
+    const brands = new Set<string>();
+    kits.forEach(kit => {
+      const inv = kit.components.find(c => c.name.toLowerCase().includes('inversor'));
+      if (inv?.brand) brands.add(inv.brand);
+      if (kit.inverterBrand) brands.add(kit.inverterBrand);
+    });
+    return Array.from(brands).sort();
+  }, [kits]);
+
   const filteredKits = useMemo(() => {
+    const cacheKey = `${searchTerm}-${filterInverterType}-${filterPanelBrand}-${filterInverterBrand}`;
+    if (searchResultsCache.current[cacheKey]) return searchResultsCache.current[cacheKey];
+
     let filtered = kits;
     if (filterInverterType !== 'all') {
       filtered = filtered.filter(k => k.inverterType === filterInverterType);
     }
-    if (!searchTerm) return filtered;
-    const term = searchTerm.toLowerCase();
-    return filtered.filter(kit => 
-      kit.name.toLowerCase().includes(term) ||
-      kit.description.toLowerCase().includes(term) ||
-      kit.power.toString().includes(term)
-    );
-  }, [kits, searchTerm, filterInverterType]);
+    if (filterPanelBrand !== 'all') {
+      filtered = filtered.filter(k => {
+        const panel = k.components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'));
+        return panel?.brand === filterPanelBrand || k.panelBrand === filterPanelBrand;
+      });
+    }
+    if (filterInverterBrand !== 'all') {
+      filtered = filtered.filter(k => {
+        const inv = k.components.find(c => c.name.toLowerCase().includes('inversor'));
+        return inv?.brand === filterInverterBrand || k.inverterBrand === filterInverterBrand;
+      });
+    }
+    
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(kit => 
+        kit.name.toLowerCase().includes(term) ||
+        kit.description.toLowerCase().includes(term) ||
+        kit.power.toString().includes(term)
+      );
+    }
+
+    searchResultsCache.current[cacheKey] = filtered;
+    return filtered;
+  }, [kits, searchTerm, filterInverterType, filterPanelBrand, filterInverterBrand]);
 
   // Update form data when initialData changes
   useEffect(() => {
@@ -1771,11 +1814,50 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     <h4 className="text-sm font-black uppercase tracking-widest">Configuração do Kit Fotovoltaico</h4>
                   </div>
                   
-                  {/* Kit Search */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={filterInverterType}
+                      onChange={(e) => setFilterInverterType(e.target.value as any)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#00A86B]"
+                    >
+                      <option value="all">Tipo Inversor</option>
+                      <option value="inverter">Central</option>
+                      <option value="microinverter">Micro</option>
+                    </select>
+
+                    <select
+                      value={filterPanelBrand}
+                      onChange={(e) => setFilterPanelBrand(e.target.value)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#00A86B]"
+                    >
+                      <option value="all">Marca Painel</option>
+                      {panelBrands.map(brand => (
+                        <option key={brand} value={brand}>{brand}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={filterInverterBrand}
+                      onChange={(e) => setFilterInverterBrand(e.target.value)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-[#00A86B]"
+                    >
+                      <option value="all">Marca Inversor</option>
+                      {inverterBrands.map(brand => (
+                        <option key={brand} value={brand}>{brand}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setShowKitList(!showKitList)}
+                      onClick={() => {
+                        setShowKitList(!showKitList);
+                        setFilterInverterType('all');
+                        setFilterPanelBrand('all');
+                        setFilterInverterBrand('all');
+                        setSearchTerm('');
+                      }}
                       className={cn(
                         "px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
                         showKitList ? "bg-[#00A86B] text-white shadow-lg" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-[#00A86B]"
@@ -1784,39 +1866,6 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       <LayoutGrid className="w-3.5 h-3.5" />
                       {showKitList ? "Fechar Lista" : "Selecionar Kit da Base"}
                     </button>
-
-                    <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => setFilterInverterType('all')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                          filterInverterType === 'all' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
-                        )}
-                      >
-                        Todos
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFilterInverterType('inverter')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                          filterInverterType === 'inverter' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
-                        )}
-                      >
-                        Inversores
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFilterInverterType('microinverter')}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
-                          filterInverterType === 'microinverter' ? "bg-white dark:bg-slate-800 text-[#00A86B] shadow-sm" : "text-slate-400 hover:text-slate-600"
-                        )}
-                      >
-                        Micro
-                      </button>
-                    </div>
 
                     <div className="relative w-64">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

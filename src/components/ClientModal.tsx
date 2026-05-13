@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, User, Mail, Phone, MapPin, Building2, CreditCard, Loader2, Search, Crosshair, Maximize, CheckCircle2, ScrollText, History, Plus, AlertCircle, Activity } from 'lucide-react';
-import { Client, Lead, User as UserType, Interaction } from '../types';
+import { Client, Lead, User as UserType, Interaction, Proposal, Installation } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { validateCNPJ, validateCPF, formatCNPJ, formatCPF, formatPhone } from '../lib/validations';
-import { cn } from '../lib/utils';
+import { cn, parseDate } from '../lib/utils';
 
 interface ClientModalProps {
   isOpen: boolean;
@@ -12,10 +12,22 @@ interface ClientModalProps {
   client?: Client | null;
   leads?: Lead[];
   clients?: Client[];
+  proposals?: Proposal[];
+  installations?: Installation[];
   user?: UserType | null;
 }
 
-export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSave, client, leads = [], clients = [], user }) => {
+export const ClientModal: React.FC<ClientModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  client, 
+  leads = [], 
+  clients = [], 
+  proposals = [],
+  installations = [],
+  user 
+}) => {
   const [formData, setFormData] = useState<Partial<Client>>({
     name: '',
     email: '',
@@ -239,6 +251,45 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
       });
     }
   };
+
+  const allInteractions = useMemo(() => {
+    if (!client) return [];
+    
+    const clientProposals = proposals
+      .filter(p => p.client === client.name)
+      .map(p => ({
+        id: `prop-${p.id}`,
+        date: p.date,
+        type: 'Proposta' as const,
+        title: `Proposta Gerada: ${p.systemSize}`,
+        description: `Valor: ${typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : p.value}`,
+        status: p.status,
+        timestamp: parseDate(p.date).getTime() || 0,
+        userName: p.representative
+      }));
+    
+    const clientInstallations = installations
+      .filter(i => i.name === client.name)
+      .map(i => ({
+        id: `inst-${i.id}`,
+        date: i.startDate || i.lastUpdated,
+        type: 'Instalação' as const,
+        title: `Projeto de Instalação: ${i.stage}`,
+        description: `Progresso atual: ${i.progress}%`,
+        status: i.progress + '%',
+        timestamp: parseDate(i.startDate || i.lastUpdated).getTime() || 0,
+        userName: i.technician?.name || 'Técnico'
+      }));
+
+    const clientManualInteractions = (client.interactions || []).map(i => ({
+      ...i,
+      type: (i.type === 'note' ? 'Manual' : i.type) as any,
+      timestamp: i.timestamp || parseDate(i.date).getTime() || 0
+    }));
+
+    return [...clientProposals, ...clientInstallations, ...clientManualInteractions]
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [client, proposals, installations]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -757,23 +808,48 @@ export const ClientModal: React.FC<ClientModalProps> = ({ isOpen, onClose, onSav
                 </div>
                 
                 <div className="space-y-3">
-                  {(formData.interactions || []).length > 0 ? (
-                    formData.interactions?.map((it) => (
+                  {allInteractions.length > 0 ? (
+                    allInteractions.map((it) => (
                       <div 
                         key={it.id} 
-                        onClick={() => setSelectedInteraction(it)}
+                        onClick={() => setSelectedInteraction(it as any)}
                         className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex gap-4 cursor-pointer hover:border-[#fdb612]/30 hover:shadow-lg hover:shadow-[#fdb612]/5 transition-all group"
                       >
-                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0 group-hover:scale-110 transition-transform">
-                          {it.type === 'note' ? <ScrollText className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                        <div className={cn(
+                          "size-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform",
+                          it.type === 'Proposta' ? "bg-amber-100 text-amber-600" :
+                          it.type === 'Instalação' ? "bg-blue-100 text-blue-600" :
+                          "bg-[#fdb612]/10 text-[#fdb612]"
+                        )}>
+                          {it.type === 'Proposta' ? <ScrollText className="w-4 h-4" /> : 
+                           it.type === 'Instalação' ? <Activity className="w-4 h-4" /> : 
+                           <History className="w-4 h-4" />}
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-[#fdb612] tracking-wider">{it.userName}</span>
-                            <span className="size-1 rounded-full bg-slate-300" />
-                            <span className="text-[10px] font-medium text-slate-400">{it.date}</span>
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase text-[#fdb612] tracking-wider">{it.userName}</span>
+                              <span className="size-1 rounded-full bg-slate-300" />
+                              <span className="text-[10px] font-medium text-slate-400">{it.date}</span>
+                            </div>
+                            <span className={cn(
+                              "text-[8px] font-black px-1.5 py-0.5 rounded uppercase",
+                              it.type === 'Proposta' ? "bg-amber-100 text-amber-600" :
+                              it.type === 'Instalação' ? "bg-blue-100 text-blue-600" :
+                              "bg-slate-100 text-slate-600"
+                            )}>
+                              {it.type}
+                            </span>
                           </div>
+                          {it.title && <p className="text-xs font-bold text-slate-900 dark:text-slate-100">{it.title}</p>}
                           <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 font-medium line-clamp-2">{it.description}</p>
+                          {it.status && (
+                            <div className="flex justify-end mt-1">
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase">
+                                {it.status}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))
