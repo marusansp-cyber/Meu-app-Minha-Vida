@@ -143,6 +143,35 @@ export function maskCurrency(value: string): string {
   });
 }
 
+export function maskCPF(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+export function maskCNPJ(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  return digits
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+export function maskCep(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  return digits.replace(/(\d{5})(\d)/, '$1-$2');
+}
+
+export function validateCpfCnpj(value: string): string | null {
+  const clean = value.replace(/\D/g, '');
+  if (!clean) return 'CPF/CNPJ é obrigatório';
+  if (clean.length !== 11 && clean.length !== 14) return 'CPF deve ter 11 dígitos e CNPJ 14';
+  return null;
+}
+
 export function currencyToNumber(value: string): number {
   if (!value) return 0;
   return parseFloat(value.replace(/\D/g, '')) / 100;

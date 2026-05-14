@@ -335,7 +335,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`Vieira's Solar & Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, 285, { align: "center" });
+        doc.text(`JV Mendes Junior Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, 285, { align: "center" });
       }
 
       doc.save(`relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`);

@@ -61,7 +61,7 @@ export const SMTPHelpModal: React.FC<SMTPHelpModalProps> = ({ isOpen, onClose })
               <div className="size-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black flex-shrink-0 text-sm">2</div>
               <div>
                 <h5 className="font-black text-slate-900 dark:text-slate-100 mb-1">Gere a Senha de App</h5>
-                <p className="text-sm text-slate-500 mb-2">Na aba 'Segurança', pesquise por <strong>"Senhas de App"</strong>. Selecione 'E-mail' e 'Outro (Nome personalizado)'. Digite "Vieira Solar" e clique em Criar.</p>
+                <p className="text-sm text-slate-500 mb-2">Na aba 'Segurança', pesquise por <strong>"Senhas de App"</strong>. Selecione 'E-mail' e 'Outro (Nome personalizado)'. Digite "JV Mendes" e clique em Criar.</p>
               </div>
             </div>
 

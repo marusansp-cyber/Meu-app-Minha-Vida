@@ -29,13 +29,13 @@ export const Logo: React.FC<LogoProps> = ({ className, showText = true, variant 
               "text-xl font-black tracking-tighter uppercase",
               variant === 'dark' ? "text-slate-900" : "text-white"
             )}>
-              Vieira's
+              JV Mendes
             </span>
             <span className={cn(
               "text-[10px] font-bold tracking-[0.2em] uppercase opacity-80",
               variant === 'dark' ? "text-slate-500" : "text-slate-300"
             )}>
-              Solar & Engenharia
+              Engenharia
             </span>
           </div>
         )}
@@ -67,7 +67,7 @@ export const Logo: React.FC<LogoProps> = ({ className, showText = true, variant 
           {/* Stylized Sun / Energy Core */}
           <circle cx="50" cy="50" r="18" fill={primaryColor} />
           
-          {/* "V" for Vieira integrated into the core */}
+          {/* Stylized "J" or "M" energy core */}
           <path
             d="M40 42 L50 58 L60 42"
             fill="none"
@@ -97,13 +97,13 @@ export const Logo: React.FC<LogoProps> = ({ className, showText = true, variant 
             "text-xl font-black tracking-tighter uppercase",
             variant === 'dark' ? "text-slate-900" : "text-white"
           )}>
-            Vieira's
+            JV Mendes
           </span>
           <span className={cn(
             "text-[10px] font-bold tracking-[0.2em] uppercase opacity-80",
             variant === 'dark' ? "text-slate-500" : "text-slate-300"
           )}>
-            Solar & Engenharia
+            Engenharia
           </span>
         </div>
       )}

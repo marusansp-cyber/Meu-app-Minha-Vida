@@ -7,9 +7,9 @@ interface SolarLandingPageProps {
 }
 
 const SolarLandingPage: React.FC<SolarLandingPageProps> = ({ onBack }) => {
-  // Real data for Itamar Peron da Silva
+  // Example client data
   const clientData = {
-    name: 'Itamar Peron da Silva',
+    name: 'Cliente',
     location: 'São João do Oriente - MG',
     consumption: 500,
     systemSize: '7.5 kWp',
@@ -38,7 +38,7 @@ const SolarLandingPage: React.FC<SolarLandingPageProps> = ({ onBack }) => {
             <div className="w-8 h-8 rounded-lg bg-yellow-500 flex items-center justify-center">
               <Sun className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-xl tracking-tight uppercase">Vieira's <span className="text-yellow-500">Solar</span></span>
+            <span className="font-bold text-xl tracking-tight uppercase">JV Mendes <span className="text-yellow-500">Engenharia</span></span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
             <button onClick={() => scrollToSection('sistema')} className="hover:text-yellow-600 transition-colors">Sistema</button>
@@ -345,7 +345,7 @@ const SolarLandingPage: React.FC<SolarLandingPageProps> = ({ onBack }) => {
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
                 <button 
-                  onClick={() => window.open(`https://wa.me/33999032281?text=Olá Marusan! Vi a landing page da Vieira Solar e quero prosseguir com meu sistema de ${clientData.systemSize}.`, '_blank')}
+                  onClick={() => window.open(`https://wa.me/33999032281?text=Olá Marusan! Vi a landing page da JV Mendes Engenharia e quero prosseguir com meu sistema de ${clientData.systemSize}.`, '_blank')}
                   className="bg-slate-900 text-white px-10 py-5 rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
                 >
                   <MessageCircle className="w-6 h-6" />
@@ -359,7 +359,7 @@ const SolarLandingPage: React.FC<SolarLandingPageProps> = ({ onBack }) => {
                   <div className="w-px h-10 bg-white/20" />
                   <div className="text-white text-left">
                     <p className="text-white/60 text-xs uppercase font-bold tracking-widest mb-1">Empresa</p>
-                    <p className="font-bold">Vieira's Solar</p>
+                    <p className="font-bold">JV Mendes</p>
                   </div>
                 </div>
               </div>
@@ -373,7 +373,7 @@ const SolarLandingPage: React.FC<SolarLandingPageProps> = ({ onBack }) => {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8 text-slate-400 text-sm">
           <div className="flex items-center gap-2">
             <Sun className="w-4 h-4" />
-            <span>Vieira's Solar & Engenharia © 2026</span>
+            <span>JV Mendes Junior Engenharia © 2026</span>
           </div>
           <div className="flex gap-8">
             <a href="#" className="hover:text-slate-600 transition-colors">Termos</a>

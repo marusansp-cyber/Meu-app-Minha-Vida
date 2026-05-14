@@ -96,10 +96,10 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
             <div className="flex items-center justify-between w-full md:w-auto">
               <div className="flex items-center gap-5">
                 <div className="size-20 bg-gradient-to-br from-[#fdb612] to-[#ff9f00] rounded-3xl flex items-center justify-center text-[#231d0f] font-black text-3xl shadow-[0_20px_50px_rgba(253,182,18,0.3)] transform -rotate-3">
-                  VS
+                  JV
                 </div>
                 <div>
-                  <h1 className="text-3xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter">Vieira's Solar</h1>
+                  <h1 className="text-3xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tighter">JV Mendes Junior Engenharia</h1>
                   <p className="text-[10px] font-black text-[#fdb612] uppercase tracking-[0.4em] leading-none">Engineering Excellence</p>
                 </div>
               </div>
@@ -114,7 +114,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
                       systemSize: systemSize,
                       date: new Date().toISOString(),
                       status: 'pending',
-                      representative: "Consultor Vieira's",
+                      representative: "Consultor JV Mendes",
                       payback: (paybackMonths / 12).toFixed(1)
                     } as any);
                     link.download = `Proposta_${clientName.replace(/\s+/g, '_')}.pdf`;
@@ -298,7 +298,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
               ))}
             </div>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter leading-relaxed">
-              *Considerando reajustes anuais de 5% (Premissa Técnica Vieira's). Tarifa base de R$ 0,89/kWh (Ref: CEMIG MG 2024).
+              *Considerando reajustes anuais de 5% (Premissa Técnica JV Mendes). Tarifa base de R$ 0,89/kWh (Ref: CEMIG MG 2024).
             </p>
           </div>
         </div>
@@ -338,7 +338,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
           <div className="size-14 bg-[#fdb612]/20 text-[#fdb612] rounded-3xl flex items-center justify-center shadow-lg">
             <Award className="w-8 h-8" />
           </div>
-          <h3 className="text-3xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Experiência Vieira's no Campo</h3>
+          <h3 className="text-3xl font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Experiência JV Mendes no Campo</h3>
           <p className="text-slate-500 font-medium max-w-2xl">Mais de 1.500 projetos homologados em Minas Gerais com índice de satisfação superior a 98%.</p>
         </div>
         
@@ -369,7 +369,7 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
                   {[1, 2, 3, 4, 5].map(s => <Star key={s} className="w-4 h-4 fill-current" />)}
                 </div>
                 <p className="text-slate-600 dark:text-slate-300 font-medium italic leading-relaxed">
-                  "O atendimento da Vieira's Solar foi impecável. A economia na conta de luz veio exatamente como o engenheiro Marusan previu no projeto."
+                  "O atendimento da JV Mendes Junior Engenharia foi impecável. A economia na conta de luz veio exatamente como o engenheiro Marusan previu no projeto."
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="size-10 bg-slate-200 dark:bg-slate-700 rounded-full" />
@@ -483,6 +483,47 @@ export const ProposalView: React.FC<ProposalViewProps> = ({
             </div>
           </div>
         ))}
+      </section>
+
+      {/* Signatures Section */}
+      <section className="bg-white dark:bg-[#1a160d] rounded-[3rem] p-12 border border-slate-200 dark:border-white/5 shadow-xl">
+        <div className="text-center mb-16">
+          <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">Formalização</h3>
+          <p className="text-slate-500 font-medium">Aceite e aprovação do projeto técnico-comercial.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-full max-w-sm h-32 border-b-2 border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-700 italic">
+              Assinatura do Consultor
+            </div>
+            <div className="text-center">
+              <p className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">JV Mendes Junior Engenharia</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Engenharia Responsável</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-full max-w-sm h-32 border-b-2 border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-700 italic">
+              Assinatura do Cliente
+            </div>
+            <div className="text-center">
+              <p className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">{clientName}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Contratante</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-[#fdb612]" />
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gerado em: {new Date().toLocaleDateString('pt-BR')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-[#fdb612]" />
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Documento ID: {proposalNumber}</span>
+          </div>
+        </div>
       </section>
 
       {/* Footer Actions */}

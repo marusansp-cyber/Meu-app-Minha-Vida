@@ -64,7 +64,6 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [history, setHistory] = useState<History[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (proposal?.id && isOpen) {
@@ -97,12 +96,15 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
     setIsEditing(false);
   }, [proposal, isOpen]);
 
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
   if (!isOpen || !proposal) return null;
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
     
-    // Validate payment terms
+    /* 
+    // Validate payment terms - DEACTIVATED BY USER REQUEST
     if (!editForm.paymentTerms?.trim()) {
       errors.paymentTerms = 'Prazo de pagamento é obrigatório';
     } else {
@@ -113,6 +115,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
         errors.paymentTerms = 'Formato sugerido: "30/60/90 dias" ou "Entrada + 12x"';
       }
     }
+    */
 
     // Validate financing
     if (editForm.paymentMethod === 'financing') {
@@ -220,7 +223,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
         body: JSON.stringify({
           to: proposal.email,
           subject: `Proposta Solar - ${proposal.client}`,
-          body: `Olá ${proposal.client},\n\nSegue em anexo a sua proposta personalizada para instalação de energia solar.\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+          body: `Olá ${proposal.client},\n\nSegue em anexo a sua proposta personalizada para instalação de energia solar.\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nJV Mendes Junior Engenharia`,
           pdfBase64,
           fileName: `Proposta_${proposal.proposalNumber || proposal.id}.pdf`
         })
@@ -274,12 +277,22 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
               <p className="text-xs text-slate-500 font-medium">Proposta para {proposal.client}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all"
+              title="Baixar PDF"
+            >
+              {isDownloading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -528,6 +541,8 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                   />
                 </div>
+                {/* Prazo de Pagamento - DEACTIVATED BY USER REQUEST */}
+                {/*
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prazo de Pagamento (Condições Comerciais)</label>
                   <input 
@@ -542,6 +557,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   />
                   {validationErrors.paymentTerms && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.paymentTerms}</p>}
                 </div>
+                */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banco de Financiamento</label>
                   <input 
@@ -857,7 +873,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">ROI Estimado</label>
                       <p className="font-bold text-xl text-indigo-600">
-                        {proposal.roi || `${((((proposal.monthlySavings || 0) * 12 * 47.727) - (proposal.value || 0)) / (proposal.value || 1) * 100).toFixed(0)}%`}
+                        {proposal.roi || `${((((proposal.monthlySavings || 0) * 12 * 25) - (proposal.value || 0)) / (proposal.value || 1) * 100).toFixed(0)}%`}
                       </p>
                     </div>
                   </div>
@@ -881,7 +897,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Crescimento Patrimonial (25 Anos)</label>
                       <p className="font-bold text-xl text-emerald-600">
-                        {(proposal.totalSavings25Years || ((proposal.monthlySavings || 0) * 12 * 47.727)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                        {(proposal.totalSavings25Years || ((proposal.monthlySavings || 0) * 12 * 25)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                       </p>
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
                         *Premissa: Reajuste de 5% ao ano. Fonte: CEMIG 2024.
@@ -1039,7 +1055,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                   <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
                     {(() => {
                       if (proposal.feasibilityStudy) return proposal.feasibilityStudy;
-                      const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                      const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 130).toString()) || 550;
                       const consumption = parseFloat(proposal.energyConsumption || '500');
                       const rate = 0.89;
                       const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
@@ -1054,23 +1070,23 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       { label: "Economia mensal", value: (() => {
                         const consumption = parseFloat(proposal.energyConsumption || '500');
                         const rate = 0.89;
-                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 130).toString()) || 550;
                         const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
                         const current = consumption * rate;
                         const projected = Math.max(minFee, (consumption - gen) * rate + minFee);
                         return `R$ ${(current - projected).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
                       })() },
-                      { label: "ROI (25 anos)", value: proposal.roi || '385%' },
-                      { label: "Payback simples", value: proposal.payback ? (proposal.payback.toLowerCase().includes('anos') ? proposal.payback : `${proposal.payback} anos`) : '4.2 anos' },
+                      { label: "ROI (25 anos)", value: proposal.roi || `${((((proposal.monthlySavings || 0) * 12 * 25) - (proposal.value || 0)) / (proposal.value || 1) * 100).toFixed(0)}%` },
+                      { label: "Payback simples", value: proposal.payback ? (proposal.payback.toLowerCase().includes('anos') ? proposal.payback : `${proposal.payback} anos`) : `${((proposal.value || 0) / ((proposal.monthlySavings || 0) * 12)).toFixed(1)} anos` },
                       { label: "Economia 25 anos*", value: (() => {
                         const consumption = parseFloat(proposal.energyConsumption || '500');
                         const rate = 0.89;
-                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                        const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 130).toString()) || 550;
                         const minFee = proposal.tensaoFornecimento === 'Trifásico' ? 100 : proposal.tensaoFornecimento === 'Bifásico' ? 50 : 30;
                         const current = consumption * rate;
                         const projected = Math.max(minFee, (consumption - gen) * rate + minFee);
                         const annual = (current - projected) * 12;
-                        return `R$ ${(annual * 47.727).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
+                        return `R$ ${(annual * 25).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
                       })(), highlight: true }
                     ].map((item, i) => (
                       <div key={i} className={cn(
@@ -1097,7 +1113,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <span className="text-[10px] font-black uppercase tracking-widest">Garantia Técnica</span>
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed text-left">
-                    Esta proposta inclui 25 anos de performance linear para os módulos MAXEON, 10-15 anos para inversores AUXSOL e GARANTIA VITALÍCIA para a estrutura de alumínio anodizado, assegurada pela Vieira's Solar & Engenharia.
+                    Esta proposta inclui 25 anos de performance linear para os módulos MAXEON, 10-15 anos para inversores AUXSOL e GARANTIA VITALÍCIA para a estrutura de alumínio anodizado, assegurada pela JV Mendes Junior Engenharia.
                   </p>
                 </div>
 
@@ -1220,7 +1236,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     const rate = 0.89;
                     const minFee = 100;
                     const consumption = parseFloat(proposal.energyConsumption || '500');
-                    const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                    const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 130).toString()) || 550;
                     const currentBill = consumption * rate;
                     const billAfter = Math.max(minFee, (consumption - gen) * rate + minFee);
                     const grossSavings = Math.max(0, currentBill - billAfter);
@@ -1300,6 +1316,26 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 </div>
               </div>
 
+              {/* Signature Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-t border-slate-100 dark:border-slate-800">
+                <div className="space-y-4">
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 w-full mb-2" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Assinatura do Cliente</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{proposal.client}</span>
+                    <span className="text-[10px] text-slate-400">Data: {new Date(proposal.date).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="h-px bg-slate-200 dark:bg-slate-700 w-full mb-2" />
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Representante / Integrador</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{proposal.representative}</span>
+                    <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">JV Mendes Junior Engenharia</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Conversion Closure */}
               <div className="mt-8 p-8 bg-slate-900 border border-slate-800 rounded-[32px] text-white">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
@@ -1333,10 +1369,10 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                 </div>
 
                 {(() => {
-                  const rate = 1.05;
+                  const rate = 0.89;
                   const minFee = 100;
-                  const consumption = parseFloat(proposal.energyConsumption || '1357');
-                  const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 108.34).toString()) || 550;
+                  const consumption = parseFloat(proposal.energyConsumption || '500');
+                  const gen = parseFloat(proposal.monthlyGeneration || (parseFloat(proposal.systemSize || "0") * 130).toString()) || 550;
                   const currentBill = consumption * rate;
                   const billAfter = Math.max(minFee, (consumption - gen) * rate + minFee);
                   const monthlySavings = Math.max(0, currentBill - billAfter);

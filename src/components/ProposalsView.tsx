@@ -577,7 +577,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`Vieira's Solar & Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
+        doc.text(`JV Mendes Junior Engenharia - Página ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: "center" });
       }
 
       doc.save(`relatorio_propostas_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -634,7 +634,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         const result = await sendProposalEmail({
           to: proposal.email,
           subject: `Proposta Solar - ${proposal.client}`,
-          body: `Olá ${proposal.client},\n\nSegue em anexo a proposta comercial para o seu sistema de energia solar de ${proposal.systemSize}.\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nVieira's Solar & Engenharia`,
+          body: `Olá ${proposal.client},\n\nSegue em anexo a proposta comercial para o seu sistema de energia solar de ${proposal.systemSize}.\n\nFicamos à disposição para dúvidas.\n\nAtenciosamente,\nJV Mendes Junior Engenharia`,
           pdfBase64,
           fileName: `proposta_${proposal.id}.pdf`
         });

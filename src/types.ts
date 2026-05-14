@@ -258,6 +258,13 @@ export interface Proposal {
   panelQuantity?: number;
   inverterBrandModel?: string;
   invertersQuantity?: number;
+  hsp?: number;
+  pr?: number;
+  tariff?: number;
+  kitPrice?: number;
+  laborCost?: number;
+  totalCost?: number;
+  margin?: number;
   structureQuantity?: number;
   structureType?: string;
   cablesIncluded?: boolean;

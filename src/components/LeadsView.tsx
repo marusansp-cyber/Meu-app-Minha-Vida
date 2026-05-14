@@ -746,24 +746,62 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                           </button>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">De</span>
-                          <input 
-                            type="date" 
-                            value={startDate || ''}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full p-3 lg:p-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
-                          />
+                      
+                      <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-[#fdb612] transition-all">
+                            <Calendar className="w-4 h-4 text-slate-400" />
+                            <input 
+                              type="date" 
+                              value={startDate || ''}
+                              onChange={(e) => setStartDate(e.target.value)}
+                              className="flex-1 bg-transparent border-none text-xs outline-none py-1 dark:text-slate-200"
+                            />
+                            <span className="text-slate-400 text-[10px] font-black uppercase">até</span>
+                            <input 
+                              type="date" 
+                              value={endDate || ''}
+                              onChange={(e) => setEndDate(e.target.value)}
+                              className="flex-1 bg-transparent border-none text-xs outline-none py-1 dark:text-slate-200"
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase">Até</span>
-                          <input 
-                            type="date" 
-                            value={endDate || ''}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full p-3 lg:p-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#fdb612]"
-                          />
+                        
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: 'Hoje', days: 0 },
+                            { label: '7D', days: 7 },
+                            { label: '30D', days: 30 },
+                            { label: 'Mês', days: 'current_month' },
+                          ].map((range) => (
+                            <button
+                              key={range.label}
+                              type="button"
+                              onClick={() => {
+                                const end = new Date();
+                                const start = new Date();
+                                if (range.days === 'current_month') {
+                                  start.setDate(1);
+                                } else if (typeof range.days === 'number') {
+                                  start.setDate(start.getDate() - range.days);
+                                }
+                                setStartDate(start.toISOString().split('T')[0]);
+                                setEndDate(end.toISOString().split('T')[0]);
+                              }}
+                              className="flex-1 px-2 py-1.5 bg-white dark:bg-slate-800 hover:bg-[#fdb612]/10 hover:text-[#fdb612] border border-slate-200 dark:border-slate-700/50 rounded-lg text-[9px] font-black uppercase tracking-wider text-slate-500 transition-all"
+                            >
+                              {range.label}
+                            </button>
+                          ))}
+                          <button
+                            onClick={() => {
+                              setStartDate(null);
+                              setEndDate(null);
+                            }}
+                            className="px-2 py-1.5 hover:text-red-500 text-[9px] font-black uppercase tracking-wider text-slate-400 transition-all"
+                          >
+                            Limpar
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1217,7 +1255,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             
                             <div className="my-1 border-t border-slate-100 dark:border-white/5" />
                             
-                            {lead.name.includes('Itamar') && onViewLanding && (
+                            {false && lead.name.includes('Itamar') && onViewLanding && false && (
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2130,19 +2168,6 @@ const LeadCard: React.FC<{
           
           <div className="h-px bg-slate-100 dark:bg-white/5 my-1" />
 
-          {lead.name.includes('Itamar') && onViewLanding && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewLanding();
-                setActiveActionMenu(null);
-              }}
-              className="w-full px-3 py-2 text-left text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg flex items-center gap-2"
-            >
-              <Sparkles className="w-3 h-3" />
-              Ver Landing Page
-            </button>
-          )}
 
           <button 
             onClick={(e) => {

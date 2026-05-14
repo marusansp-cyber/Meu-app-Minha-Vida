@@ -12,8 +12,16 @@ interface GlobalSearchProps {
 
 export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, installations, onResultClick }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -26,19 +34,28 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
   }, []);
 
   const results = useMemo(() => {
-    if (!searchTerm.trim()) return null;
-    const term = searchTerm.toLowerCase();
+    if (!debouncedSearchTerm.trim()) return null;
+    const term = debouncedSearchTerm.toLowerCase();
 
     return {
       clients: clients.map(c => {
         let score = 0;
         let snippet = '';
-        if (c.name.toLowerCase().startsWith(term)) score += 10;
-        else if (c.name.toLowerCase().includes(term)) score += 5;
+        const nameLower = c.name.toLowerCase();
+        const emailLower = c.email.toLowerCase();
+        const cpfCnpjNumbers = (c.cnpj || c.cpf || '').replace(/\D/g, '');
         
-        if (c.email.toLowerCase().includes(term)) {
+        if (nameLower.startsWith(term)) score += 10;
+        else if (nameLower.includes(term)) score += 5;
+        
+        if (emailLower.includes(term)) {
           score += 3;
           snippet = c.email;
+        }
+
+        if (cpfCnpjNumbers && cpfCnpjNumbers.includes(term.replace(/\D/g, ''))) {
+          score += 8;
+          snippet = c.cnpj || c.cpf || '';
         }
 
         return { ...c, score, snippet };
@@ -47,8 +64,10 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
       proposals: proposals.map(p => {
         let score = 0;
         let snippet = '';
-        if (p.client.toLowerCase().startsWith(term)) score += 10;
-        else if (p.client.toLowerCase().includes(term)) score += 5;
+        const clientLower = p.client.toLowerCase();
+        
+        if (clientLower.startsWith(term)) score += 10;
+        else if (clientLower.includes(term)) score += 5;
         
         if (p.proposalNumber?.toLowerCase().includes(term)) {
           score += 8;
@@ -62,12 +81,18 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ clients, proposals, 
 
       installations: installations.map(i => {
         let score = 0;
-        if (i.name.toLowerCase().startsWith(term)) score += 10;
-        else if (i.name.toLowerCase().includes(term)) score += 5;
+        const nameLower = i.name.toLowerCase();
+        const projectIdLower = i.projectId.toLowerCase();
+        
+        if (nameLower.startsWith(term)) score += 10;
+        else if (nameLower.includes(term)) score += 5;
+        
+        if (projectIdLower.includes(term)) score += 7;
+
         return { ...i, score };
       }).filter(i => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 4)
     };
-  }, [searchTerm, clients, proposals, installations]);
+  }, [debouncedSearchTerm, clients, proposals, installations]);
 
   const hasResults = results && (results.clients.length > 0 || results.proposals.length > 0 || results.installations.length > 0);
 

@@ -129,18 +129,26 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
       .replace(/(-\d{3})\d+?$/, '$1');
   };
 
+  const validatePhone = (phone: string) => {
+    const numbers = phone.replace(/\D/g, '');
+    if (!numbers) return "Telefone é obrigatório";
+    if (numbers.length < 10) return "Número muito curto";
+    if (numbers.length > 11) return "Número muito longo";
+    return null;
+  };
+
   const validateSystemSize = (size: string) => {
-    if (!size) return "Obrigatório";
+    if (!size) return "Potência é obrigatória";
     const num = parseFloat(size.replace(',', '.'));
-    if (isNaN(num)) return "Valor inválido";
-    if (num <= 0) return "Deve ser maior que zero";
+    if (isNaN(num)) return "Favor informar um número válido";
+    if (num <= 0) return "Potência deve ser maior que zero";
     return null;
   };
 
   const validateValue = (value: string) => {
-    if (!value || value === 'R$ 0,00' || value === 'R$ 0') return "Valor é obrigatório";
+    if (!value || value === 'R$ 0,00' || value === 'R$ 0') return "Valor estimado é obrigatório";
     const numbers = value.replace(/\D/g, '');
-    if (!numbers || parseInt(numbers) === 0) return "Deve ser maior que zero";
+    if (!numbers || parseInt(numbers) === 0) return "Valor deve ser maior que zero";
     return null;
   };
 
@@ -235,7 +243,36 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white dark:bg-[#231d0f] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
-          <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">Novo Lead</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">Novo Lead</h3>
+            <button
+              type="button"
+              onClick={() => setFormData({
+                name: 'Pedro da Silva',
+                email: 'pedro.silva@email.com',
+                phone: '(31) 99988-7766',
+                whatsapp: '(31) 99988-7766',
+                systemSize: '5.4',
+                value: 'R$ 24.500,00',
+                representative: 'Marusan Pinto',
+                status: 'new',
+                urgent: true,
+                cpfCnpj: '123.456.789-00',
+                address: 'Rua das Flores, 123, Centro',
+                neighborhood: 'Centro',
+                city: 'Belo Horizonte',
+                state: 'MG',
+                cep: '30123-456',
+                ucNumber: '12345678',
+                latitude: -19.9167,
+                longitude: -43.9345,
+                scheduledDate: ''
+              })}
+              className="px-2 py-1 bg-[#fdb612]/10 text-[#fdb612] text-[9px] font-black uppercase rounded border border-[#fdb612]/20 hover:bg-[#fdb612] hover:text-white transition-all"
+            >
+              Teste
+            </button>
+          </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>

@@ -71,7 +71,7 @@ export const generateKitsReportPDF = async (kits: Kit[]): Promise<string> => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Vieira's Solar & Engenharia | Página ${i} de ${pageCount}`,
+      `JV Mendes Junior Engenharia | Página ${i} de ${pageCount}`,
       pageWidth / 2,
       pageHeight - 10,
       { align: 'center' }
@@ -137,7 +137,7 @@ export const generateInstallationReportPDF = async (installation: Installation):
   doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.setFontSize(9);
-  centerText(`Gerado em ${new Date().toLocaleDateString('pt-BR')} | VIEIRA'S SOLAR & ENGENHARIA`, pageHeight - 6);
+  centerText(`Gerado em ${new Date().toLocaleDateString('pt-BR')} | JV MENDES JUNIOR ENGENHARIA`, pageHeight - 6);
 
   // --- Stages ---
   if (installation.stages && installation.stages.length > 0) {
@@ -230,25 +230,41 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
+  // Fixed Company Data
+  const COMPANY = {
+    name: "JV Mendes Junior Engenharia",
+    cnpj: "61.950.902/0001-83",
+    phone: "(33) 99903-2281",
+    email: "marusanspc@gmail.com",
+    address: "São João do Oriente/MG"
+  };
+
   const aguardando = (val: any) => val || "[Aguardando]";
 
-  const TARIFF = 0.89;
-  const MIN_FEE = 100;
-  
-  // Consumption & Generation Defaults
+  // Consumption & Generation
   const consumption = parseFloat(proposal.energyConsumption || "500");
-  const sysSizeDefault = 7.5;
-  const sysSize = parseFloat(proposal.systemSize || sysSizeDefault.toString());
-  const monthlyGen = parseFloat(stringToNumber(proposal.monthlyGeneration) || (sysSize * 108.34).toString());
+  const sysSize = parseFloat(proposal.systemSize || "7.5");
+  
+  // DYNAMIC FORMULA: Geração = kWp × HSP × 30 × PR
+  const hsp = proposal.hsp || 5.14;
+  const pr = proposal.pr || 0.82;
+  const monthlyGen = sysSize * hsp * 30 * pr;
 
-  // Calculate Savings
-  const currentBill = consumption * TARIFF;
-  const projectedBill = Math.max(MIN_FEE, (consumption - monthlyGen) * TARIFF + MIN_FEE);
-  const monthlySavings = Math.max(0, currentBill - projectedBill);
+  // DYNAMIC FORMULA: Economia mensal = Geração × Tarifa
+  const TARIFF = proposal.tariff || 0.89;
+  const monthlySavings = monthlyGen * TARIFF;
   const annualSavings = monthlySavings * 12;
 
-  // Investment Defaults if missing (using a rough R$ 2.000 per kWp as fallback)
-  const valNum = typeof proposal.value === 'string' ? parseFloat(proposal.value) : (proposal.value || sysSize * 2000);
+  // Investment
+  const rawValue = proposal.value as any;
+  const valNum = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/[^\d.-]/g, "")) : (rawValue || 0);
+
+  // NEW FORMULA: Payback = Investimento ÷ (Economia × 12)
+  const paybackVal = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : "0.0";
+  
+  // NEW FORMULA: ROI 25 anos = ((Economia×12×25 - Invest.) / Invest.) × 100
+  const totalSavings25 = annualSavings * 25;
+  const roiVal = valNum > 0 ? `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%` : "0%";
 
   // --- HEADER & COVER ---
   doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
@@ -257,7 +273,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(primaryGold[0], primaryGold[1], primaryGold[2]);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text("PROPOSTA COMERCIAL – SYSTEM SOLAR", margin, 20);
+  doc.text(`PROPOSTA COMERCIAL – ${COMPANY.name}`, margin, 20);
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
   doc.text("GERANDO SUSTENTABILIDADE E ECONOMIA", margin, 25);
@@ -270,7 +286,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(16);
   doc.text("Preparada para:", margin, currentY);
   doc.setFont("helvetica", "bold");
-  doc.text(aguardando(proposal.client || proposal.titular || "Itamar Peron da Silva"), margin + 45, currentY);
+  doc.text(aguardando(proposal.client || proposal.titular || "Cliente"), margin + 45, currentY);
   
   currentY += 8;
   doc.setFont("helvetica", "normal");
@@ -291,7 +307,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Nome completo", aguardando(proposal.client || proposal.titular || "Itamar Peron da Silva")],
+      ["Nome completo", aguardando(proposal.client || proposal.titular || "Cliente")],
       ["CPF/CNPJ", proposal.cpfCnpj || "---.---.----00"],
       ["Endereço", proposal.endereco || "São João do Oriente - MG"],
       ["Telefone", proposal.telefone || proposal.phone || "(33) 99903-2281"],
@@ -315,13 +331,12 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Razão Social", "JV Mendes JUNIOR ENGENHARIA"],
-      ["Nome fantasia", "Vieira's Solar & Engenharia"],
-      ["CNPJ", "61.950.902/0001-83"],
-      ["Endereço", "São João do Oriente – MG"],
-      ["Telefone / WhatsApp", "(33) 99903-2281"],
-      ["E-mail", "marusanspc@gmail.com"],
-      ["Contato", "Marusan Pinto – Corretor Imóveis"]
+      ["Razão Social", COMPANY.name],
+      ["CNPJ", COMPANY.cnpj],
+      ["Endereço", COMPANY.address],
+      ["Telefone / WhatsApp", COMPANY.phone],
+      ["E-mail", COMPANY.email],
+      ["Contato", "Marusan Pinto – Gerente de Engenharia"]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
@@ -344,8 +359,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
       ["Potência instalada", `${sysSize.toFixed(2)} kWp`],
       ["Quantidade de módulos", proposal.panelQuantity || Math.round(sysSize / 0.55)],
       ["Inversor", proposal.inverterBrandModel || "Inversor String (Monitoramento Wifi)"],
-      ["Consumo médio", `${consumption} kWh/mês`],
-      ["Geração média estimada", `${monthlyGen.toFixed(0)} kWh/mês`],
+      ["Consumo médio (kWh/mês)", `${consumption} kWh`],
+      ["Geração média estimada (kWh/mês)", `${monthlyGen.toFixed(0)} kWh`],
       ["Cobertura estimada", `${Math.min(100, Math.round((monthlyGen / consumption) * 100))}%`]
     ],
     theme: 'plain',
@@ -399,10 +414,6 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + 5.5);
 
-  const paybackVal = valNum && annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : (proposal.payback ? proposal.payback.replace(' Anos', '') : "4.2");
-  const total25 = annualSavings * 47.727;
-  const roiVal = valNum && valNum > 0 ? `${(((total25 - valNum) / valNum) * 100).toFixed(0)}%` : (proposal.roi || '385%');
-
   autoTable(doc, {
     startY: currentY + 8,
     body: [
@@ -410,7 +421,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
       ["Economia anual (1º ano)", formatCurrency(annualSavings)],
       ["Payback simples", `~${paybackVal} anos`],
       ["ROI (25 anos)", roiVal],
-      ["Economia acumulada em 25 anos*", formatCurrency(total25)]
+      ["Economia total em 25 anos", formatCurrency(totalSavings25)]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },
@@ -420,26 +431,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "italic");
-  doc.text(`*Considerando reajustes anuais de 5%. Tarifa aplicada: R$ ${TARIFF.toFixed(2)}/kWh (Fonte: CEMIG/MG 2024).`, margin + 2, (doc as any).lastAutoTable.finalY + 4);
+  doc.text(`*Cálculos baseados em Tarifa de R$ ${TARIFF.toFixed(2)}/kWh e performance estimada dos equipamentos.`, margin + 2, (doc as any).lastAutoTable.finalY + 4);
 
   currentY = (doc as any).lastAutoTable.finalY + 12;
-
-  // --- COMMISSION ---
-  doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
-  doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
-  doc.setFont("helvetica", "bold");
-  doc.text("COMISSÃO ESTIMADA (PARCEIRO INTEGRADOR)", margin + 2, currentY + 5.5);
-  
-  const comm = valNum ? valNum * 0.05 : null;
-  doc.setTextColor(textDark[0], textDark[1], textDark[2]);
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Taxa: 5% sobre o investimento total`, margin + 2, currentY + 13);
-  doc.setFont("helvetica", "bold");
-  doc.text(`Valor: ${formatCurrency(comm)}`, pageWidth - margin - 5, currentY + 13, { align: 'right' });
-
-  currentY += 20;
 
   // --- ENVIRONMENTAL ---
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
@@ -491,38 +485,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "bold");
   doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + 5.5);
 
-  // Auto-calculate payment terms if placeholder
-  let displayPaymentTerms = proposal.paymentTerms;
-  if (!displayPaymentTerms || displayPaymentTerms === "[Aguardando]") {
-    switch (proposal.paymentMethod) {
-      case 'financing':
-        displayPaymentTerms = `Financiamento Bancário (${proposal.financingBank || 'Credsol'}) em ${proposal.financingInstallments || 60}x`;
-        if (proposal.downPayment && proposal.downPayment > 0) {
-          displayPaymentTerms = `Entrada de ${formatCurrency(proposal.downPayment)} + ` + displayPaymentTerms;
-        }
-        break;
-      case 'cash':
-      case 'pix':
-        displayPaymentTerms = "Pagamento à Vista (PIX / Transferência Bancária)";
-        break;
-      case 'credit_card':
-        displayPaymentTerms = "Cartão de Crédito (Parcelamento consulte taxas)";
-        break;
-      case 'pix_plus_installments':
-        displayPaymentTerms = "Entrada (PIX) + 10x sem juros no boleto";
-        break;
-      case 'boleto':
-        displayPaymentTerms = "Boleto Bancário (Sujeito à análise de crédito)";
-        break;
-      default:
-        displayPaymentTerms = "A combinar / Condições personalizadas";
-    }
-  }
-
   autoTable(doc, {
     startY: currentY + 8,
     body: [
-      ["Prazo de pagamento", displayPaymentTerms],
       ["Validade dos créditos", "60 meses (Lei 14.300/2022)"],
       ["Taxa mínima concessionária", "Estimada R$ 100,00/mês"]
     ],
@@ -579,10 +544,10 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   doc.text("Integrador:", pageWidth - margin - 80, currentY + 5);
   doc.setFont("helvetica", "bold");
-  doc.text("JV Mendes JUNIOR ENGENHARIA", pageWidth - margin - 80, currentY + 10);
+  doc.text(COMPANY.name, pageWidth - margin - 80, currentY + 10);
   doc.setFont("helvetica", "normal");
-  doc.text("CNPJ: 61.950.902/0001-83", pageWidth - margin - 80, currentY + 15);
-  doc.text(`Data:    /    /2026`, pageWidth - margin - 80, currentY + 20);
+  doc.text(`CNPJ: ${COMPANY.cnpj}`, pageWidth - margin - 80, currentY + 15);
+  doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin - 80, currentY + 20);
 
   return doc.output('datauristring');
 };

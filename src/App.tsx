@@ -26,6 +26,7 @@ import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from '
 import { cn, parseDate } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
 import { GlobalSearch } from './components/GlobalSearch';
+import { ChatBot } from './components/ChatBot';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument, setFirestoreErrorListener } from './firestoreUtils';
@@ -91,119 +92,184 @@ export default function App() {
 
   useEffect(() => {
     const ensureDemoData = async () => {
-      // Ensure Residencial Vieira client
-      if (clients.length > 0 && !clients.some(c => c.name === 'Residencial Vieira')) {
-        const demoClient: Partial<Client> = {
-          name: 'Residencial Vieira',
-          email: 'contato@res-vieira.com.br',
-          phone: '(31) 98877-6655',
-          address: 'Av. Otacílio Negrão de Lima, 123 - Pampulha, Belo Horizonte - MG',
-          cnpj: '12.345.678/0001-90',
-          status: 'active',
-          type: 'residential',
-          ucNumber: '30098877665',
-          cep: '31270-901',
-          latitude: -19.8519,
-          longitude: -43.9554
-        };
-        await createDocument('clients', demoClient as Client);
-      }
+      // Use setDocument with deterministic IDs to avoid duplicates and ensure presence
+      
+      // 1. Leads
+      await setDocument('leads', 'lead-itamar', {
+        id: 'lead-itamar',
+        name: 'Itamar Peron da Silva',
+        email: 'marusansp@gmail.com',
+        phone: '(33) 99903-2281',
+        address: 'Centro - São João do Oriente - MG',
+        cpfCnpj: '000.000.000-00',
+        ucNumber: '30000353',
+        value: 19500,
+        systemSize: '8.62',
+        status: 'proposal',
+        representative: 'Marusan Pinto',
+        createdAt: '2026-05-14'
+      });
 
-      // Ensure Kits
-      if (kits.length > 0) {
-        if (!kits.some(k => k.name === 'Kit PV Energia Solar 10kWp')) {
-          await createDocument('kits', {
-            name: 'Kit PV Energia Solar 10kWp',
-            description: 'Kit de alta performance para residências de médio porte.',
-            power: 10,
-            price: 24500,
-            status: 'active',
-            panelBrand: 'Jinko',
-            inverterBrand: 'Deye',
-            components: [
-              { name: 'Painel Solar Jinko Tiger Neo', quantity: 18, brand: 'Jinko' },
-              { name: 'Inversor Deye 10kW', quantity: 1, brand: 'Deye' }
-            ]
-          });
-        }
-        if (!kits.some(k => k.name === 'Kit Residencial Completo')) {
-          await createDocument('kits', {
-            name: 'Kit Residencial Completo',
-            power: 7.5,
-            price: 18000,
-            status: 'active',
-            description: 'Solução completa para residências.',
-            components: [
-              { name: 'Painel Solar Jinko Tiger Neo', quantity: 15, brand: 'Jinko' },
-              { name: 'Inversor Deye 5kW', quantity: 1, brand: 'Deye' }
-            ]
-          });
-        }
-      }
+      await setDocument('leads', 'lead-fabio', {
+        id: 'lead-fabio',
+        name: 'Fabio Chaves',
+        email: 'marusanspr@gmail.com',
+        phone: '(33) 99903-2281',
+        address: 'São João do Oriente - MG',
+        cpfCnpj: '000.000.000-00',
+        ucNumber: '30000353',
+        value: 30000,
+        systemSize: '12.93',
+        status: 'proposal',
+        representative: 'Marusan Pinto',
+        createdAt: '2026-04-28'
+      });
 
-      // Ensure 'Edifício Skyline' Installation
-      if (installations.length > 0) {
-        const skyline = installations.find(i => i.name.includes('Edifício Skyline'));
-        if (skyline) {
-          const updatedStages = (skyline.stages || []).map(s => {
-            if (s.name === 'Instalação') return { ...s, status: 'completed', progress: 100 };
-            if (s.name === 'Inspeção' || s.name.includes('Vistoria')) return { ...s, status: 'pending', progress: 0 };
-            return s;
-          });
-          
-          if (skyline.technician?.name !== 'Sara Connor' || skyline.stage !== 'Inspeção') {
-            await updateDocument('installations', skyline.id, {
-              stages: updatedStages,
-              progress: 100,
-              stage: 'Inspeção',
-              technician: { 
-                name: 'Sara Connor', 
-                avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' 
-              },
-              lastUpdated: new Date().toISOString()
-            });
-          }
-        } else {
-          await createDocument('installations', {
-            name: 'Edifício Skyline',
-            projectId: 'SKY-2026',
-            stage: 'Inspeção',
-            type: 'apartment',
-            progress: 100,
-            technician: { 
-              name: 'Sara Connor', 
-              avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' 
-            },
-            lastUpdated: new Date().toISOString(),
-            stages: [
-              { name: 'Projeto / Engenharia', status: 'completed', progress: 100 },
-              { name: 'Vistoria Técnica', status: 'completed', progress: 100 },
-              { name: 'Instalação', status: 'completed', progress: 100 },
-              { name: 'Inspeção', status: 'pending', progress: 0 }
-            ]
-          });
-        }
-      }
+      await setDocument('leads', 'lead-reny', {
+        id: 'lead-reny',
+        name: 'Reny Aparecida Xavier Felix',
+        email: 'reny.aparecida@gmail.com',
+        phone: '(31) 98877-4433',
+        address: 'Belo Horizonte - MG',
+        cpfCnpj: '000.000.000-00',
+        ucNumber: '30000354',
+        value: 25000,
+        systemSize: '6.5',
+        status: 'new',
+        representative: 'Marusan Pinto',
+        createdAt: new Date().toISOString().split('T')[0]
+      });
 
-      // Ensure accepted proposal for Residencial Vieira
-      if (proposals.length > 0 && !proposals.some(p => p.client === 'Residencial Vieira' && p.status === 'accepted')) {
-        await createDocument('proposals', {
-          client: 'Residencial Vieira',
-          value: 24500,
-          date: new Date().toLocaleDateString('pt-BR'),
-          status: 'accepted',
-          systemSize: '10 kWp',
-          representative: user?.name || 'Sistema',
-          proposalNumber: '2026/088',
-          email: 'contato@res-vieira.com.br'
-        });
-      }
+      // 2. Clients
+      await setDocument('clients', 'client-res-mendes', {
+        id: 'client-res-mendes',
+        name: 'Residencial Mendes',
+        email: 'contato@res-mendes.com.br',
+        phone: '(31) 98877-6655',
+        address: 'Av. Otacílio Negrão de Lima, 123 - Pampulha, Belo Horizonte - MG',
+        cnpj: '12.345.678/0001-90',
+        status: 'active',
+        type: 'residential',
+        ucNumber: '30098877665',
+        cep: '31270-901',
+        latitude: -19.8519,
+        longitude: -43.9554
+      });
+
+      // 3. Kits
+      await setDocument('kits', 'kit-premium-862', {
+        id: 'kit-premium-862',
+        name: 'Kit Residencial Premium 8.62kWp',
+        power: 8.62,
+        price: 18500,
+        status: 'active',
+        description: 'Kit de alta eficiência otimizado para residências.',
+        panelBrand: 'Jinko',
+        inverterBrand: 'Deye',
+        components: [
+          { name: 'Painel Solar Jinko Tiger Neo 575W', quantity: 15, brand: 'Jinko' },
+          { name: 'Inversor Deye 8kW', quantity: 1, brand: 'Deye' }
+        ]
+      });
+
+      await setDocument('kits', 'kit-standard-10', {
+        id: 'kit-standard-10',
+        name: 'Kit PV Energia Solar 10kWp',
+        description: 'Kit de alta performance para residências de médio porte.',
+        power: 10,
+        price: 24500,
+        status: 'active',
+        panelBrand: 'Jinko',
+        inverterBrand: 'Deye',
+        components: [
+          { name: 'Painel Solar Jinko Tiger Neo', quantity: 18, brand: 'Jinko' },
+          { name: 'Inversor Deye 10kW', quantity: 1, brand: 'Deye' }
+        ]
+      });
+
+      // 4. Proposals
+      // Proposal 2605 for Fabio Chaves - Revised calculations
+      const fabioKwp = 12.93;
+      const fabioGen = Math.round(fabioKwp * 5 * 30 * 0.8); // 1552
+      const fabioSavings = Math.round(fabioGen * 0.9); // 1397
+      const fabioVal = 30000;
+      const fabioPayback = (fabioVal / (fabioSavings * 12)).toFixed(1);
+
+      await setDocument('proposals', 'proposal-2605', {
+        id: 'proposal-2605',
+        client: 'Fabio Chaves',
+        value: fabioVal,
+        date: '28/04/2026',
+        status: 'accepted',
+        systemSize: '12.93 kWp',
+        representative: 'Marusan Pinto',
+        proposalNumber: '2605',
+        email: 'fabio.chaves@email.com',
+        ucNumber: '30000353',
+        energyConsumption: '1357',
+        discount: 0,
+        commission: 1500,
+        monthlyGeneration: fabioGen.toString(),
+        monthlySavings: fabioSavings,
+        roi: '420%',
+        payback: `${fabioPayback} Anos`,
+        internalNotes: 'Proposta original 2605 revisada com novos parâmetros de cálculo.'
+      });
+
+      // Proposal for Itamar Peron da Silva as requested
+      const itamarKwp = 8.62;
+      const itamarGen = Math.round(itamarKwp * 5 * 30 * 0.8); // 1034
+      const itamarSavings = Math.round(itamarGen * 0.9); // 931
+      const itamarVal = 19500;
+      const itamarPayback = (itamarVal / (itamarSavings * 12)).toFixed(1);
+
+      await setDocument('proposals', 'proposal-itamar', {
+        id: 'proposal-itamar',
+        client: 'Itamar Peron da Silva',
+        value: itamarVal,
+        date: new Date().toLocaleDateString('pt-BR'),
+        status: 'pending',
+        systemSize: '8.62 kWp',
+        representative: 'Marusan Pinto',
+        proposalNumber: `PROPOSTA ${new Date().getFullYear()}/00${Math.floor(Math.random() * 90) + 10}`,
+        email: 'marusansp@gmail.com',
+        ucNumber: '30000353',
+        energyConsumption: '900',
+        discount: 0,
+        commission: 975,
+        monthlyGeneration: itamarGen.toString(),
+        monthlySavings: itamarSavings,
+        roi: '1250%',
+        payback: `${itamarPayback} Anos`,
+        kitId: 'kit-premium-862'
+      });
+
+      // 5. Installations
+      await setDocument('installations', 'inst-skyline', {
+        id: 'inst-skyline',
+        name: 'Edifício Skyline',
+        projectId: 'SKY-2026',
+        stage: 'Inspeção',
+        type: 'apartment',
+        progress: 100,
+        technician: { 
+          name: 'Sara Connor', 
+          avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' 
+        },
+        lastUpdated: new Date().toISOString(),
+        stages: [
+          { name: 'Projeto / Engenharia', status: 'completed', progress: 100 },
+          { name: 'Vistoria Técnica', status: 'completed', progress: 100 },
+          { name: 'Instalação', status: 'completed', progress: 100 },
+          { name: 'Inspeção', status: 'pending', progress: 0 }
+        ]
+      });
     };
 
-    if (isAuthenticated && (clients.length > 0 || kits.length > 0 || installations.length > 0 || proposals.length > 0)) {
+    if (isAuthenticated && isAuthReady) {
       ensureDemoData();
     }
-  }, [isAuthenticated, clients.length, kits.length, installations.length, proposals.length]);
+  }, [isAuthenticated, isAuthReady]);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('theme');
@@ -472,7 +538,7 @@ export default function App() {
       <div className="min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-[#fdb612] animate-spin mx-auto" />
-          <p className="text-slate-500 font-bold animate-pulse">Carregando Vieira's Solar...</p>
+          <p className="text-slate-500 font-bold animate-pulse">Carregando JV Mendes Engenharia...</p>
         </div>
       </div>
     );
@@ -530,7 +596,7 @@ export default function App() {
               Acesso em Análise
             </h1>
             <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-              Sua conta foi criada, mas para garantir a segurança dos dados da <strong>Vieira's Solar</strong>, 
+              Sua conta foi criada, mas para garantir a segurança dos dados da <strong>JV Mendes Junior Engenharia</strong>, 
               um administrador precisa autorizar seu perfil.
             </p>
           </div>
@@ -648,7 +714,7 @@ export default function App() {
               <div className="h-8 w-8 bg-[#fdb612] rounded flex items-center justify-center ml-1">
                 <Sun className="text-[#231d0f] w-5 h-5" />
               </div>
-              <span className="font-bold text-sm">Vieira's Solar</span>
+              <span className="font-bold text-sm">JV Mendes</span>
             </div>
             <div className="flex items-center gap-2">
               <NotificationCenter proposals={proposals} />
@@ -749,11 +815,11 @@ export default function App() {
                     onManageProjects={() => setCurrentView('installations')}
                     onAddCollaborator={() => setCurrentView('collaborators')}
                     onGoToLeads={() => setCurrentView('leads')}
-                    onCreateResidencialVieiraProposal={() => {
+                    onCreateResidencialMendesProposal={() => {
                       handleOpenProposalsWithPreFill({
-                        client: 'Residencial Vieira',
-                        titular: 'Residencial Vieira',
-                        email: 'contato@res-vieira.com.br',
+                        client: 'Residencial Mendes',
+                        titular: 'Residencial Mendes',
+                        email: 'contato@res-mendes.com.br',
                         telefone: '(31) 98877-6655',
                         endereco: 'Pampulha, Belo Horizonte - MG',
                         energyConsumption: '1450',
@@ -898,12 +964,12 @@ export default function App() {
                     )}
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Vieira's Solar & Engenharia</h4>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">JV Mendes Junior Engenharia</h4>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Energia Limpa para o seu Futuro</p>
                   </div>
                 </div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                  © {new Date().getFullYear()} Vieira's Solar. Todos os direitos reservados.
+                  © {new Date().getFullYear()} JV Mendes Junior Engenharia. Todos os direitos reservados.
                 </div>
               </div>
             </footer>
@@ -927,13 +993,15 @@ export default function App() {
           existingLeads={leads}
         />
 
+        <ChatBot />
+
         <footer className="fixed bottom-0 right-0 p-4 pointer-events-none">
           <div className="flex flex-col items-end gap-1 text-slate-400 text-[10px] bg-white/80 dark:bg-[#231d0f]/80 backdrop-blur-sm px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="flex items-center gap-2">
               <Sun className="w-3 h-3 text-[#fdb612]" />
-              <span className="font-bold text-slate-600 dark:text-slate-300">MV ENGENHARIA | CNPJ: 61.950.902/0018-33</span>
+              <span className="font-bold text-slate-600 dark:text-slate-300">JV MENDES JUNIOR ENGENHARIA | CNPJ: 61.950.902/0001-83</span>
             </div>
-            <span>VIEIRA'S SOLAR & ENGENHARIA © 2024</span>
+            <span>JV MENDES JUNIOR ENGENHARIA © 2024</span>
           </div>
         </footer>
       </div>

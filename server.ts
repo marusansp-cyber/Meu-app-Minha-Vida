@@ -119,7 +119,7 @@ async function startServer() {
       const mailOptions = {
         from: smtpConfig?.from || process.env.SMTP_FROM || user,
         to,
-        subject: subject || "Proposta Solar - Vieira's Solar & Engenharia",
+        subject: subject || "Proposta Solar - JV Mendes Junior Engenharia",
         text: body || "Olá, segue em anexo a proposta comercial para o seu sistema de energia solar.",
         headers: {
           'Disposition-Notification-To': userClean, // Requests a read receipt to the sender

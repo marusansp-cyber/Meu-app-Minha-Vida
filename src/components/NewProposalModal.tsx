@@ -45,7 +45,7 @@ import {
   MapPin,
   Crosshair
 } from 'lucide-react';
-import { cn, validateEmail, validatePhone, maskPhone, maskCurrency, currencyToNumber } from '../lib/utils';
+import { cn, validateEmail, validatePhone, maskPhone, maskCurrency, currencyToNumber, maskCNPJ, maskCPF, validateCpfCnpj } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
@@ -234,7 +234,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       cep: l.cep,
       cpfCnpj: l.cpfCnpj,
       ucNumber: l.ucNumber,
-      createdAt: l.createdAt,
+      createdAt: l.createdAt ? l.createdAt.split('T')[0] : null,
       type: 'residential' as const,
       source: 'Lead' as const
     })).filter(l => {
@@ -242,8 +242,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                          l.email.toLowerCase().includes(term) ||
                          (l.cpfCnpj && l.cpfCnpj.replace(/\D/g, '').includes(term.replace(/\D/g, '')));
       let matchesDate = true;
-      if (searchDateStart && l.createdAt && l.createdAt < searchDateStart) matchesDate = false;
-      if (searchDateEnd && l.createdAt && l.createdAt > searchDateEnd) matchesDate = false;
+      const leadDate = l.createdAt;
+      if (searchDateStart && leadDate && leadDate < searchDateStart) matchesDate = false;
+      if (searchDateEnd && leadDate && leadDate > searchDateEnd) matchesDate = false;
       return matchesTerm && matchesDate;
     });
 
@@ -251,17 +252,30 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   }, [clientSearchTerm, clients, leads, searchDateStart, searchDateEnd]);
 
   const selectSuggestedClient = (suggestion: any) => {
+    // Check for missing critical data and alert user
+    const missingFields = [];
+    if (!suggestion.email) missingFields.push('E-mail');
+    if (!suggestion.phone && !suggestion.telefone) missingFields.push('Telefone');
+    if (!suggestion.address && !suggestion.endereco) missingFields.push('Endereço');
+
+    if (missingFields.length > 0) {
+      showToast(`⚠️ Lead com dados incompletos: ${missingFields.join(', ')}. Por favor, complete o cadastro.`);
+    }
+
     setFormData(prev => ({
       ...prev,
       client: suggestion.name,
-      email: suggestion.email,
+      email: suggestion.email || '',
       titular: suggestion.name,
-      telefone: suggestion.phone,
-      endereco: suggestion.address || prev.endereco,
+      telefone: suggestion.phone || suggestion.telefone || '',
+      endereco: suggestion.address || suggestion.endereco || prev.endereco,
       cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj,
       cep: suggestion.cep || prev.cep,
       ucNumber: suggestion.ucNumber || prev.ucNumber,
-      clientType: suggestion.type || 'residential'
+      clientType: suggestion.type || 'residential',
+      internalNotes: suggestion.source === 'Lead' 
+        ? `${prev.internalNotes}\n[IMPORTADO DE LEAD] Candidato: ${suggestion.name}\nHistórico: Visualizar em Leads > Detalhes`.trim() 
+        : prev.internalNotes
     }));
     setClientSearchTerm('');
     setShowClientSuggestions(false);
@@ -276,11 +290,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
   const [formData, setFormData] = useState({
     // Standard fields
-    client: initialData?.client || 'Itamar Peron da Silva',
-    email: initialData?.email || 'marusansp@gmail.com',
+    client: initialData?.client || '',
+    email: initialData?.email || '',
     value: initialData?.value || 0,
-    systemSize: initialData?.systemSize?.replace(' kWp', '') || '5.5',
-    representative: initialData?.representative || 'Marusan Pinto',
+    systemSize: initialData?.systemSize?.replace(' kWp', '') || '',
+    representative: initialData?.representative || user?.name || 'Marusan Pinto',
     roi: initialData?.roi || '',
     payback: initialData?.payback?.replace(' Anos', '') || '',
     commission: initialData?.commission?.toString() || '5',
@@ -309,14 +323,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     totalSavings25Years: initialData?.totalSavings25Years || 0,
     
     // Step 1: UCS
-    titular: initialData?.titular || 'Itamar Peron da Silva',
-    cpfCnpj: initialData?.cpfCnpj || '000.000.000-00',
-    endereco: initialData?.endereco || 'São João do Oriente - MG',
-    neighborhood: (initialData as any)?.neighborhood || 'Centro',
-    city: (initialData as any)?.city || 'São João do Oriente',
+    titular: initialData?.titular || '',
+    cpfCnpj: initialData?.cpfCnpj || '',
+    endereco: initialData?.endereco || '',
+    neighborhood: (initialData as any)?.neighborhood || '',
+    city: (initialData as any)?.city || '',
     state: (initialData as any)?.state || 'MG',
-    cep: initialData?.cep || '35146-000',
-    telefone: initialData?.telefone || '(33) 99903-2281',
+    cep: initialData?.cep || '',
+    telefone: initialData?.telefone || '',
     latitude: initialData?.latitude || undefined,
     longitude: initialData?.longitude || undefined,
     distribuidora: initialData?.distribuidora || 'CEMIG',
@@ -437,10 +451,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       }
 
       // 2. Technical Calculations (Generation)
-      // Formula: kWp * HSP * 30 days * PR
       const szNum = parseFloat(newSz);
-      const generationEfficiency = hsp * 30 * pr; 
-      const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * generationEfficiency).toFixed(0) : prev.monthlyGeneration;
+      // DYNAMIC FORMULA: Geração = kWp × HSP × 30 × PR
+      const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * hsp * 30 * pr).toFixed(0) : prev.monthlyGeneration;
 
       // 3. Pricing
       const equip = parseFloat(prev.equipmentCost || '0');
@@ -458,35 +471,36 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       const totalVal = Math.max(0, valWithMargin - discountVal);
       const valNum = parseFloat(totalVal.toFixed(2));
 
+      // 3.5 Price per kWp Validation
+      const pricePerKwp = szNum > 0 ? valNum / szNum : 0;
+      let priceAlert = null;
+      if (szNum > 0) {
+        if (pricePerKwp < 3000) priceAlert = 'warning_low';
+        else if (pricePerKwp > 5500) priceAlert = 'warning_high';
+      }
+
       // 4. Financial Indicators
       let pb = prev.payback;
       let r = prev.roi;
       const consumption = parseFloat(prev.energyConsumption);
 
-      if (!isNaN(valNum) && !isNaN(szNum) && valNum > 0 && szNum > 0 && !isNaN(consumption)) {
-        const minFee = prev.tensaoFornecimento === 'Trifásico' ? 100 : prev.tensaoFornecimento === 'Bifásico' ? 50 : 30;
-        
+      if (!isNaN(valNum) && !isNaN(szNum) && valNum > 0 && szNum > 0) {
         const genNum = parseFloat(monGen);
         
         // ECONOMY CALCULATION
-        // Savings = (Energy effectively compensated) * Tariff
-        // To be conservative, we cap savings at the consumption minus min fee
-        const energyToCompensate = Math.min(consumption - minFee, genNum);
-        const monthlySavings = Math.max(0, energyToCompensate * energyTariff);
+        // NEW FORMULA: Economia mensal = Geração × Tarifa
+        const monthlySavings = genNum * energyTariff;
         const annualSavings = monthlySavings * 12;
         
         // Payback = Total Investment / Annual Savings
         pb = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : '0';
         
-        // ROI over 25 years (considering energy inflation of ~5%)
-        // Multiplier for 25 years with 5% inflation is Sum(1.05^k) for k=0 to 24 ~= 47.7
-        const totalSavings25 = annualSavings * 47.727; 
+        // ROI over 25 years (simplified)
+        const totalSavings25 = annualSavings * 25; 
         r = `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%`;
         
-        // Store computed values for display and persistence
         const totalSavingsFinal = parseFloat(totalSavings25.toFixed(2));
 
-        // Check if anything actually changed before returning a new object
         if (
           prev.systemSize === newSz &&
           prev.panelQuantity === newQty &&
@@ -511,7 +525,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
           payback: pb,
           roi: r,
           totalSavings25Years: totalSavingsFinal,
-          annualSavings: annualSavings
+          annualSavings: annualSavings,
+          pricePerKwp, // Persist for validation display
+          priceAlert
         };
       }
       
@@ -593,7 +609,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         errors.margin = 'Margem de lucro não pode ser negativa';
       }
 
-      // Validate payment terms (Commercial Conditions)
+      // Validate payment terms (Commercial Conditions) - DEACTIVATED
+      /*
       if (!formData.paymentTerms?.trim()) {
         errors.paymentTerms = 'Prazo de pagamento é obrigatório';
       } else {
@@ -605,6 +622,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
           errors.paymentTerms = 'Formato sugerido: "30/60/90 dias" ou "Entrada + 12x"';
         }
       }
+      */
 
       // If Financing button selected, validate financing step fields too (just in case they skip)
       if (formData.paymentMethod === 'financing') {
@@ -866,19 +884,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   };
 
   const calculateSavings = () => {
-    const tariff = energyTariff; 
-    const consumption = parseFloat(formData.energyConsumption) || 0;
-    const minFee = formData.tensaoFornecimento === 'Trifásico' ? 100 : formData.tensaoFornecimento === 'Bifásico' ? 50 : 30;
-    
-    const monthlyGen = parseFloat(formData.monthlyGeneration) || (parseFloat(formData.systemSize) * hsp * 30 * pr);
-    const energyToCompensate = Math.min(consumption - minFee, monthlyGen);
-    const monthlyNetSaving = Math.max(0, energyToCompensate * tariff);
+    const tariff = 0.89; 
+    const szNum = parseFloat(formData.systemSize) || 0;
+    const monthlyGen = szNum * 130;
+    const monthlyNetSaving = monthlyGen * tariff;
     const annualSaving = monthlyNetSaving * 12;
-    
-    // Formula for sum of GP with 5% annual adjustment: S = A * ((1+r)^n - 1) / r
-    const r = 0.05;
-    const n = 25;
-    const totalSavings25Years = annualSaving * ((Math.pow(1 + r, n) - 1) / r);
+    const totalSavings25Years = annualSaving * 25;
     
     return {
       monthly: monthlyNetSaving,
@@ -998,15 +1009,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         showToast(`Cliente ${formData.client} cadastrado com sucesso!`);
       }
 
-      const generationEfficiency = hsp * 30 * pr;
-      const monthlyGenerationValue = formData.monthlyGeneration || (parseFloat(formData.systemSize) * generationEfficiency).toFixed(0);
+      const monthlyGenerationValue = (parseFloat(formData.systemSize) * 130).toFixed(0);
 
       // Calculate annual savings for PDF
-      const szNum = parseFloat(formData.systemSize);
-      const consumption = parseFloat(formData.energyConsumption);
-      const minFee = formData.tensaoFornecimento === 'Trifásico' ? 100 : formData.tensaoFornecimento === 'Bifásico' ? 50 : 30;
-      const energyToCompensate = Math.min(consumption - minFee, parseFloat(monthlyGenerationValue));
-      const annualSavingsValue = energyToCompensate * energyTariff * 12;
+      const annualSavingsValue = parseFloat(monthlyGenerationValue) * 0.89 * 12;
 
       const proposalData: Proposal = {
         ...formData,
@@ -1019,11 +1025,11 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         representative: formData.representative || user?.name || 'Vendedor',
         representativeId: initialData?.representativeId || user?.id || null,
         representativeEmail: initialData?.representativeEmail || user?.email || null,
-        roi: formData.roi || (totalVal > 0 ? `${(((savings.total25 - totalVal) / totalVal) * 100).toFixed(0)}%` : null),
-        payback: formData.payback ? `${formData.payback} Anos` : (savings.annual > 0 ? `${(totalVal / savings.annual).toFixed(1)} Anos` : null),
+        roi: formData.roi || (totalVal > 0 ? `${(((annualSavingsValue * 25 - totalVal) / totalVal) * 100).toFixed(0)}%` : null),
+        payback: formData.payback ? `${formData.payback} Anos` : (annualSavingsValue > 0 ? `${(totalVal / annualSavingsValue).toFixed(1)} Anos` : null),
         monthlyGeneration: monthlyGenerationValue,
         annualSavings: annualSavingsValue,
-        monthlySavings: savings.monthly,
+        monthlySavings: annualSavingsValue / 12,
         commission: parseFloat(formData.commission) || 0,
         commissionStatus: initialData?.commissionStatus || 'pending',
         expiryDate: formData.expiryDate || null,
@@ -1183,7 +1189,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
                   <div>
                     <h4 className="font-black text-white uppercase tracking-tight">Extração Inteligente</h4>
-                    <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Powered by Vieiras AI</p>
+                    <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Powered by Mendes AI</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => setShowAIInput(false)} className="p-2 hover:bg-white/5 rounded-full text-slate-400">
@@ -1330,28 +1336,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
                   
                     <div className="flex flex-wrap items-center gap-2">
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({
-                            ...prev,
-                            titular: 'Itamar Peron da Silva',
-                            client: 'Itamar Peron da Silva',
-                            email: 'marusansp@gmail.com',
-                            phone: '(33) 99903-2281',
-                            endereco: 'Centro - São João do Oriente - MG',
-                            neighborhood: 'Centro',
-                            city: 'São João do Oriente',
-                            state: 'MG',
-                            energyConsumption: '500',
-                          }));
-                          showToast('Simulação para Itamar Peron carregada (500 kWh/mês).');
-                        }}
-                        className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                      >
-                        <User className="w-3.5 h-3.5" />
-                        Carregar Perfil: Itamar Peron
-                      </button>
+
                       <button 
                         type="button"
                         onClick={() => setShowAIInput(true)}
@@ -1471,33 +1456,59 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Titular</label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <User className={cn("absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5", validationErrors.titular ? "text-rose-400" : (formData.titular && !validationErrors.titular) ? "text-emerald-500" : "text-slate-400")} />
                       <input 
                         type="text" 
                         value={formData.titular || ''}
-                        onChange={(e) => setFormData({ ...formData, titular: e.target.value })}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData({ ...formData, titular: val });
+                          if (val.trim().length < 3) {
+                            setValidationErrors(prev => ({ ...prev, titular: 'Nome deve ter pelo menos 3 caracteres' }));
+                          } else {
+                            setValidationErrors(prev => ({ ...prev, titular: '' }));
+                          }
+                        }}
                         placeholder="Nome completo do titular"
                         className={cn(
-                          "w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
-                          validationErrors.titular ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                          "w-full pl-12 pr-10 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.titular ? "border-rose-500 bg-rose-50 dark:bg-rose-900/10" : 
+                          (formData.titular && !validationErrors.titular) ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10" :
+                          "border-slate-200 dark:border-slate-800"
                         )}
                       />
+                      {formData.titular && !validationErrors.titular && (
+                        <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 animate-in zoom-in duration-300" />
+                      )}
                     </div>
                     {validationErrors.titular && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.titular}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">CPF/CNPJ</label>
-                    <input 
-                      type="text" 
-                      value={formData.cpfCnpj || ''}
-                      onChange={(e) => setFormData({ ...formData, cpfCnpj: e.target.value })}
-                      placeholder="000.000.000-00"
-                      className={cn(
-                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
-                        validationErrors.cpfCnpj ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={formData.cpfCnpj || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const masked = val.length > 14 ? maskCNPJ(val) : maskCPF(val);
+                          setFormData({ ...formData, cpfCnpj: masked });
+                          const err = validateCpfCnpj(masked);
+                          setValidationErrors(prev => ({ ...prev, cpfCnpj: err || '' }));
+                        }}
+                        placeholder="000.000.000-00"
+                        className={cn(
+                          "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                          validationErrors.cpfCnpj ? "border-rose-500 bg-rose-50 dark:bg-rose-900/10" : 
+                          (formData.cpfCnpj && !validationErrors.cpfCnpj) ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10" :
+                          "border-slate-200 dark:border-slate-800"
+                        )}
+                      />
+                      {formData.cpfCnpj && !validationErrors.cpfCnpj && (
+                        <CheckCircle2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 animate-in zoom-in duration-300" />
                       )}
-                    />
+                    </div>
                     {validationErrors.cpfCnpj && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.cpfCnpj}</p>}
                   </div>
 
@@ -2221,6 +2232,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     </>
                   )}
 
+                  {/* Prazo de Pagamento - DEACTIVATED BY USER REQUEST */}
+                  {/*
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Prazo de Pagamento</label>
                     <input 
@@ -2235,6 +2248,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     />
                     {validationErrors.paymentTerms && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.paymentTerms}</p>}
                   </div>
+                  */}
 
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase tracking-widest text-slate-400">Data de Início da Instalação</label>
@@ -2295,7 +2309,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     />
                   </div>
 
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800">
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+                    {(formData as any).priceAlert && (
+                      <div className={cn(
+                        "absolute top-0 right-0 px-3 py-1 text-[8px] font-black uppercase tracking-widest",
+                        (formData as any).priceAlert === 'warning_low' ? "bg-amber-100 text-amber-600" : "bg-rose-100 text-rose-600"
+                      )}>
+                        Validação de Preço: {(formData as any).priceAlert === 'warning_low' ? 'Abaixo da média' : 'Acima da média'}
+                      </div>
+                    )}
                     <div className="space-y-1 text-center md:text-left">
                       <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total de Custos</label>
                       <p className="text-xl font-black text-slate-600 dark:text-slate-300">
@@ -2311,21 +2333,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       </p>
                     </div>
                     <div className="space-y-1 text-center">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Margem (R$)</label>
-                      <p className="text-xl font-black text-[#fdb612]">
-                        {(() => {
-                          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
-                                       currencyToNumber(formData.installationCost || '0') + 
-                                       currencyToNumber(formData.projectCost || '0') + 
-                                       currencyToNumber(formData.licensingCost || '0') + 
-                                       currencyToNumber(formData.logisticCost || '0') +
-                                       currencyToNumber(formData.additionalCost || '0'));
-                          const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
-                          const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                          const marginVal = (sub * multiplier) - sub;
-                          return marginVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-                        })()}
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#fdb612]">Preço p/ kWp</label>
+                      <p className={cn(
+                        "text-xl font-black",
+                        (formData as any).pricePerKwp > 5500 || (formData as any).pricePerKwp < 3000 ? "text-rose-500" : "text-[#fdb612]"
+                      )}>
+                        {((formData as any).pricePerKwp || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                       </p>
+                      {((formData as any).pricePerKwp > 5500 || (formData as any).pricePerKwp < 3000) && (
+                        <span className="text-[8px] font-bold text-rose-400">Fora da faixa (R$ 3k - 5k)</span>
+                      )}
                     </div>
                     <div className="space-y-1 text-center font-bold">
                       <label className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Valor de Venda</label>
@@ -2933,6 +2950,20 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         {validationErrors.expiryDate && (
                           <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase tracking-tight">{validationErrors.expiryDate}</p>
                         )}
+                      </div>
+                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Status da Proposta</label>
+                        <select 
+                          value={formData.status || 'pending'}
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                          className="w-full text-sm font-bold bg-transparent outline-none"
+                        >
+                          <option value="pending text-slate-900">Pendente</option>
+                          <option value="sent text-slate-900">Enviada</option>
+                          <option value="accepted text-slate-900">Aceita</option>
+                          <option value="expired text-slate-900">Expirada</option>
+                          <option value="cancelled text-slate-900">Cancelada</option>
+                        </select>
                       </div>
                       {(user?.role === 'admin' || user?.role === 'finance') && (
                         <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">

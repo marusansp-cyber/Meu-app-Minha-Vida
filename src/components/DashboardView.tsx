@@ -50,6 +50,7 @@ interface DashboardViewProps {
   onManageProjects: () => void;
   onAddCollaborator?: () => void;
   onGoToLeads?: () => void;
+  onCreateResidencialMendesProposal?: () => void;
 }
 
 type SortField = 'name' | 'projectId' | 'stage' | 'progress';
@@ -65,7 +66,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onManageProjects,
   onAddCollaborator,
   onGoToLeads,
-  onCreateResidencialVieiraProposal
+  onCreateResidencialMendesProposal
 }) => {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
@@ -413,33 +414,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Novo Colaborador</span>
         </button>
-        <motion.button 
-          whileHover={{ scale: 1.02, translateY: -2 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onGoToLeads}
+        <button 
+          onClick={() => {
+            onOpenNewProject();
+          }}
           className="p-4 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2"
         >
           <div className="size-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-            <FileText className="w-5 h-5" />
+            <Plus className="w-5 h-5" />
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Nova Simulação</span>
-        </motion.button>
-        <button 
-          onClick={() => {
-            if (onCreateResidencialVieiraProposal) {
-              onCreateResidencialVieiraProposal();
-              showToast('Abrindo proposta pré-preenchida: Residencial Vieira');
-            }
-          }}
-          className="p-4 bg-amber-50 dark:bg-[#fdb612]/5 border border-amber-200 dark:border-[#fdb612]/20 rounded-2xl shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center gap-2 relative overflow-hidden"
-        >
-          <div className="absolute -top-2 -right-2 p-1">
-            <Sparkles className="w-3 h-3 text-[#fdb612] animate-bounce" />
-          </div>
-          <div className="size-10 rounded-full bg-[#fdb612] text-[#231d0f] flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-[#fdb612]/20">
-            <FileText className="w-5 h-5" />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-[#fdb612]">Proposta Vieira</span>
         </button>
       </div>
 

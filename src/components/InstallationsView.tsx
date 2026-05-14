@@ -113,11 +113,18 @@ const StageReportModal: React.FC<StageReportModalProps> = ({ isOpen, onClose, st
                 <ImageIcon className="w-4 h-4 text-[#fdb612]" />
                 Evidências Fotográficas
               </label>
-              <label className="cursor-pointer px-4 py-2 bg-[#fdb612]/10 text-[#fdb612] rounded-lg text-xs font-bold hover:bg-[#fdb612]/20 transition-colors flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Adicionar Fotos
-                <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-              </label>
+              <div className="flex gap-2">
+                <label className="cursor-pointer px-4 py-2 bg-indigo-500 text-white rounded-lg text-xs font-bold hover:bg-indigo-600 transition-colors flex items-center gap-2 shadow-sm">
+                  <Camera className="w-4 h-4" />
+                  Capturar
+                  <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoUpload} />
+                </label>
+                <label className="cursor-pointer px-4 py-2 bg-[#fdb612]/10 text-[#fdb612] rounded-lg text-xs font-bold hover:bg-[#fdb612]/20 transition-colors flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Galeria
+                  <input type="file" multiple accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                </label>
+              </div>
             </div>
 
             {photos.length > 0 ? (

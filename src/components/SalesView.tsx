@@ -67,7 +67,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       const result = await sendProposalEmail({
         to: proposal.email || proposal.cpfCnpj || '', // Fallback or prompt for email
         subject: `Proposta Solar - ${proposal.client}`,
-        body: `Olá ${proposal.client},\n\nSegue em anexo a proposta detalhada para seu sistema fotovoltaico.\n\nPor favor, confirme o recebimento deste e-mail.\n\nAtenciosamente,\nEquipe Vieira's Solar`,
+        body: `Olá ${proposal.client},\n\nSegue em anexo a proposta detalhada para seu sistema fotovoltaico.\n\nPor favor, confirme o recebimento deste e-mail.\n\nAtenciosamente,\nEquipe JV Mendes Junior Engenharia`,
         pdfBase64,
         fileName: `proposta_${proposal.client.replace(/\s+/g, '_')}.pdf`
       });

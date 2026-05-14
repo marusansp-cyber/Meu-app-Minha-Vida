@@ -277,3 +277,18 @@ export async function setDocument(collectionPath: string, id: string, data: any)
     handleFirestoreError(error, OperationType.WRITE, `${collectionPath}/${id}`);
   }
 }
+
+export async function getCollectionData<T>(collectionPath: string): Promise<T[]> {
+  try {
+    const { getDocs } = await import('firebase/firestore');
+    const colRef = collection(db, collectionPath);
+    const snapshot = await getDocs(colRef);
+    return snapshot.docs.map(doc => ({
+      ...convertTimestamps(doc.data()),
+      id: doc.id
+    })) as T[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, collectionPath);
+    return [];
+  }
+}

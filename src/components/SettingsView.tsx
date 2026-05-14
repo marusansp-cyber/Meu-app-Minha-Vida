@@ -47,6 +47,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   const [showSMTPPassword, setShowSMTPPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const [salesGoal, setSalesGoal] = useState({
+    targetValue: 150000,
+    targetCount: 10
+  });
+  
   const [smtpData, setSmtpData] = useState<SMTPSettings>({
     host: 'smtp.gmail.com',
     port: 587,
@@ -70,12 +75,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   });
 
   const [companySettings, setCompanySettings] = useState<Partial<CompanySettings>>({
-    companyName: "Vieira's Solar & Engenharia",
-    cnpj: "54.123.456/0001-99", // Placeholder cnpj for solar company
-    address: "Rua das Paineiras, 123 - Centro, Montes Claros - MG",
-    email: "contato@vieirassolar.com.br",
-    contactEmail: "suporte@vieirassolar.com.br",
-    phone: "(38) 3221-0000",
+    companyName: "JV Mendes Junior Engenharia",
+    cnpj: "61.950.902/0001-83", 
+    address: "São João do Oriente/MG",
+    email: "marusanspc@gmail.com",
+    contactEmail: "marusanspc@gmail.com",
+    phone: "(33) 99903-2281",
     monthlyInvoice: 0
   });
 
@@ -148,6 +153,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       // Save Company Settings
       await setDocument('settings', 'company', {
         ...companySettings,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Save Sales Goal
+      await setDocument('settings', 'salesGoal', {
+        ...salesGoal,
         updatedAt: new Date().toISOString()
       });
 
@@ -292,8 +303,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       }
     };
 
+    const fetchSalesGoal = async () => {
+      const goal = await getDocument<any>('settings', 'salesGoal');
+      if (goal) {
+        setSalesGoal({
+          targetValue: goal.targetValue || 150000,
+          targetCount: goal.targetCount || 10
+        });
+      }
+    };
+
     fetchCompanySettings();
     fetchSMTPSettings();
+    fetchSalesGoal();
   }, []);
 
   React.useEffect(() => {
@@ -745,6 +767,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
           {activeTab === 'financial' && (
             <div className="space-y-8">
+              <div className="space-y-6">
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Metas de Vendas Mensais</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta de Faturamento (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                      <input 
+                        type="number" 
+                        value={salesGoal.targetValue}
+                        onChange={(e) => setSalesGoal(prev => ({ ...prev, targetValue: parseFloat(e.target.value) || 0 }))}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta de Contratos (Qtd)</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="number" 
+                        value={salesGoal.targetCount}
+                        onChange={(e) => setSalesGoal(prev => ({ ...prev, targetCount: parseInt(e.target.value) || 0 }))}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Plano Atual</p>

@@ -116,6 +116,45 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     }
   }, [client, isOpen]);
 
+  const allInteractions = useMemo(() => {
+    if (!client) return [];
+    
+    const clientProposals = proposals
+      .filter(p => p.client === client.name)
+      .map(p => ({
+        id: `prop-${p.id}`,
+        date: p.date,
+        type: 'Proposta' as const,
+        title: `Proposta Gerada: ${p.systemSize}`,
+        description: `Valor: ${typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : p.value}`,
+        status: p.status,
+        timestamp: parseDate(p.date).getTime() || 0,
+        userName: p.representative
+      }));
+    
+    const clientInstallations = installations
+      .filter(i => i.name === client.name)
+      .map(i => ({
+        id: `inst-${i.id}`,
+        date: i.startDate || i.lastUpdated,
+        type: 'Instalação' as const,
+        title: `Projeto de Instalação: ${i.stage}`,
+        description: `Progresso atual: ${i.progress}%`,
+        status: i.progress + '%',
+        timestamp: parseDate(i.startDate || i.lastUpdated).getTime() || 0,
+        userName: i.technician?.name || 'Técnico'
+      }));
+
+    const clientManualInteractions = (client.interactions || []).map(i => ({
+      ...i,
+      type: (i.type === 'note' ? 'Manual' : i.type) as any,
+      timestamp: i.timestamp || parseDate(i.date).getTime() || 0
+    }));
+
+    return [...clientProposals, ...clientInstallations, ...clientManualInteractions]
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [client, proposals, installations]);
+
   if (!isOpen) return null;
 
   const handleCepChange = async (value: string) => {
@@ -252,45 +291,6 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     }
   };
 
-  const allInteractions = useMemo(() => {
-    if (!client) return [];
-    
-    const clientProposals = proposals
-      .filter(p => p.client === client.name)
-      .map(p => ({
-        id: `prop-${p.id}`,
-        date: p.date,
-        type: 'Proposta' as const,
-        title: `Proposta Gerada: ${p.systemSize}`,
-        description: `Valor: ${typeof p.value === 'number' ? p.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : p.value}`,
-        status: p.status,
-        timestamp: parseDate(p.date).getTime() || 0,
-        userName: p.representative
-      }));
-    
-    const clientInstallations = installations
-      .filter(i => i.name === client.name)
-      .map(i => ({
-        id: `inst-${i.id}`,
-        date: i.startDate || i.lastUpdated,
-        type: 'Instalação' as const,
-        title: `Projeto de Instalação: ${i.stage}`,
-        description: `Progresso atual: ${i.progress}%`,
-        status: i.progress + '%',
-        timestamp: parseDate(i.startDate || i.lastUpdated).getTime() || 0,
-        userName: i.technician?.name || 'Técnico'
-      }));
-
-    const clientManualInteractions = (client.interactions || []).map(i => ({
-      ...i,
-      type: (i.type === 'note' ? 'Manual' : i.type) as any,
-      timestamp: i.timestamp || parseDate(i.date).getTime() || 0
-    }));
-
-    return [...clientProposals, ...clientInstallations, ...clientManualInteractions]
-      .sort((a, b) => b.timestamp - a.timestamp);
-  }, [client, proposals, installations]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -390,7 +390,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#fdb612] transition-colors" />
                 <input
                   type="text"
-                  placeholder="Pesquisar por nome ou e-mail..."
+                  placeholder="Pesquisar por nome, e-mail ou CNPJ/CPF..."
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);

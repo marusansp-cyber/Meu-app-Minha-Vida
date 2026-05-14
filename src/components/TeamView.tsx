@@ -116,13 +116,13 @@ export const TeamView: React.FC = () => {
               <span className="font-black uppercase tracking-[0.2em] text-xs">Informações Institucionais</span>
             </div>
             <div className="space-y-2">
-              <h3 className="text-4xl font-black uppercase tracking-tight">Vieira's Solar</h3>
-              <p className="text-lg text-slate-400 font-medium">MV ENGENHARIA E CONSTRUCOES LTDA</p>
+              <h3 className="text-4xl font-black uppercase tracking-tight">JV Mendes Junior Engenharia</h3>
+              <p className="text-lg text-slate-400 font-medium">JV MENDES JUNIOR ENGENHARIA</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
               <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">CNPJ Matriz</p>
-                <p className="text-sm font-bold text-slate-200">61.950.902/0018-33</p>
+                <p className="text-sm font-bold text-slate-200">61.950.902/0001-83</p>
               </div>
               <div className="bg-white/5 border border-white/10 p-4 rounded-2xl">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Certificação Técnica</p>

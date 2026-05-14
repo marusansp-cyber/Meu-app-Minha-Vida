@@ -192,9 +192,12 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ user }) => {
             onClick={() => setSelectedItem(item)}
             className="group relative aspect-square bg-slate-100 dark:bg-white/5 rounded-[2rem] overflow-hidden cursor-pointer border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-[#fdb612]/50 transition-all"
           >
-            <img 
+            <motion.img 
               src={item.url} 
               alt={item.name} 
+              initial={{ opacity: 0, scale: 1.1 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
               referrerPolicy="no-referrer"
             />
