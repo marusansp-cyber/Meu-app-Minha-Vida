@@ -68,7 +68,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'map' | 'audit'>('list');
   const [history, setHistory] = useState<HistoryType[]>([]);
 
   const isAdminOrStaff = user?.role === 'admin' || user?.role === 'admin_staff' || user?.role === 'sales' || user?.role === 'finance' || user?.role === 'engineer';
@@ -138,6 +138,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     if (!selectedClient) return [];
     return (history || []).filter(h => h.collection === 'clients' && h.docId === selectedClient.id);
   }, [history, selectedClient]);
+
+  const clientGlobalHistory = useMemo(() => {
+    return (history || []).filter(h => h.collection === 'clients');
+  }, [history]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -700,6 +704,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             >
               Mapa
             </button>
+            <button 
+              onClick={() => setViewMode('audit')}
+              className={cn(
+                "px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                viewMode === 'audit' ? "bg-[#fdb612] text-[#231d0f]" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              Auditoria
+            </button>
           </div>
           <button 
             onClick={() => {
@@ -715,7 +728,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       </div>
 
       <AnimatePresence mode="wait">
-        {viewMode === 'map' ? (
+        {viewMode === 'map' && (
           <motion.div
             key="map-view"
             initial={{ opacity: 0, scale: 0.95 }}
@@ -850,7 +863,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </motion.div>
             )}
           </motion.div>
-        ) : (
+        )}
+
+        {viewMode === 'list' && (
           <motion.div
             key="list-view"
             initial={{ opacity: 0 }}
@@ -1262,6 +1277,92 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 </>
               )}
             </AnimatePresence>
+          </motion.div>
+        )}
+
+        {viewMode === 'audit' && (
+          <motion.div
+            key="audit-view"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            className="space-y-6"
+          >
+            <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <HistoryIcon className="w-6 h-6 text-[#fdb612]" />
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">
+                  Log de Auditoria Global de Clientes
+                </h3>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Acompanhamento em tempo real de todas as operações de criação, modificação ou exclusão de clientes realizadas na plataforma.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-[#231d0f] rounded-3xl border border-slate-200 dark:border-slate-800 p-1 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-[#fdb612]/5 dark:bg-white/5 border-b border-[#fdb612]/10">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Data/Hora</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Usuário</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Ação</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Cliente</th>
+                      <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-500">Campos Alterados / Detalhes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {clientGlobalHistory.map((item, idx) => {
+                      const clientName = clients.find(c => c.id === item.docId)?.name || item.data?.name || item.docId || 'Excluído / Desconhecido';
+                      const userRepr = item.user?.displayName || item.user?.email || 'Sistema';
+                      
+                      const changeDetails = item.type === 'create' 
+                        ? 'Cadastro inicial de novo cliente' 
+                        : item.type === 'delete' 
+                        ? 'Remoção permanente de registro de cliente' 
+                        : item.data 
+                        ? `Atributos atualizados: ${Object.keys(item.data).filter(k => k !== 'updatedAt' && k !== 'createdAt' && k !== 'id').join(', ')}` 
+                        : 'Atualização de dados';
+
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-[#fdb612]/5 dark:hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+                            {item.timestamp?.seconds ? formatDate(item.timestamp.seconds * 1000) : 'Agora'}
+                          </td>
+                          <td className="px-6 py-4 text-xs font-black text-slate-950 dark:text-slate-100">
+                            {userRepr}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn(
+                              "px-2.5 py-1 text-[9px] font-black rounded uppercase tracking-wider",
+                              item.type === 'create' && "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400",
+                              item.type === 'update' && "bg-blue-100 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400",
+                              item.type === 'delete' && "bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400"
+                            )}>
+                              {item.type === 'create' ? 'Inclusão' : item.type === 'update' ? 'Alteração' : 'Exclusão'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-xs font-bold text-[#fdb612] dark:text-slate-300">
+                            {clientName}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-slate-600 dark:text-slate-400 font-medium max-w-xs truncate" title={changeDetails}>
+                            {changeDetails}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {clientGlobalHistory.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm italic">
+                          Nenhum registro de auditoria disponível para clientes.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

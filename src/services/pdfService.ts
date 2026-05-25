@@ -279,7 +279,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text("GERANDO SUSTENTABILIDADE E ECONOMIA", margin, 25);
 
   doc.setFontSize(10);
-  doc.text(`Proposta ${proposal.proposalNumber || "2026/001"}`, pageWidth - margin - 45, 25);
+  doc.text(`Proposta ${proposal.proposalNumber || "2601"}`, pageWidth - margin - 45, 25);
 
   let currentY = 55;
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);

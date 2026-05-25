@@ -3107,7 +3107,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                 endereco: formData.endereco,
                                 cpfCnpj: formData.cpfCnpj,
                                 paymentTerms: formData.paymentTerms,
-                                proposalNumber: formData.proposalNumber || "2026/001",
+                                proposalNumber: formData.proposalNumber || "2601",
                                 annualSavings: formData.annualSavings,
                                 panelBrandModel: formData.panelBrandModel,
                                 inverterBrandModel: formData.inverterBrandModel,

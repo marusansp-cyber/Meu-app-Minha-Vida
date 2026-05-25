@@ -36,6 +36,8 @@ import { Proposal, Installation, Lead, Client } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
+import { getDocument } from '../firestoreUtils';
+
 interface ReportsViewProps {
   proposals: Proposal[];
   installations: Installation[];
@@ -48,6 +50,27 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   const [dateRange, setDateRange] = useState('30days');
   const [consultantFilter, setConsultantFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [salesGoal, setSalesGoal] = useState({ targetValue: 100000, targetCount: 10 });
+  const [loadingGoal, setLoadingGoal] = useState(true);
+
+  React.useEffect(() => {
+    const fetchGoal = async () => {
+      try {
+        const goal = await getDocument<any>('settings', 'salesGoal');
+        if (goal) {
+          setSalesGoal({
+            targetValue: parseFloat(goal.targetValue || 100000),
+            targetCount: parseInt(goal.targetCount || 10)
+          });
+        }
+      } catch (err) {
+        console.error("Erro ao carregar meta de vendas:", err);
+      } finally {
+        setLoadingGoal(false);
+      }
+    };
+    fetchGoal();
+  }, []);
   const reportRef = useRef<HTMLDivElement>(null);
 
   const consultants = useMemo(() => {
@@ -172,6 +195,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
 
     return Object.values(months);
   }, [filteredData]);
+
+  const goalComparison = useMemo(() => {
+    const today = new Date();
+    const currentMonthKey = today.toLocaleString('pt-BR', { month: 'short' });
+    const currentMonthData = monthlyData.find(m => m.name.toLowerCase() === currentMonthKey.toLowerCase()) || { sales: 0, count: 0 };
+    
+    const valueAchievement = salesGoal.targetValue > 0 
+      ? (currentMonthData.sales / salesGoal.targetValue) * 100 
+      : 0;
+      
+    const countAchievement = salesGoal.targetCount > 0 
+      ? (currentMonthData.count / salesGoal.targetCount) * 100 
+      : 0;
+
+    return {
+      currentSales: currentMonthData.sales,
+      currentCount: currentMonthData.count,
+      targetValue: salesGoal.targetValue,
+      targetCount: salesGoal.targetCount,
+      valueAchievement,
+      countAchievement
+    };
+  }, [monthlyData, salesGoal]);
+
+  const salesVsGoalChartData = useMemo(() => {
+    return monthlyData.map(m => ({
+      name: m.name,
+      sales: m.sales,
+      goal: salesGoal.targetValue,
+      count: m.count,
+      goalCount: salesGoal.targetCount
+    }));
+  }, [monthlyData, salesGoal]);
 
   const exportPDF = async () => {
     if (!reportRef.current) return;
@@ -318,6 +374,109 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Potência Média</p>
             <h3 className="text-2xl font-black mt-1">{stats.avgSystemSize.toFixed(2)} kWp</h3>
+          </div>
+        </div>
+
+        {/* Sales Performance vs Goals Section */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+            <div>
+              <h3 className="text-xl font-black font-display uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <TrendingUp className="text-[#fdb612]" />
+                Desempenho vs Metas de Venda
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">Comparativo de faturamento real e quantidade de contratos fechados contra as metas estipuladas do mês.</p>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="px-5 py-3 bg-[#fdb612]/5 rounded-2xl border border-[#fdb612]/10">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta de Receita</span>
+                <span className="text-sm font-black text-[#fdb612]">R$ {goalComparison.targetValue.toLocaleString('pt-BR')}</span>
+              </div>
+              <div className="px-5 py-3 bg-[#fdb612]/5 rounded-2xl border border-[#fdb612]/10">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta de Contratos</span>
+                <span className="text-sm font-black text-[#fdb612]">{goalComparison.targetCount} un</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Revenue Achievement Indicator */}
+            <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Atingimento de Receita (Mês Atual)</span>
+                <h4 className="text-3xl font-black mt-2 text-slate-900 dark:text-slate-100">
+                  R$ {goalComparison.currentSales.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                </h4>
+                <p className="text-xs text-slate-400 mt-1 font-medium">Meta: R$ {salesGoal.targetValue.toLocaleString('pt-BR')}</p>
+              </div>
+              <div className="text-right">
+                <span className={cn(
+                  "text-2xl font-black px-3 py-1.5 rounded-2xl",
+                  goalComparison.valueAchievement >= 100 ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400" : "bg-[#fdb612]/15 text-[#fdb612]"
+                )}>
+                  {goalComparison.valueAchievement.toFixed(1)}%
+                </span>
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{goalComparison.valueAchievement >= 100 ? 'Meta Superada! 🎉' : 'Em Progresso'}</span>
+              </div>
+            </div>
+
+            {/* Contract Volume Achievement Indicator */}
+            <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Atingimento de Contratos (Mês Atual)</span>
+                <h4 className="text-3xl font-black mt-2 text-slate-900 dark:text-slate-100">{goalComparison.currentCount} contratos</h4>
+                <p className="text-xs text-slate-400 mt-1 font-medium">Meta: {salesGoal.targetCount} contratos</p>
+              </div>
+              <div className="text-right">
+                <span className={cn(
+                  "text-2xl font-black px-3 py-1.5 rounded-2xl",
+                  goalComparison.countAchievement >= 100 ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400" : "bg-blue-100 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400"
+                )}>
+                  {goalComparison.countAchievement.toFixed(1)}%
+                </span>
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{goalComparison.countAchievement >= 100 ? 'Meta Atingida! ⚡' : 'Em Progresso'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Historical comparison chart */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Comparativo Mensal de Faturamento Real vs Meta de Receita</h4>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={salesVsGoalChartData} margin={{ left: 20, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#94a3b8' }} tickFormatter={(val) => `R$ ${val/1000}k`} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '16px', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b'
+                    }}
+                    formatter={(value: number, name: string) => [
+                      `R$ ${value.toLocaleString('pt-BR')}`,
+                      name === 'sales' ? 'Faturamento Real' : 'Meta de Vendas'
+                    ]}
+                  />
+                  <Bar dataKey="sales" name="Faturamento Real" fill="#fdb612" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="goal" name="Meta de Vendas" fill="#94a3b8" radius={[4, 4, 0, 0]} opacity={0.3} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex justify-center gap-6 text-[10px] font-black uppercase tracking-widest">
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 bg-[#fdb612] rounded" />
+                <span>Receita Realizada (Mês)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-3 bg-slate-400/40 rounded" />
+                <span>Meta Estipulada</span>
+              </div>
+            </div>
           </div>
         </div>
 
