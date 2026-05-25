@@ -277,7 +277,6 @@ export interface Proposal {
   licensingCost?: number;
   logisticCost?: number;
   subtotal?: number;
-  margin?: number;
   
   // Step 4: FINANCIAMENTO
   paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto' | 'pix_plus_installments';
@@ -289,6 +288,9 @@ export interface Proposal {
   photoUrl?: string;
   customImageLinks?: string[];
   clientType?: string;
+  leadId?: string;
+  disclaimerTaxaMinima?: string;
+  validityDays?: number;
 }
 
 export interface Partner {

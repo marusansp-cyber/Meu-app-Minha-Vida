@@ -293,7 +293,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(10);
   const proposalDate = proposal.date ? (proposal.date.includes('T') ? new Date(proposal.date).toLocaleDateString('pt-BR') : proposal.date) : new Date().toLocaleDateString('pt-BR');
   doc.text(`Data: ${proposalDate}`, margin, currentY);
-  doc.text(`Validade da proposta: 15 dias`, margin + 60, currentY);
+  doc.text(`Validade da proposta: ${proposal.validityDays || 15} dias`, margin + 60, currentY);
 
   currentY += 12;
 
@@ -489,7 +489,8 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     startY: currentY + 8,
     body: [
       ["Validade dos créditos", "60 meses (Lei 14.300/2022)"],
-      ["Taxa mínima concessionária", "Estimada R$ 100,00/mês"]
+      ["Taxa mínima concessionária", proposal.disclaimerTaxaMinima || "Estimada R$ 100,00/mês"],
+      ["Condição de Pagamento", proposal.paymentTerms || "A definir"]
     ],
     theme: 'plain',
     styles: { fontSize: 9, cellPadding: 2 },

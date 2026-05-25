@@ -257,7 +257,11 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
 
       showToast('Proposta atualizada com sucesso!');
     } else {
-      const proposalNumber = await getNextProposalNumber();
+      let proposalNumber = proposalData.proposalNumber;
+      if (!proposalNumber || proposalNumber.includes('PROPOSTA')) {
+        proposalNumber = await getNextProposalNumber();
+      }
+      
       const newProposal = {
         ...proposalData,
         proposalNumber,
@@ -1059,6 +1063,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
               setActiveTab('history');
               onClearPreFill?.();
             }}
+            proposals={proposals}
           />
         </div>
       ) : (
@@ -1224,6 +1229,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         user={user}
         leads={leads}
         clients={clients}
+        proposals={proposals}
       />
 
       <ProposalDetailsModal 

@@ -1140,9 +1140,22 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
 
                   {proposal.internalNotes && (
                     <div className="bg-amber-50 dark:bg-amber-900/10 p-8 rounded-[32px] border border-amber-100 dark:border-amber-900/20">
-                      <div className="flex items-center gap-2 text-amber-600 mb-4">
-                        <FileText className="w-5 h-5" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Observações Internas</span>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-amber-600">
+                          <FileText className="w-5 h-5" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Observações Internas</span>
+                        </div>
+                        {proposal.leadId && (
+                          <button 
+                            onClick={() => {
+                              alert("Recurso: Visualize o histórico detalhado deste lead no painel de 'Leads'.");
+                            }}
+                            className="text-[10px] font-black uppercase text-amber-600 hover:underline flex items-center gap-1"
+                          >
+                            <HistoryIcon className="w-3 h-3" />
+                            Ver Histórico Completo do Lead
+                          </button>
+                        )}
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
                         {proposal.internalNotes}

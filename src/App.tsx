@@ -195,15 +195,15 @@ export default function App() {
       const fabioVal = 30000;
       const fabioPayback = (fabioVal / (fabioSavings * 12)).toFixed(1);
 
-      await setDocument('proposals', 'proposal-2605', {
-        id: 'proposal-2605',
+      await setDocument('proposals', 'proposal-2601', {
+        id: 'proposal-2601',
         client: 'Fabio Chaves',
         value: fabioVal,
         date: '28/04/2026',
         status: 'accepted',
         systemSize: '12.93 kWp',
         representative: 'Marusan Pinto',
-        proposalNumber: '2605',
+        proposalNumber: '2601',
         email: 'fabio.chaves@email.com',
         ucNumber: '30000353',
         energyConsumption: '1357',
@@ -213,7 +213,7 @@ export default function App() {
         monthlySavings: fabioSavings,
         roi: '420%',
         payback: `${fabioPayback} Anos`,
-        internalNotes: 'Proposta original 2605 revisada com novos parâmetros de cálculo.'
+        internalNotes: 'Proposta original 2601 revisada com novos parâmetros de cálculo.'
       });
 
       // Proposal for Itamar Peron da Silva as requested
@@ -223,15 +223,15 @@ export default function App() {
       const itamarVal = 19500;
       const itamarPayback = (itamarVal / (itamarSavings * 12)).toFixed(1);
 
-      await setDocument('proposals', 'proposal-itamar', {
-        id: 'proposal-itamar',
+      await setDocument('proposals', 'proposal-2602', {
+        id: 'proposal-2602',
         client: 'Itamar Peron da Silva',
         value: itamarVal,
         date: new Date().toLocaleDateString('pt-BR'),
         status: 'pending',
         systemSize: '8.62 kWp',
         representative: 'Marusan Pinto',
-        proposalNumber: `PROPOSTA ${new Date().getFullYear()}/00${Math.floor(Math.random() * 90) + 10}`,
+        proposalNumber: '2602',
         email: 'marusansp@gmail.com',
         ucNumber: '30000353',
         energyConsumption: '900',

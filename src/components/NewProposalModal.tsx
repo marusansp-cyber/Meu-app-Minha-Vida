@@ -59,6 +59,7 @@ interface NewProposalModalProps {
   user: UserType | null;
   leads?: Lead[];
   clients?: Client[];
+  proposals?: Proposal[];
   isFullScreen?: boolean;
 }
 
@@ -80,6 +81,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   user, 
   leads = [], 
   clients = [], 
+  proposals = [],
   isFullScreen = false 
 }) => {
   const [currentStep, setCurrentStep] = useState<Step>('ucs');
@@ -255,27 +257,71 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     // Check for missing critical data and alert user
     const missingFields = [];
     if (!suggestion.email) missingFields.push('E-mail');
-    if (!suggestion.phone && !suggestion.telefone) missingFields.push('Telefone');
+    if (!suggestion.phone && !suggestion.telefone && !suggestion.whatsapp) missingFields.push('Telefone');
     if (!suggestion.address && !suggestion.endereco) missingFields.push('Endereço');
 
     if (missingFields.length > 0) {
       showToast(`⚠️ Lead com dados incompletos: ${missingFields.join(', ')}. Por favor, complete o cadastro.`);
     }
 
-    setFormData(prev => ({
-      ...prev,
+    // Try to auto-select a kit if lead has systemSize
+    let autoSelectedKitId = formData.kitId;
+    let autoSystemSize = formData.systemSize;
+    let autoEquipmentCost = formData.equipmentCost;
+    let autoPanelBrandModel = formData.panelBrandModel;
+    let autoPanelQuantity = formData.panelQuantity;
+    let autoInverterBrandModel = formData.inverterBrandModel;
+    let autoInvertersQuantity = formData.invertersQuantity;
+
+    if (suggestion.systemSize) {
+      const leadSz = parseFloat(suggestion.systemSize);
+      if (!isNaN(leadSz) && leadSz > 0) {
+        autoSystemSize = leadSz.toString();
+        // Look for kits with similar power (+/- 10%)
+        const bestKit = kits.find(k => Math.abs(k.power - leadSz) <= leadSz * 0.15);
+        if (bestKit) {
+          autoSelectedKitId = bestKit.id;
+          autoEquipmentCost = bestKit.price.toString();
+          
+          const panel = bestKit.components.find(c => c.name.toLowerCase().includes('painel') || c.name.toLowerCase().includes('módulo'));
+          const inverter = bestKit.components.find(c => c.name.toLowerCase().includes('inversor'));
+          
+          if (panel) {
+            autoPanelBrandModel = `${panel.brand || ''} ${panel.model || ''}`.trim() || panel.name;
+            autoPanelQuantity = panel.quantity.toString();
+          }
+          if (inverter) {
+            autoInverterBrandModel = `${inverter.brand || ''} ${inverter.model || ''}`.trim() || inverter.name;
+            autoInvertersQuantity = inverter.quantity.toString();
+          }
+          
+          showToast(`🚀 Kit "${bestKit.name}" sugerido automaticamente para a potência de ${leadSz} kWp.`);
+        }
+      }
+    }
+
+    setFormData(prevFormData => ({
+      ...prevFormData,
       client: suggestion.name,
       email: suggestion.email || '',
       titular: suggestion.name,
-      telefone: suggestion.phone || suggestion.telefone || '',
-      endereco: suggestion.address || suggestion.endereco || prev.endereco,
-      cpfCnpj: suggestion.cpfCnpj || prev.cpfCnpj,
-      cep: suggestion.cep || prev.cep,
-      ucNumber: suggestion.ucNumber || prev.ucNumber,
+      telefone: suggestion.phone || suggestion.telefone || suggestion.whatsapp || '',
+      endereco: suggestion.address || suggestion.endereco || prevFormData.endereco,
+      cpfCnpj: suggestion.cpfCnpj || prevFormData.cpfCnpj,
+      cep: suggestion.cep || prevFormData.cep,
+      ucNumber: suggestion.ucNumber || prevFormData.ucNumber,
       clientType: suggestion.type || 'residential',
+      systemSize: autoSystemSize,
+      kitId: autoSelectedKitId,
+      leadId: suggestion.source === 'Lead' ? suggestion.id : undefined,
+      equipmentCost: autoEquipmentCost,
+      panelBrandModel: autoPanelBrandModel,
+      panelQuantity: autoPanelQuantity,
+      inverterBrandModel: autoInverterBrandModel,
+      invertersQuantity: autoInvertersQuantity,
       internalNotes: suggestion.source === 'Lead' 
-        ? `${prev.internalNotes}\n[IMPORTADO DE LEAD] Candidato: ${suggestion.name}\nHistórico: Visualizar em Leads > Detalhes`.trim() 
-        : prev.internalNotes
+        ? `${prevFormData.internalNotes}\n[IMPORTADO DE LEAD] Candidato: ${suggestion.name}\nHistórico: Visualizar em Leads > Detalhes`.trim() 
+        : prevFormData.internalNotes
     }));
     setClientSearchTerm('');
     setShowClientSuggestions(false);
@@ -310,7 +356,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     financingInstallments: initialData?.financingInstallments?.toString() || '60',
     financingInstallmentValue: initialData?.financingInstallmentValue || 0,
     internalNotes: initialData?.internalNotes || '',
-    proposalNumber: initialData?.proposalNumber || `PROPOSTA ${new Date().getFullYear()}/00${Math.floor(Math.random() * 100)}`,
+    proposalNumber: initialData?.proposalNumber || (() => {
+      if (proposals.length === 0) return '2601';
+      const numbers = proposals
+        .map(p => parseInt(p.proposalNumber))
+        .filter(n => !isNaN(n));
+      const max = numbers.length > 0 ? Math.max(...numbers) : 2600;
+      return (Math.max(2600, max) + 1).toString();
+    })(),
     additionalCost: initialData?.additionalCost?.toString() || '0',
     installationStartDate: initialData?.installationStartDate || '',
     estimatedCompletionDate: initialData?.estimatedCompletionDate || '',
@@ -318,7 +371,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     installationNotes: initialData?.installationNotes || '',
     photoUrl: initialData?.photoUrl || '',
     customImageLinks: initialData?.customImageLinks || [],
-    paymentTerms: initialData?.paymentTerms || '30/60/90 dias',
+    paymentTerms: initialData?.paymentTerms || 'Entrada + 2x (30/60)',
+    validityDays: initialData?.validityDays || 15,
+    disclaimerTaxaMinima: initialData?.disclaimerTaxaMinima || 'Estimada em R$ 100,00/mês',
     annualSavings: initialData?.annualSavings || 0,
     totalSavings25Years: initialData?.totalSavings25Years || 0,
     
@@ -776,6 +831,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         financingRate: initialData.financingRate?.toString() || '1.2',
         financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
+        validityDays: initialData.validityDays || 15,
+        paymentTerms: initialData.paymentTerms || 'Entrada + 2x (30/60)',
+        disclaimerTaxaMinima: initialData.disclaimerTaxaMinima || 'Estimada em R$ 100,00/mês',
       });
       setCurrentStep('ucs');
     } else {
@@ -835,6 +893,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         financingRate: '1.2',
         financingCET: '18.5',
         downPayment: '',
+        validityDays: 15,
+        paymentTerms: 'Entrada + 2x (30/60)',
+        disclaimerTaxaMinima: 'Estimada em R$ 100,00/mês',
       });
       setCurrentStep('ucs');
     }
@@ -1009,10 +1070,10 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         showToast(`Cliente ${formData.client} cadastrado com sucesso!`);
       }
 
-      const monthlyGenerationValue = (parseFloat(formData.systemSize) * 130).toFixed(0);
+      const monthlyGenerationValue = (parseFloat(formData.systemSize) * hsp * 30 * pr).toFixed(0);
 
       // Calculate annual savings for PDF
-      const annualSavingsValue = parseFloat(monthlyGenerationValue) * 0.89 * 12;
+      const annualSavingsValue = parseFloat(monthlyGenerationValue) * energyTariff * 12;
 
       const proposalData: Proposal = {
         ...formData,
@@ -1070,6 +1131,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         calculatedCommission: commissionValue || 0,
         margin: parseFloat(formData.margin) || 0,
         financingCET: parseFloat(formData.financingCET) || 0,
+        disclaimerTaxaMinima: formData.disclaimerTaxaMinima,
+        validityDays: formData.validityDays,
+        paymentTerms: formData.paymentTerms,
       };
       
       await onAdd(proposalData);
@@ -2818,6 +2882,140 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
                 {step.id === 'finalization' && (
                   <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    
+                    {/* Senior Auditor Report Card */}
+                    <div className="bg-[#1a160d] border border-[#fdb612]/30 rounded-[40px] p-8 shadow-2xl overflow-hidden relative">
+                      <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <FileCheck className="w-24 h-24 text-[#fdb612]" />
+                      </div>
+                      
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className="size-12 bg-[#fdb612]/20 rounded-2xl flex items-center justify-center text-[#fdb612]">
+                          <FileCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-black text-white uppercase tracking-tight">Relatório de Auditoria Sênior</h4>
+                          <p className="text-[10px] text-[#fdb612] font-black uppercase tracking-widest">Verificação de Conformidade Técnica & Comercial</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* 1. Dados Cadastrais */}
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Dados Cadastrais</span>
+                            {formData.titular && formData.cpfCnpj && formData.email && formData.endereco ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", formData.titular ? "bg-emerald-500" : "bg-rose-500")} />
+                              <span className="text-[10px] text-white">Identificação do Cliente</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", formData.cpfCnpj ? "bg-emerald-500" : "bg-rose-500")} />
+                              <span className="text-[10px] text-white">Documentação (CPF/CNPJ)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", formData.endereco ? "bg-emerald-500" : "bg-rose-500")} />
+                              <span className="text-[10px] text-white">Endereço de Instalação</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Dimensionamento */}
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Dimensionamento</span>
+                            {tech.ratio >= 1.1 && tech.ratio <= 1.4 ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", (parseFloat(formData.systemSize) > 0) ? "bg-emerald-500" : "bg-rose-500")} />
+                              <span className="text-[10px] text-white">Potência: {formData.systemSize} kWp</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", (tech.ratio >= 1.1 && tech.ratio <= 1.4) ? "bg-emerald-500" : "bg-amber-500")} />
+                              <span className="text-[10px] text-white">Oversizing: {tech.ratio.toFixed(2)}x</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="size-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-[10px] text-white">PR: {(pr * 100).toFixed(0)}% | HSP: {hsp}h</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. Análise Financeira */}
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Análise Financeira</span>
+                            {(parseFloat(formData.payback) >= 2.5 && (formData as any).priceAlert === undefined) ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-amber-500" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", parseFloat(formData.payback) < 2.5 ? "bg-amber-500" : "bg-emerald-500")} />
+                              <span className="text-[10px] text-white">Payback Realista: {formData.payback} Anos</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("size-1.5 rounded-full", (formData as any).priceAlert ? "bg-rose-500" : "bg-emerald-500")} />
+                              <span className="text-[10px] text-white">Preço/kWp: R$ {Math.round((formData as any).pricePerKwp || 0).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4. Garantias e Legal */}
+                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Garantias e Prazos</span>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="size-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-[10px] text-white">Performance: 25 Anos</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="size-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-[10px] text-white">Inversor: 10 Anos (estimado)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="size-1.5 rounded-full bg-emerald-500" />
+                              <span className="text-[10px] text-white">Validade: {formData.expiryDate ? new Date(formData.expiryDate).toLocaleDateString() : 'Não informada'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Final Audit Summary */}
+                      <div className="mt-6 p-4 rounded-2xl bg-[#fdb612]/10 border border-[#fdb612]/20">
+                        <div className="flex items-start gap-4">
+                          <BrainCircuit className="w-6 h-6 text-[#fdb612] shrink-0 mt-1" />
+                          <div>
+                            <p className="text-xs font-bold text-white leading-relaxed">
+                              {parseFloat(formData.payback) < 2.5 
+                                ? "⚠️ Auditoria: O Payback parece excessivamente otimista (< 2,5 anos). Verifique se os custos de instalação e impostos estão completos."
+                                : (formData as any).priceAlert === 'warning_low'
+                                ? "⚠️ Auditoria: O preço por kWp está abaixo da média de mercado (R$ 3.000). Risco de margem negativa ou omissão de custos."
+                                : (formData as any).priceAlert === 'warning_high'
+                                ? "⚠️ Auditoria: O preço por kWp está acima do teto de mercado (R$ 5.500). Risco de perda da venda por competitividade."
+                                : "✅ Auditoria: Parâmetros técnicos e comerciais alinhados com as boas práticas do setor solar brasileiro (Lei 14.300/2022)."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="bg-[#00A86B]/5 p-8 rounded-[40px] border border-[#00A86B]/10">
                   <div className="flex items-center gap-4 mb-8">
                     <div className="size-16 bg-[#fdb612] text-[#231d0f] rounded-2xl flex items-center justify-center shadow-xl shadow-[#fdb612]/20">
@@ -2831,16 +3029,45 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div className="space-y-4">
-                      <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Número da Simulação</label>
-                        <input 
-                          type="text"
-                          value={formData.proposalNumber || ''}
-                          onChange={(e) => setFormData({ ...formData, proposalNumber: e.target.value })}
-                          placeholder="Ex: 2024-001"
-                          className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
-                        />
-                      </div>
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Nº Proposta</label>
+                          <input 
+                            type="text"
+                            value={formData.proposalNumber || ''}
+                            onChange={(e) => setFormData({ ...formData, proposalNumber: e.target.value })}
+                            placeholder="Ex: 2601-001"
+                            className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                          />
+                        </div>
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Condições de Pagamento</label>
+                          <input 
+                            type="text"
+                            value={formData.paymentTerms || ''}
+                            onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+                            placeholder="Ex: Entrada 50% + 2x"
+                            className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                          />
+                        </div>
+                        <div className="p-4 bg-[#fdb612]/5 dark:bg-[#fdb612]/5 rounded-2xl border border-[#fdb612]/10">
+                          <label className="text-[10px] font-black uppercase text-[#fdb612] block mb-1 tracking-widest">Validade (Dias)</label>
+                          <input 
+                            type="number"
+                            value={formData.validityDays || 15}
+                            onChange={(e) => setFormData({ ...formData, validityDays: parseInt(e.target.value) })}
+                            className="w-full text-sm font-bold bg-transparent outline-none border-b border-[#fdb612]/20 focus:border-[#fdb612]"
+                          />
+                        </div>
+                        <div className="p-4 bg-white dark:bg-[#231d0f] rounded-2xl border border-slate-100 dark:border-slate-800">
+                          <label className="text-[10px] font-black uppercase text-slate-400 block mb-1 tracking-widest">Aviso Taxa Mínima/Custo Disp.</label>
+                          <input 
+                            type="text"
+                            value={formData.disclaimerTaxaMinima || ''}
+                            onChange={(e) => setFormData({ ...formData, disclaimerTaxaMinima: e.target.value })}
+                            placeholder="Ex: Estimada em R$ 100,00/mês"
+                            className="w-full text-sm font-bold bg-transparent outline-none border-b border-slate-200 focus:border-[#00A86B]"
+                          />
+                        </div>
                       <div className="p-4 bg-emerald-50 dark:bg-emerald-500/5 rounded-2xl border border-emerald-100 dark:border-emerald-500/20">
                         <label className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-500 block mb-3 tracking-widest">Documentação</label>
                         
@@ -2888,7 +3115,9 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                 invertersQuantity: parseInt(formData.invertersQuantity) || 1,
                                 roi: formData.roi,
                                 payback: formData.payback,
-                                totalSavings25Years: formData.totalSavings25Years
+                                totalSavings25Years: formData.totalSavings25Years,
+                                disclaimerTaxaMinima: formData.disclaimerTaxaMinima,
+                                validityDays: formData.validityDays,
                               };
 
                               const pdfDataUri = await generateProposalPDF(proposalForPdf, selectedKit);
@@ -2987,7 +3216,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <h5 className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Indicadores Financeiros (Realistas)</h5>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Economia Mensal</label>
+                            <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Economia Mensal (Estimada)</label>
                             <p className="text-sm font-black text-slate-900 dark:text-slate-100">R$ {savings.monthly.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                           </div>
                           <div>

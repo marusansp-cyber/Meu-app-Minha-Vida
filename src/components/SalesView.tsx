@@ -729,6 +729,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         initialData={selectedProposal || undefined}
         user={user}
         kits={kits}
+        proposals={proposals}
       />
 
       <ProposalDetailsModal 

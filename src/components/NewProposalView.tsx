@@ -10,6 +10,7 @@ interface NewProposalViewProps {
   initialData?: Proposal | null;
   onProposalAdded?: () => void;
   onCancel: () => void;
+  proposals?: Proposal[];
 }
 
 export const NewProposalView: React.FC<NewProposalViewProps> = ({
@@ -18,7 +19,8 @@ export const NewProposalView: React.FC<NewProposalViewProps> = ({
   clients,
   initialData,
   onProposalAdded,
-  onCancel
+  onCancel,
+  proposals = []
 }) => {
   const handleAddProposal = async (data: Proposal) => {
     try {
@@ -39,6 +41,7 @@ export const NewProposalView: React.FC<NewProposalViewProps> = ({
       user={user}
       leads={leads}
       clients={clients}
+      proposals={proposals}
     />
   );
 };
