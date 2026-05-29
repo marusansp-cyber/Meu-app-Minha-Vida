@@ -33,9 +33,10 @@ import {
   Loader2
 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
-import { Proposal, User as UserType, History } from '../types';
+import { Proposal, User as UserType, History, Kit } from '../types';
 
 import { generateProposalPDF } from '../services/pdfService';
+import { ReportPreviewModal } from './ReportPreviewModal';
 import { createDocument } from '../firestoreUtils';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -47,6 +48,7 @@ interface ProposalDetailsModalProps {
   onUpdate?: (proposal: Proposal) => void;
   onConvertToInstallation?: (proposal: Proposal) => void;
   user: UserType | null;
+  kits?: Kit[];
 }
 
 export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({ 
@@ -55,13 +57,15 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   proposal,
   onUpdate,
   onConvertToInstallation,
-  user
+  user,
+  kits = []
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Proposal>>({});
   const [isSending, setIsSending] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [history, setHistory] = useState<History[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -184,27 +188,8 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
     }
   };
 
-  const handlePreview = async () => {
-    try {
-      setIsPreviewing(true);
-      const pdfBase64 = await generateProposalPDF(proposal);
-      
-      const byteCharacters = atob(pdfBase64.split(',')[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      
-      window.open(url, '_blank');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Erro ao gerar visualização');
-    } finally {
-      setIsPreviewing(false);
-    }
+  const handlePreview = () => {
+    setIsPreviewModalOpen(true);
   };
 
   const handleSendEmail = async () => {
@@ -1497,6 +1482,15 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
           </div>
         </div>
       </div>
+
+      {proposal && (
+        <ReportPreviewModal
+          isOpen={isPreviewModalOpen}
+          onClose={() => setIsPreviewModalOpen(false)}
+          proposal={proposal}
+          kit={kits.find(k => k.id === proposal.kitId)}
+        />
+      )}
     </div>
   );
 };

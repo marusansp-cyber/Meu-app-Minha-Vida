@@ -49,7 +49,9 @@ interface FinanceViewProps {
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDarkMode = false }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals'>('overview');
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals' | 'consultants'>('overview');
+  const [consultantMetric, setConsultantMetric] = useState<'count' | 'value'>('value');
+  const [selectedRepForDrilldown, setSelectedRepForDrilldown] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [commissionStatusFilter, setCommissionStatusFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const [proposalStatusFilter, setProposalStatusFilter] = useState<Proposal['status'] | 'all'>('all');
@@ -212,6 +214,117 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
 
     return Object.values(reps).sort((a, b) => b.total - a.total);
   }, [filteredAcceptedProposals]);
+
+  const consultantStackedData = useMemo(() => {
+    const data: Record<string, {
+      name: string;
+      pendingCount: number;
+      sentCount: number;
+      acceptedCount: number;
+      expiredCount: number;
+      cancelledCount: number;
+      pendingValue: number;
+      sentValue: number;
+      acceptedValue: number;
+      expiredValue: number;
+      cancelledValue: number;
+      totalCount: number;
+      totalValue: number;
+    }> = {};
+
+    proposals.forEach(p => {
+      const rep = p.representative || 'Desconhecido';
+      if (!data[rep]) {
+        data[rep] = {
+          name: rep,
+          pendingCount: 0,
+          sentCount: 0,
+          acceptedCount: 0,
+          expiredCount: 0,
+          cancelledCount: 0,
+          pendingValue: 0,
+          sentValue: 0,
+          acceptedValue: 0,
+          expiredValue: 0,
+          cancelledValue: 0,
+          totalCount: 0,
+          totalValue: 0,
+        };
+      }
+
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      const status = p.status || 'pending';
+
+      if (status === 'pending') {
+        data[rep].pendingCount += 1;
+        data[rep].pendingValue += val;
+      } else if (status === 'sent') {
+        data[rep].sentCount += 1;
+        data[rep].sentValue += val;
+      } else if (status === 'accepted') {
+        data[rep].acceptedCount += 1;
+        data[rep].acceptedValue += val;
+      } else if (status === 'expired') {
+        data[rep].expiredCount += 1;
+        data[rep].expiredValue += val;
+      } else if (status === 'cancelled') {
+        data[rep].cancelledCount += 1;
+        data[rep].cancelledValue += val;
+      }
+
+      data[rep].totalCount += 1;
+      data[rep].totalValue += val;
+    });
+
+    return Object.values(data).sort((a, b) => b.totalValue - a.totalValue);
+  }, [proposals]);
+
+  const consultantSummaryStats = useMemo(() => {
+    if (proposals.length === 0) return {
+      topRepName: 'Nenhum',
+      topRepValue: 0,
+      avgProposalsPerRep: 0,
+      totalProposals: 0,
+      largestProposal: null
+    };
+
+    const countByRep: Record<string, number> = {};
+    const valueByRep: Record<string, number> = {};
+    let maxProposal: Proposal | null = null;
+    let maxValue = 0;
+
+    proposals.forEach(p => {
+      const rep = p.representative || 'Desconhecido';
+      countByRep[rep] = (countByRep[rep] || 0) + 1;
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      valueByRep[rep] = (valueByRep[rep] || 0) + val;
+
+      if (val > maxValue) {
+        maxValue = val;
+        maxProposal = p;
+      }
+    });
+
+    let topRepName = 'Nenhum';
+    let topRepValue = 0;
+    Object.entries(valueByRep).forEach(([name, val]) => {
+      if (val > topRepValue) {
+         topRepValue = val;
+         topRepName = name;
+      }
+    });
+
+    const repNames = Object.keys(countByRep);
+    const avgProposalsPerRep = repNames.length > 0 ? (proposals.length / repNames.length) : 0;
+
+    return {
+      topRepName,
+      topRepValue,
+      avgProposalsPerRep,
+      totalProposals: proposals.length,
+      largestProposal: maxProposal
+    };
+  }, [proposals]);
 
   const tableProposals = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -396,9 +509,20 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         >
           Propostas
         </button>
+        <button
+          onClick={() => setActiveMainTab('consultants')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
+            activeMainTab === 'consultants'
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Volume por Consultor
+        </button>
       </div>
 
-      {activeMainTab === 'overview' ? (
+      {activeMainTab === 'overview' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -649,7 +773,9 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         </div>
       </div>
     </div>
-  ) : (
+      )}
+
+      {activeMainTab === 'proposals' && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
           {/* Table Section */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
@@ -881,6 +1007,337 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeMainTab === 'consultants' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 rounded-2xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-amber-600" />
+                </div>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total de Propostas</p>
+              <h3 className="text-2xl font-black font-display text-slate-900 dark:text-slate-100">
+                {consultantSummaryStats.totalProposals} propostas
+              </h3>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 rounded-2xl bg-[#fdb612]/10 flex items-center justify-center">
+                  <User className="w-6 h-6 text-[#fdb612]" />
+                </div>
+                <span className="text-[10px] font-black uppercase text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg">Top Vendedor</span>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Consultor Líder (Volume)</p>
+              <h3 className="text-2xl font-black font-display text-slate-900 dark:text-slate-100 truncate" title={consultantSummaryStats.topRepName}>
+                {consultantSummaryStats.topRepName}
+              </h3>
+              <p className="text-xs text-[#fdb612] font-black mt-1">
+                R$ {consultantSummaryStats.topRepValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg">Maior Contrato</span>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Maior Proposta Gerada</p>
+              <h3 className="text-2xl font-black font-display text-slate-900 dark:text-slate-100 truncate">
+                {consultantSummaryStats.largestProposal ? consultantSummaryStats.largestProposal.client : 'Nenhum'}
+              </h3>
+              <p className="text-xs text-emerald-600 font-bold mt-1">
+                {consultantSummaryStats.largestProposal ? (typeof consultantSummaryStats.largestProposal.value === 'number' ? consultantSummaryStats.largestProposal.value : parseFloat(String(consultantSummaryStats.largestProposal.value).replace(/[^\d,]/g, '').replace(',', '.'))).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }) : 'R$ 0'}
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="size-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-indigo-600" />
+                </div>
+              </div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Média por Consultor</p>
+              <h3 className="text-2xl font-black font-display text-indigo-600">
+                {consultantSummaryStats.avgProposalsPerRep.toFixed(1)} propostas
+              </h3>
+            </div>
+          </div>
+
+          {/* Main Chart Section */}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+              <div>
+                <h3 className="text-xl font-black font-display uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                  Volume de Propostas por Consultor
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Visão comparativa do volume e status das propostas (Aguardando, Enviada, Aceita, Expirada, Cancelada) geradas por cada representante comercial.
+                </p>
+              </div>
+
+              {/* Metric Selector */}
+              <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl w-fit self-end md:self-auto">
+                <button
+                  onClick={() => setConsultantMetric('value')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-widest transition-all",
+                    consultantMetric === 'value'
+                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  Valor (R$)
+                </button>
+                <button
+                  onClick={() => setConsultantMetric('count')}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-extrabold uppercase tracking-widest transition-all",
+                    consultantMetric === 'count'
+                      ? "bg-[#fdb612] text-[#231d0f] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  Quantidade
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Legend */}
+            <div className="flex flex-wrap items-center justify-center gap-6 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#fdb612]" />
+                <span>Aguardando {consultantMetric === 'value' ? '(R$)' : '(Qtd)'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#3b82f6]" />
+                <span>Enviada {consultantMetric === 'value' ? '(R$)' : '(Qtd)'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#10b981]" />
+                <span>Aceita {consultantMetric === 'value' ? '(R$)' : '(Qtd)'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#ef4444]" />
+                <span>Expirada {consultantMetric === 'value' ? '(R$)' : '(Qtd)'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="size-3 rounded-full bg-[#94a3b8]" />
+                <span>Cancelada {consultantMetric === 'value' ? '(R$)' : '(Qtd)'}</span>
+              </div>
+            </div>
+
+            {/* Stacked Bar Chart */}
+            <div className="h-[400px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={consultantStackedData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }}
+                    tickFormatter={(val) => consultantMetric === 'value' ? `R$ ${val >= 1000000 ? (val / 1000000).toFixed(1) + 'M' : val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}` : String(val)}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: '16px',
+                      border: 'none',
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
+                      color: isDarkMode ? '#f1f5f9' : '#1e293b',
+                      padding: '16px'
+                    }}
+                    cursor={{ fill: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)' }}
+                    formatter={(value: any, name: any) => {
+                      if (consultantMetric === 'value') {
+                        return [`R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, name];
+                      }
+                      return [`${value} propostas`, name];
+                    }}
+                  />
+                  {consultantMetric === 'value' ? (
+                    <>
+                      <Bar dataKey="pendingValue" name="Aguardando" fill="#fdb612" stackId="a" barSize={34} />
+                      <Bar dataKey="sentValue" name="Enviada" fill="#3b82f6" stackId="a" />
+                      <Bar dataKey="acceptedValue" name="Aceita" fill="#10b981" stackId="a" />
+                      <Bar dataKey="expiredValue" name="Expirada" fill="#ef4444" stackId="a" />
+                      <Bar dataKey="cancelledValue" name="Cancelada" fill="#94a3b8" stackId="a" radius={[4, 4, 0, 0]} />
+                    </>
+                  ) : (
+                    <>
+                      <Bar dataKey="pendingCount" name="Aguardando" fill="#fdb612" stackId="a" barSize={34} />
+                      <Bar dataKey="sentCount" name="Enviada" fill="#3b82f6" stackId="a" />
+                      <Bar dataKey="acceptedCount" name="Aceita" fill="#10b981" stackId="a" />
+                      <Bar dataKey="expiredCount" name="Expirada" fill="#ef4444" stackId="a" />
+                      <Bar dataKey="cancelledCount" name="Cancelada" fill="#94a3b8" stackId="a" radius={[4, 4, 0, 0]} />
+                    </>
+                  )}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Detailed Table & Drilldown Section */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in duration-300">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+              <h4 className="text-lg font-black font-display text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                Detalhamento Geral por Consultor
+              </h4>
+              <p className="text-xs text-slate-400 font-bold hidden sm:block">
+                Selecione uma linha para expandir as propostas do consultor
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 dark:bg-slate-800/20">
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Consultor</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Total Propostas</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center text-emerald-600 bg-emerald-500/5">Aceitas</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center text-blue-500">Enviadas</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center text-amber-500">Aguardando</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center text-rose-500">Expiradas / Canceladas</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Taxa Conversão</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Volume Monetário</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {consultantStackedData.map((rep) => {
+                    const conversionRate = rep.totalCount > 0 ? (rep.acceptedCount / rep.totalCount) * 100 : 0;
+                    const lossCount = rep.expiredCount + rep.cancelledCount;
+                    const isSelected = selectedRepForDrilldown === rep.name;
+
+                    return (
+                      <tr
+                        key={rep.name}
+                        onClick={() => setSelectedRepForDrilldown(isSelected ? null : rep.name)}
+                        className={cn(
+                          "hover:bg-[#fdb612]/5 dark:hover:bg-[#fdb612]/5 transition-colors cursor-pointer group",
+                          isSelected && "bg-[#fdb612]/10 dark:bg-[#fdb612]/10 border-l-4 border-l-[#fdb612]"
+                        )}
+                      >
+                        <td className="px-6 py-5 font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <User className="w-4 h-4 text-slate-400 group-hover:text-[#fdb612]" />
+                          {rep.name}
+                        </td>
+                        <td className="px-6 py-5 text-center font-black text-slate-950 dark:text-slate-50">{rep.totalCount}</td>
+                        <td className="px-6 py-5 text-center font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">{rep.acceptedCount}</td>
+                        <td className="px-6 py-5 text-center font-bold text-blue-500">{rep.sentCount}</td>
+                        <td className="px-6 py-5 text-center font-bold text-amber-500">{rep.pendingCount}</td>
+                        <td className="px-6 py-5 text-center text-slate-400">{lossCount}</td>
+                        <td className="px-6 py-5 text-center">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-xl text-xs font-black",
+                            conversionRate >= 50 ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" : "bg-slate-100 text-slate-500 dark:bg-slate-800 text-slate-400"
+                          )}>
+                            {conversionRate.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 text-right font-black text-slate-900 dark:text-slate-100">
+                          R$ {rep.totalValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Drilldown Section */}
+          {selectedRepForDrilldown && (
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-8 rounded-3xl border border-[#fdb612]/20 shadow-md space-y-6 animate-in slide-in-from-top-4 duration-300">
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div>
+                  <h4 className="text-xl font-black font-display text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <User className="text-[#fdb612] w-5 h-5" />
+                    Listagem Detalhada: {selectedRepForDrilldown}
+                  </h4>
+                  <p className="text-xs text-slate-500 font-bold mt-1">
+                    Exibindo todas as propostas elaboradas por {selectedRepForDrilldown}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedRepForDrilldown(null)}
+                  className="px-4 py-2 bg-white dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest transition-colors border border-slate-200 dark:border-slate-850"
+                >
+                  Fechar Detalhes
+                </button>
+              </div>
+
+              <div className="overflow-x-auto bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Cliente</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Potência (kWp)</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Data</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Valor do Projeto</th>
+                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {proposals
+                      .filter(p => p.representative === selectedRepForDrilldown)
+                      .map((prop) => {
+                        const projectValue = typeof prop.value === 'number' ? prop.value : (parseFloat(String(prop.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+                        return (
+                          <tr key={prop.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4 text-sm font-bold text-slate-900 dark:text-slate-100">
+                              {prop.client}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-black text-slate-500">
+                              {prop.systemSize} kWp
+                            </td>
+                            <td className="px-6 py-4 text-xs text-slate-400 font-bold">
+                              {prop.date}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "text-[10px] font-black uppercase px-2 py-1 rounded-full flex items-center gap-1 w-fit",
+                                prop.status === 'accepted' && "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30",
+                                prop.status === 'pending' && "bg-amber-100 text-amber-600 dark:bg-amber-900/30",
+                                prop.status === 'sent' && "bg-blue-100 text-blue-600 dark:bg-blue-900/30",
+                                prop.status === 'expired' && "bg-rose-100 text-rose-600 dark:bg-rose-900/30",
+                                prop.status === 'cancelled' && "bg-slate-100 text-slate-600 dark:bg-slate-900/40"
+                              )}>
+                                {prop.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-slate-100">
+                              R$ {projectValue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                onClick={() => setSelectedProposal(prop)}
+                                className="p-1.5 text-slate-400 hover:text-[#fdb612] bg-slate-50 dark:bg-slate-800 rounded-lg transition-colors border-none cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

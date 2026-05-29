@@ -7,6 +7,7 @@ import { Proposal, User as UserType, Lead, Client, History } from '../types';
 import { NewProposalModal } from './NewProposalModal';
 import { NewProposalView } from './NewProposalView';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
+import { ReportPreviewModal } from './ReportPreviewModal';
 import { SMTPHelpModal } from './SMTPHelpModal';
 import { HelpCircle } from 'lucide-react';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
@@ -69,6 +70,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [proposalToDelete, setProposalToDelete] = useState<Proposal | null>(null);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [previewProposal, setPreviewProposal] = useState<Proposal | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilters, setStatusFilters] = useState<string[]>(['pending', 'sent']);
   const [representativeFilter, setRepresentativeFilter] = useState('all');
@@ -444,30 +446,10 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     }
   };
 
-  const handlePreview = async (id: string) => {
+  const handlePreview = (id: string) => {
     const proposal = proposals.find(p => p.id === id);
     if (!proposal) return;
-
-    try {
-      showToast('Gerando Visualização...', 'info');
-      const kit = kits.find(k => k.id === proposal.kitId);
-      const pdfBase64 = await generateProposalPDF(proposal, kit);
-      
-      // Convert base64 to Blob for more reliable preview
-      const byteCharacters = atob(pdfBase64.split(',')[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      
-      window.open(url, '_blank');
-    } catch (error) {
-      console.error('Erro ao visualizar:', error);
-      showToast('Erro ao gerar visualização.', 'info');
-    }
+    setPreviewProposal(proposal);
   };
 
   const handleDownload = async (id: string) => {
@@ -1247,12 +1229,22 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         }}
         onConvertToInstallation={onConvertToInstallation}
         user={user}
+        kits={kits}
       />
 
       <SMTPHelpModal 
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
       />
+
+      {previewProposal && (
+        <ReportPreviewModal
+          isOpen={!!previewProposal}
+          onClose={() => setPreviewProposal(null)}
+          proposal={previewProposal}
+          kit={kits.find(k => k.id === previewProposal.kitId)}
+        />
+      )}
 
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

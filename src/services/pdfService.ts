@@ -206,7 +206,18 @@ export const generateInstallationReportPDF = async (installation: Installation):
   return doc.output('datauristring');
 };
 
-export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promise<string> => {
+export const generateProposalPDF = async (
+  proposal: Proposal, 
+  kit?: Kit,
+  options: {
+    autoLayout?: boolean;
+    margin?: number;
+    fontSize?: number;
+    themeColor?: 'navy' | 'emerald' | 'amber' | 'slate';
+    compactSpacing?: boolean;
+    showComponents?: boolean;
+  } = {}
+): Promise<string> => {
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -215,13 +226,33 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
 
   const pageWidth = 210;
   const pageHeight = 297;
-  const margin = 15;
+  
+  // Custom layout margins and styles
+  const margin = options.margin !== undefined ? options.margin : 15;
+  const compact = options.compactSpacing === true;
+  const fontSize = options.fontSize || 9;
+  const autoLayoutActive = options.autoLayout !== false;
 
-  // Colors
-  const primaryGold = [253, 182, 18];  // #fdb612
-  const secondaryNavy = [0, 74, 97];    // #004a61
+  // Setup theme colors dynamically
+  let primaryGold = [253, 182, 18];  // Classic Amber/Gold
+  let secondaryNavy = [0, 74, 97];    // Classic Navy
+  
+  if (options.themeColor === 'emerald') {
+    primaryGold = [16, 185, 129];     // Emerald Green
+    secondaryNavy = [6, 78, 59];      // Forest Green
+  } else if (options.themeColor === 'amber') {
+    primaryGold = [245, 158, 11];     // Deep Amber
+    secondaryNavy = [115, 115, 115];  // Dark Charcoal
+  } else if (options.themeColor === 'slate') {
+    primaryGold = [71, 85, 105];      // Slate gray
+    secondaryNavy = [15, 23, 42];      // Carbon Slate
+  } else if (options.themeColor === 'navy') {
+    primaryGold = [253, 182, 18];     // Solar Yellow
+    secondaryNavy = [15, 23, 42];      // Deep Midnight
+  }
+
   const textDark = [35, 29, 15];       // #231d0f
-  const textLight = [100, 100, 100];
+  const textLight = [110, 110, 110];
   const bgGray = [248, 250, 252];
 
   const formatCurrency = (val: number | string | undefined | null) => {
@@ -266,6 +297,19 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   const totalSavings25 = annualSavings * 25;
   const roiVal = valNum > 0 ? `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%` : "0%";
 
+  // Dynamic Page-breaking logic
+  let currentY = 55;
+  const checkPageBreak = (neededHeight: number) => {
+    if (!autoLayoutActive) return false;
+    const limit = pageHeight - margin - neededHeight;
+    if (currentY > limit) {
+      doc.addPage();
+      currentY = margin + 10;
+      return true;
+    }
+    return false;
+  };
+
   // --- HEADER & COVER ---
   doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.rect(0, 0, pageWidth, 40, 'F');
@@ -281,7 +325,6 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(10);
   doc.text(`Proposta ${proposal.proposalNumber || "2601"}`, pageWidth - margin - 45, 25);
 
-  let currentY = 55;
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   doc.setFontSize(16);
   doc.text("Preparada para:", margin, currentY);
@@ -295,17 +338,17 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.text(`Data: ${proposalDate}`, margin, currentY);
   doc.text(`Validade da proposta: ${proposal.validityDays || 15} dias`, margin + 60, currentY);
 
-  currentY += 12;
+  currentY += compact ? 8 : 12;
 
   // --- CLIENT DATA ---
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("DADOS DO CLIENTE", margin + 2, currentY + 5.5);
+  doc.text("DADOS DO CLIENTE", margin + 2, currentY + (compact ? 4.5 : 5.5));
   
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Nome completo", aguardando(proposal.client || proposal.titular || "Cliente")],
       ["CPF/CNPJ", proposal.cpfCnpj || "---.---.----00"],
@@ -314,22 +357,23 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
       ["E-mail", proposal.email || "marusansp@gmail.com"]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 130 } },
-    margin: { left: margin + 2 }
+    margin: { left: margin + 1 }
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 6 : 10);
 
   // --- INTEGRATOR DATA ---
+  checkPageBreak(35);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("DADOS DA EMPRESA INTEGRADORA", margin + 2, currentY + 5.5);
+  doc.text("DADOS DA EMPRESA INTEGRADORA", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Razão Social", COMPANY.name],
       ["CNPJ", COMPANY.cnpj],
@@ -339,22 +383,23 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
       ["Contato", "Marusan Pinto – Gerente de Engenharia"]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 130 } },
-    margin: { left: margin + 2 }
+    margin: { left: margin + 1 }
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 6 : 10);
 
   // --- SYSTEM SUMMARY ---
+  checkPageBreak(38);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("RESUMO DO SISTEMA", margin + 2, currentY + 5.5);
+  doc.text("RESUMO DO SISTEMA", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Potência instalada", `${sysSize.toFixed(2)} kWp`],
       ["Quantidade de módulos", proposal.panelQuantity || Math.round(sysSize / 0.55)],
@@ -364,9 +409,9 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
       ["Cobertura estimada", `${Math.min(100, Math.round((monthlyGen / consumption) * 100))}%`]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } },
-    margin: { left: margin + 2 }
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 1.8 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
+    margin: { left: margin + 1 }
   });
 
   doc.setFontSize(7);
@@ -374,27 +419,96 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setTextColor(textLight[0], textLight[1], textLight[2]);
   doc.text("*Estimativa para região de São João do Oriente - MG, considerando inclinação e orientação ideais.", margin + 2, (doc as any).lastAutoTable.finalY + 4);
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 8 : 10);
+
+  // --- COMPONENT DETAIL TABLE (Optimized by AutoLayout) ---
+  const showComponents = options.showComponents !== false;
+  if (showComponents) {
+    checkPageBreak(65);
+    doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
+    doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
+    doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+    doc.setFont("helvetica", "bold");
+    doc.text("COMPOSIÇÃO DETALHADA DO KIT E EQUIPAMENTOS", margin + 2, currentY + (compact ? 4.5 : 5.5));
+
+    const extraRows: any[] = [];
+    
+    // Solar Panel Info
+    extraRows.push([
+      "Módulos Solares (Painéis)",
+      proposal.panelBrandModel || kit?.panelBrandModel || "Módulos de Alta Eficiência Monocristalinos Tier-1",
+      `${proposal.panelQuantity || Math.round(sysSize / 0.55)} un`,
+      "25 Anos de Garantia"
+    ]);
+
+    // Inverter Info
+    extraRows.push([
+      "Inversor / Microinversor",
+      proposal.inverterBrandModel || kit?.inverterBrandModel || "Inversor String Inteligente c/ Monitoramento WiFi",
+      `${proposal.invertersQuantity || 1} un`,
+      "10 Anos de Garantia"
+    ]);
+
+    // Kit custom components or solid templates
+    if (kit?.components && kit.components.length > 0) {
+      kit.components.forEach(item => {
+        extraRows.push([
+          item.name,
+          item.brand ? `${item.brand} ${item.model || ''}` : "Estruturas, Proteções e Logística do Kit",
+          `${item.quantity} un`,
+          item.notes || "Garantia de Fábrica"
+        ]);
+      });
+    } else {
+      extraRows.push(["Estruturas de Fixação", "Perfis de Alumínio Anodizado (Telhado/Solo)", "1 conj", "Garantia Vitalícia Corrosão"]);
+      extraRows.push(["Cabos e Conectores", "Cabos Solares Flexíveis XLPE 6mm + Conectores MC4", "1 conj", "Proteção Anti-UV"]);
+      extraRows.push(["String Box / Proteção", "Disjuntores CC + DPS (Supressores de Surto) Classe II", "1 un", "Segurança Integrada"]);
+    }
+
+    autoTable(doc, {
+      startY: currentY + (compact ? 6 : 8),
+      head: [['Equipamento / Componente', 'Especificações e Modelos', 'Quantidade', 'Garantia / Notas']],
+      body: extraRows,
+      theme: 'striped',
+      styles: { fontSize: fontSize - 0.5, cellPadding: compact ? 1.5 : 2, overflow: 'linebreak' },
+      headStyles: {
+        fillColor: secondaryNavy as any,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 50 },
+        1: { cellWidth: 60 },
+        2: { halign: 'center', cellWidth: 25 },
+        3: { cellWidth: 'auto', fontSize: fontSize - 1.5 }
+      },
+      margin: { left: margin + 1, right: margin + 1 },
+      rowPageBreak: 'avoid'
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + (compact ? 6 : 10);
+  }
 
   // --- INVESTMENT ---
+  checkPageBreak(35);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("INVESTIMENTO", margin + 2, currentY + 5.5);
+  doc.text("INVESTIMENTO", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Equipamentos (Tier-1 Alta Performance)", formatCurrency(valNum * 0.7)],
-      ["Projeto e Engenharia", formatCurrency(valNum * 0.1)],
-      ["Instalação e Logística", formatCurrency(valNum * 0.2)],
+      ["Projeto, Homologação e Engenharia", formatCurrency(valNum * 0.1)],
+      ["Instalação, Comissionamento e Logística", formatCurrency(valNum * 0.2)],
       ["TOTAL DO INVESTIMENTO", formatCurrency(valNum)]
     ],
     theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
     columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
-    margin: { left: margin + 2 },
+    margin: { left: margin + 1 },
     didParseCell: (data) => {
       if (data.row.index === 3) {
         data.cell.styles.fillColor = primaryGold as any;
@@ -404,125 +518,128 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
     }
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 6 : 10);
 
   // --- FINANCIAL INDICATORS ---
-  if (currentY > pageHeight - 60) { doc.addPage(); currentY = 20; }
+  checkPageBreak(35);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + 5.5);
+  doc.text("INDICADORES FINANCEIROS (REALISTAS)", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Economia média mensal", formatCurrency(monthlySavings)],
       ["Economia anual (1º ano)", formatCurrency(annualSavings)],
       ["Payback simples", `~${paybackVal} anos`],
-      ["ROI (25 anos)", roiVal],
-      ["Economia total em 25 anos", formatCurrency(totalSavings25)]
+      ["ROI (Retorno do Investimento - 25 anos)", roiVal],
+      ["Economia líquida total em 25 anos", formatCurrency(totalSavings25)]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 }, 1: { fontStyle: 'bold', halign: 'right' } },
-    margin: { left: margin + 2 }
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 85 }, 1: { fontStyle: 'bold', halign: 'right' } },
+    margin: { left: margin + 1 }
   });
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "italic");
   doc.text(`*Cálculos baseados em Tarifa de R$ ${TARIFF.toFixed(2)}/kWh e performance estimada dos equipamentos.`, margin + 2, (doc as any).lastAutoTable.finalY + 4);
 
-  currentY = (doc as any).lastAutoTable.finalY + 12;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 8 : 12);
 
   // --- ENVIRONMENTAL ---
+  checkPageBreak(25);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("BENEFÍCIOS AMBIENTAIS", margin + 2, currentY + 5.5);
+  doc.text("BENEFÍCIOS AMBIENTAIS", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
       ["Redução de CO2 por ano", "~950 kg/ano"],
-      ["Árvores equivalentes", "~43 árvores/ano"],
+      ["Árvores equivalentes salvas", "~43 árvores/ano"],
       ["Energia limpa gerada em 25 anos", proposal.monthlyGeneration ? `~${(parseFloat(proposal.monthlyGeneration) * 12 * 25).toLocaleString('pt-BR')} kWh` : "~345.000 kWh"]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
-    margin: { left: margin + 2 }
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 85 } },
+    margin: { left: margin + 1 }
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 10;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 6 : 10);
 
   // --- WARRANTIES ---
-  if (currentY > pageHeight - 60) { doc.addPage(); currentY = 20; }
+  checkPageBreak(35);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("GARANTIAS", margin + 2, currentY + 5.5);
+  doc.text("GARANTIAS", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
-  doc.setFontSize(9);
+  doc.setFontSize(fontSize);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(textDark[0], textDark[1], textDark[2]);
   const warranties = [
     "• Módulos fotovoltaicos: 25 anos de performance linear (80% da potência)",
-    "• Inversor: 10 anos (padrão de fábrica)",
-    "• Estrutura de alumínio: Garantia vitalícia contra corrosão e defeitos de fabricação",
-    "• Serviço de instalação: 12 meses (mão de obra)"
+    "• Inversor / Microinversor: 10 anos de garantia (padrão de fábrica de alta durabilidade)",
+    "• Estrutura de alumínio: Garantia vitalícia contra corrosão estrutural",
+    "• Serviço de instalação e as-built: 12 meses de engenharia e mão de obra dedicada"
   ];
-  warranties.forEach((w, i) => doc.text(w, margin + 2, currentY + 13 + (i * 6)));
+  warranties.forEach((w, i) => doc.text(w, margin + 2, currentY + (compact ? 10 : 13) + (i * (compact ? 5 : 6))));
 
-  currentY += 40;
+  currentY += compact ? 30 : 40;
 
   // --- COMMERCIAL CONDITIONS ---
+  checkPageBreak(30);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + 5.5);
+  doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   autoTable(doc, {
-    startY: currentY + 8,
+    startY: currentY + (compact ? 6 : 8),
     body: [
-      ["Validade dos créditos", "60 meses (Lei 14.300/2022)"],
-      ["Taxa mínima concessionária", proposal.disclaimerTaxaMinima || "Estimada R$ 100,00/mês"],
-      ["Condição de Pagamento", proposal.paymentTerms || "A definir"]
+      ["Validade dos créditos energeticos", "60 meses (sob termos da Lei Federal 14.300/2022)"],
+      ["Taxa mínima estimada da concessionária", proposal.disclaimerTaxaMinima || "Estimada R$ 100,00/mês"],
+      ["Condição de Pagamento e Financiamentos", proposal.paymentTerms || "A definir / Conforme simulação"]
     ],
     theme: 'plain',
-    styles: { fontSize: 9, cellPadding: 2 },
-    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
-    margin: { left: margin + 2 }
+    styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 85 } },
+    margin: { left: margin + 1 }
   });
 
-  currentY = (doc as any).lastAutoTable.finalY + 12;
+  currentY = (doc as any).lastAutoTable.finalY + (compact ? 8 : 12);
 
   // --- NEXT STEPS ---
-  if (currentY > pageHeight - 80) { doc.addPage(); currentY = 20; }
+  checkPageBreak(50);
   doc.setFillColor(bgGray[0], bgGray[1], bgGray[2]);
-  doc.rect(margin, currentY, pageWidth - (margin * 2), 8, 'F');
+  doc.rect(margin, currentY, pageWidth - (margin * 2), compact ? 6 : 8, 'F');
   doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
   doc.setFont("helvetica", "bold");
-  doc.text("PRÓXIMOS PASSOS", margin + 2, currentY + 5.5);
+  doc.text("PRÓXIMOS PASSOS", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
   const steps = [
-    "1. Assinatura da proposta (cliente + integrador)",
-    "2. Envio de documentos (CPF, comprovante de residência, conta de luz)",
-    "3. Vistoria técnica (agendamento em até 5 dias úteis)",
-    "4. Elaboração do projeto executivo (até 10 dias)",
-    "5. Instalação (prazo médio: 15 a 20 dias úteis após aprovação da concessionária)",
-    "6. Comissionamento e ativação do sistema"
+    "1. Assinatura da proposta e contratação formal",
+    "2. Envio de documentações do cliente para parecer de acesso (CPF, RG, Conta de Energia)",
+    "3. Vistoria técnica dedicada ao local para verificação elétrica in-situ (até 5 dias úteis)",
+    "4. Elaboração de projetos elétricos e engenharia e entrada na concessionária (até 10 dias)",
+    "5. Instalação física do sistema de forma segura (prazo médio: 15 a 20 dias úteis)",
+    "6. Teste de conformidade, comissionamento e troca do medidor bidirecional"
   ];
-  doc.setFontSize(9);
+  doc.setFontSize(fontSize);
   doc.setFont("helvetica", "normal");
-  steps.forEach((s, i) => doc.text(s, margin + 2, currentY + 13 + (i * 6)));
+  steps.forEach((s, i) => doc.text(s, margin + 2, currentY + (compact ? 10 : 13) + (i * (compact ? 5 : 6))));
 
-  currentY += 55;
+  currentY += compact ? 42 : 55;
 
   // --- SIGNATURES ---
+  checkPageBreak(50);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("DECLARAÇÃO E ASSINATURAS", margin, currentY);
@@ -531,7 +648,7 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFontSize(8);
   doc.text("Declaro que li e concordo com os termos desta proposta, incluindo condições de pagamento, garantias e prazo de validade.", margin, currentY);
   
-  currentY += 25;
+  currentY += compact ? 15 : 25;
   doc.line(margin, currentY, margin + 80, currentY);
   doc.line(pageWidth - margin - 80, currentY, pageWidth - margin, currentY);
   
@@ -549,6 +666,33 @@ export const generateProposalPDF = async (proposal: Proposal, kit?: Kit): Promis
   doc.setFont("helvetica", "normal");
   doc.text(`CNPJ: ${COMPANY.cnpj}`, pageWidth - margin - 80, currentY + 15);
   doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin - 80, currentY + 20);
+
+  // Running header and dynamic footer
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    
+    // Draw running header on page > 1
+    if (i > 1) {
+      doc.setFillColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
+      doc.rect(margin, margin - 10, pageWidth - (margin * 2), 1.5, 'F');
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`PROPOSTA COMERCIAL | Nº ${proposal.proposalNumber || "2601"}`, margin, margin - 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(aguardando(proposal.client || proposal.titular), pageWidth - margin - 50, margin - 4, { align: 'right' });
+    }
+    
+    // Bottom page count
+    doc.text(
+      `JV Mendes Junior Engenharia | Página ${i} de ${pageCount}`,
+      pageWidth / 2,
+      pageHeight - (margin - 5),
+      { align: 'center' }
+    );
+  }
 
   return doc.output('datauristring');
 };

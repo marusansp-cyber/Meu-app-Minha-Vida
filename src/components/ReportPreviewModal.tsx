@@ -1,0 +1,446 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Printer, 
+  Download, 
+  RefreshCw, 
+  Settings, 
+  Palette, 
+  Sliders, 
+  Check, 
+  HelpCircle,
+  FileText
+} from 'lucide-react';
+import { Proposal, Kit } from '../types';
+import { generateProposalPDF } from '../services/pdfService';
+import { cn } from '../lib/utils';
+
+interface ReportPreviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  proposal: Proposal | null;
+  kit?: Kit | null | undefined;
+}
+
+export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
+  isOpen,
+  onClose,
+  proposal,
+  kit = null
+}) => {
+  // Layout Options State (Fully customized by the user in Real-Time!)
+  const [autoLayout, setAutoLayout] = useState<boolean>(true);
+  const [margin, setMargin] = useState<number>(15); // in mm
+  const [fontSize, setFontSize] = useState<number>(9); // in pt
+  const [themeColor, setThemeColor] = useState<'navy' | 'emerald' | 'amber' | 'slate'>('navy');
+  const [compactSpacing, setCompactSpacing] = useState<boolean>(false);
+  const [showComponents, setShowComponents] = useState<boolean>(true);
+
+  // Preview management State
+  const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+
+  // Auto-hide toast after 3s
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+  };
+
+  // Re-generate PDF Blob URL when settings change
+  useEffect(() => {
+    if (!isOpen || !proposal) return;
+
+    let active = true;
+    let localBlobUrl = '';
+
+    const renderPDF = async () => {
+      try {
+        setIsGenerating(true);
+        // Call the service with custom layout parameters
+        const pdfDataUri = await generateProposalPDF(proposal, kit || undefined, {
+          autoLayout,
+          margin,
+          fontSize,
+          themeColor,
+          compactSpacing,
+          showComponents
+        });
+
+        if (!active) return;
+
+        // Decode Base64 to Blob to avoid iframe URL limitations with long strings
+        const byteCharacters = atob(pdfDataUri.split(',')[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        
+        // Create standard Blob URL
+        localBlobUrl = URL.createObjectURL(blob);
+        
+        // Clean up previous blob URL
+        setPdfUrl(prev => {
+          if (prev && prev.startsWith('blob:')) {
+            URL.revokeObjectURL(prev);
+          }
+          return localBlobUrl;
+        });
+
+      } catch (error) {
+        console.error('Error rendering live proposal preview:', error);
+        triggerToast('⚠️ Falha ao atualizar prévia do PDF.');
+      } finally {
+        if (active) {
+          setIsGenerating(false);
+        }
+      }
+    };
+
+    // Debounce to avoid slamming the CPU during rapid form updates (e.g. margin slider)
+    const debounceTimer = setTimeout(() => {
+      renderPDF();
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(debounceTimer);
+    };
+  }, [isOpen, proposal, kit, autoLayout, margin, fontSize, themeColor, compactSpacing, showComponents]);
+
+  // Clean up object URL on modal close
+  useEffect(() => {
+    return () => {
+      if (pdfUrl && pdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+    };
+  }, [pdfUrl]);
+
+  if (!isOpen || !proposal) return null;
+
+  const handleDownload = () => {
+    if (!pdfUrl) return;
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `Proposta_${proposal.proposalNumber || 'A4_Preview'}_${proposal.client?.replace(/\s+/g, '_')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast('📥 Download iniciado!');
+  };
+
+  const handlePrint = () => {
+    const iframe = document.getElementById('pdf-preview-iframe') as HTMLIFrameElement;
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.print();
+    } else {
+      // Fallback
+      window.open(pdfUrl, '_blank');
+    }
+  };
+
+  return (
+    <div 
+      id="report-preview-modal"
+      className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 md:p-6"
+    >
+      <div className="bg-white dark:bg-[#12141c] rounded-[32px] w-full max-w-7xl h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200/50 dark:border-slate-800">
+        
+        {/* Modal Header */}
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50 dark:bg-[#161a24]">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center border border-[#fdb612]/20">
+              <FileText className="w-5 h-5 text-[#fdb612]" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black tracking-tight text-slate-800 dark:text-slate-100">
+                Visualizador de <span className="text-[#fdb612]">Relatórios & Propostas</span>
+              </h2>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Otimizado para Impressão Profissional em Papel A4
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-slate-250 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-all active:scale-90"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Modal Outer Body */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+          
+          {/* Real-time PDF Adjustments Sidebar */}
+          <div className="w-full md:w-80 bg-slate-50 dark:bg-[#161a25]/60 p-5 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800/80 overflow-y-auto flex flex-col justify-between gap-6">
+            
+            <div className="space-y-6">
+              {/* Layout Engine Select */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest mb-2 flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5" /> Motor de Grid
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-200/50 dark:bg-slate-900/50 p-1 rounded-xl">
+                  <button
+                    onClick={() => setAutoLayout(true)}
+                    className={cn(
+                      "py-2 rounded-lg font-bold text-xs transition-all flex flex-col items-center justify-center gap-0.5",
+                      autoLayout 
+                        ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm" 
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
+                    )}
+                  >
+                    <span>Automático (A4)</span>
+                    <span className="text-[8px] font-normal opacity-70">Anti-Quebra</span>
+                  </button>
+                  <button
+                    onClick={() => setAutoLayout(false)}
+                    className={cn(
+                      "py-2 rounded-lg font-bold text-xs transition-all flex flex-col items-center justify-center gap-0.5",
+                      !autoLayout 
+                        ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm" 
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
+                    )}
+                  >
+                    <span>Padrão Estático</span>
+                    <span className="text-[8px] font-normal opacity-70">Posições Fixas</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium leading-normal mt-1.5 italic">
+                  *O <strong>Layout Automático</strong> recalcula as quebras de páginas, ajusta dinamicamente as tabelas de componentes e evita rodapés órfãos.
+                </p>
+              </div>
+
+              {/* Theme Selector */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest mb-2 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5" /> Paleta Executiva
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { key: 'navy', label: 'Classic Azul', bg: 'bg-[#004a61]' },
+                    { key: 'emerald', label: 'Ecológico', bg: 'bg-emerald-700' },
+                    { key: 'amber', label: 'Solar Gold', bg: 'bg-amber-600' },
+                    { key: 'slate', label: 'Charcoal', bg: 'bg-slate-700' }
+                  ].map(theme => (
+                    <button
+                      key={theme.key}
+                      onClick={() => setThemeColor(theme.key as any)}
+                      className={cn(
+                        "p-2 rounded-xl border flex items-center gap-2 text-left transition-all active:scale-95",
+                        themeColor === theme.key
+                          ? "border-[#fdb612] bg-[#fdb612]/5 dark:bg-[#fdb612]/10 text-slate-800 dark:text-slate-100 font-bold"
+                          : "border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 text-xs"
+                      )}
+                    >
+                      <span className={cn("h-3 w-3 rounded-full shrink-0", theme.bg)} />
+                      <span className="text-xs truncate">{theme.label}</span>
+                      {themeColor === theme.key && <Check className="w-3 h-3 text-[#fdb612] ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Margins */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest flex items-center gap-1.5">
+                    📏 Margens do A4
+                  </label>
+                  <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">{margin} mm</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="8" 
+                  max="24" 
+                  step="1"
+                  value={margin}
+                  onChange={(e) => setMargin(parseInt(e.target.value))}
+                  className="w-full accent-[#fdb612] bg-slate-200 dark:bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+                  <span>Compactas (8mm)</span>
+                  <span>Elegantes (24mm)</span>
+                </div>
+              </div>
+
+              {/* Font Size */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest mb-2">
+                  🔤 Escala Tipográfica
+                </label>
+                <div className="flex gap-1.5 bg-slate-200/50 dark:bg-slate-900/50 p-1 rounded-xl">
+                  {[
+                    { value: 8, label: '8pt', desc: 'Compacta' },
+                    { value: 9, label: '9pt', desc: 'Padrão' },
+                    { value: 10, label: '10pt', desc: 'Ampla' }
+                  ].map(f => (
+                    <button
+                      key={f.value}
+                      onClick={() => setFontSize(f.value)}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center",
+                        fontSize === f.value
+                          ? "bg-white dark:bg-slate-800 text-[#fdb612] shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-800"
+                      )}
+                    >
+                      <span>{f.label}</span>
+                      <span className="text-[7.5px] opacity-60 font-normal">{f.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Extra toggles */}
+              <div className="space-y-3 pt-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest">
+                  ⚙️ Preferências Adicionais
+                </label>
+                
+                {/* Compact Spacing */}
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      checked={compactSpacing}
+                      onChange={(e) => setCompactSpacing(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "w-10 h-5 rounded-full transition-all duration-200",
+                      compactSpacing ? "bg-[#fdb612]" : "bg-slate-300 dark:bg-slate-705"
+                    )} />
+                    <div className={cn(
+                      "absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow-sm duration-200 transform",
+                      compactSpacing ? "translate-x-5" : "translate-x-0"
+                    )} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-650 dark:text-slate-300">Espaçamento Compacto</span>
+                    <span className="text-[9.5px] text-slate-400 block">Reduz altura e padding das tabelas</span>
+                  </div>
+                </label>
+
+                {/* Show detailed components */}
+                <label className="flex items-center gap-3 cursor-pointer group pt-1">
+                  <div className="relative">
+                    <input 
+                      type="checkbox" 
+                      checked={showComponents}
+                      onChange={(e) => setShowComponents(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "w-10 h-5 rounded-full transition-all duration-200",
+                      showComponents ? "bg-[#fdb612]" : "bg-slate-300 dark:bg-slate-705"
+                    )} />
+                    <div className={cn(
+                      "absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white transition-all shadow-sm duration-200 transform",
+                      showComponents ? "translate-x-5" : "translate-x-0"
+                    )} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-650 dark:text-slate-300 flex items-center gap-1">
+                      Tabela de Componentes
+                    </span>
+                    <span className="text-[9.5px] text-slate-400 block">Especificações de inversores & painéis</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Quick Status Bar */}
+            <div className="p-3.5 bg-amber-500/5 dark:bg-amber-500/10 rounded-2xl border border-amber-500/15">
+              <h5 className="text-[10px] font-black tracking-wider text-amber-500 uppercase flex items-center gap-1.5 mb-1 bg-amber-500/10 dark:bg-transparent px-2 py-0.5 rounded w-max">
+                <HelpCircle className="w-3.5 h-3.5" /> Dica de Impressão
+              </h5>
+              <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400 font-medium">
+                Pressione <kbd className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[8.5px] font-mono">Ctrl + P</kbd> na tela de visualização ou use o botão de imprimir para abrir o driver oficial. Habilite <strong>"Gráficos de Fundo"</strong> nas configurações do Chrome.
+              </p>
+            </div>
+          </div>
+
+          {/* PDF Visualizer Section */}
+          <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 flex flex-col justify-between overflow-hidden relative">
+            
+            {/* Real-time Loader Backdrop */}
+            {isGenerating && (
+              <div className="absolute inset-0 z-10 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-200">
+                <div className="bg-white dark:bg-[#1e2330] px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-850 shadow-xl flex items-center gap-3">
+                  <RefreshCw className="w-5 h-5 text-[#fdb612] animate-spin" />
+                  <span className="text-xs font-black tracking-tight text-slate-700 dark:text-slate-200 uppercase">
+                    Otimizando Layout A4...
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Embed PDF Reader Frame */}
+            <div className="flex-1 rounded-[20px] overflow-hidden border border-slate-200 dark:border-slate-800 bg-white/5 shadow-inner">
+              {pdfUrl ? (
+                <iframe
+                  id="pdf-preview-iframe"
+                  src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                  className="w-full h-full bg-slate-100 dark:bg-slate-900"
+                  title="PDF Preview"
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-550 gap-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-slate-400" />
+                  <p className="text-xs font-semibold">Renderizando documento fotovoltaico...</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="pt-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <div className="text-[10px] font-bold text-slate-500">
+                JV Mendes Junior Engenharia © 2026
+              </div>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handlePrint}
+                  disabled={!pdfUrl}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1d28] rounded-xl font-bold text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Printer className="w-4 h-4 text-slate-400" />
+                  <span>Imprimir PDF</span>
+                </button>
+                <button
+                  onClick={handleDownload}
+                  disabled={!pdfUrl}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-[#fdb612] text-slate-900 shadow-lg shadow-[#fdb612]/20 rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <Download className="w-4.5 h-4.5" />
+                  <span>Baixar Versão A4</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Floating Toast Notification */}
+        {toastMessage && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-55 bg-slate-900/95 dark:bg-slate-800 border border-[#fdb612]/40 text-[#fdb612] px-5 py-3 rounded-xl shadow-xl flex items-center gap-2 text-xs font-bold animate-bounce md:animate-none">
+            <Check className="w-4 h-4 text-[#fdb612]" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};

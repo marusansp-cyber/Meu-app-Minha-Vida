@@ -31,7 +31,7 @@ import { cn } from '../lib/utils';
 import { User as UserType, CompanySettings, SMTPSettings } from '../types';
 import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
 import { SMTPHelpModal } from './SMTPHelpModal';
-import { Eye, EyeOff, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, AlertCircle, Lock, AlertTriangle, Sparkles, Check, RefreshCw } from 'lucide-react';
 
 interface SettingsViewProps {
   user: UserType | null;
@@ -66,6 +66,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     host: string;
     passLength: number;
   } | null>(null);
+
+  // Automated Assistant States for Real-Time SMTP feedback
+  const [smtpDiagnosticStep, setSmtpDiagnosticStep] = useState<'idle' | 'host_check' | 'credentials_format' | 'testing_server' | 'success' | 'failed'>('idle');
+  const [smtpDiagnosticsMessage, setSmtpDiagnosticsMessage] = useState<string>('');
+  const [smtpDiagnosticsErrorType, setSmtpDiagnosticsErrorType] = useState<'none' | 'gmail_password_format' | 'gmail_wrong_pass' | 'auth_failed' | 'network' | 'missing_fields'>('none');
+
+  const rtSmtpAnalysis = React.useMemo(() => {
+    const host = (smtpData.host || '').trim().toLowerCase();
+    const user = (smtpData.user || '').trim();
+    const rawPass = smtpData.pass || '';
+    const pass = rawPass.replace(/\s+/g, ''); // strip spaces
+    
+    const isGmail = host.includes('gmail.com') || host.includes('googlemail.com') || user.endsWith('@gmail.com');
+    const hasSpacesInPass = rawPass.includes(' ') && rawPass.trim().length > 0;
+    
+    const isHostValid = host.length > 3 && host.includes('.');
+    const isUserValid = user.length > 3 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user);
+    
+    let passCheck: 'empty' | 'valid_gmail_app' | 'invalid_gmail_app' | 'generic' = 'empty';
+    let message = '';
+    
+    if (!rawPass) {
+      passCheck = 'empty';
+      message = 'Por favor, insira sua senha.';
+    } else if (isGmail) {
+      if (pass.length === 16) {
+        passCheck = 'valid_gmail_app';
+        message = 'Formato correto! Tem 16 caracteres (padrão de Senha de App do Google).';
+      } else {
+        passCheck = 'invalid_gmail_app';
+        message = `Senha com ${pass.length} caracteres. No Gmail, você DEVE usar uma Senha de App de exatamente 16 caracteres.`;
+      }
+    } else {
+      passCheck = 'generic';
+      message = rawPass.length < 5 ? 'A senha parece curta demais.' : 'Senha inserida.';
+    }
+    
+    return {
+      isGmail,
+      hasSpacesInPass,
+      isHostValid,
+      isUserValid,
+      passCheck,
+      passMessage: message,
+      cleanPass: pass,
+      allPassed: isHostValid && isUserValid && (isGmail ? pass.length === 16 : rawPass.length > 0)
+    };
+  }, [smtpData]);
+
+  const handleRemovePassSpaces = () => {
+    setSmtpData(prev => ({
+      ...prev,
+      pass: prev.pass.replace(/\s+/g, '')
+    }));
+    showToast('✨ Espaços removidos da senha!');
+  };
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -218,42 +274,99 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   };
 
   const handleSendTestEmail = async () => {
+    await handleSendTestEmailWithAssistant();
+  };
+
+  const handleSendTestEmailWithAssistant = async () => {
+    // 1. Initial checks
+    if (!smtpData.host || !smtpData.user || !smtpData.pass) {
+      setSmtpDiagnosticStep('failed');
+      setSmtpDiagnosticsMessage('Dados SMTP incompletos. Preencha todos os campos obrigatórios na coluna ao lado.');
+      setSmtpDiagnosticsErrorType('missing_fields');
+      showToast('⚠️ Preencha os campos SMTP.');
+      return;
+    }
+
+    setSmtpDiagnosticStep('host_check');
+    setSmtpDiagnosticsMessage(`Analisando configurações de rede para ${smtpData.host}...`);
+    setSmtpDiagnosticsErrorType('none');
+
+    // Artificial delay for smooth visual transition
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    // 2. Validate formats locally
+    const host = smtpData.host.trim().toLowerCase();
+    const isGmail = host.includes('gmail.com') || host.includes('googlemail.com') || smtpData.user.endsWith('@gmail.com');
+    const cleanedPass = smtpData.pass.replace(/\s+/g, '');
+
+    if (isGmail && cleanedPass.length !== 16) {
+      setSmtpDiagnosticStep('failed');
+      setSmtpDiagnosticsErrorType('gmail_password_format');
+      setSmtpDiagnosticsMessage('Falha no formato da senha do Gmail. As senhas de aplicativos do Gmail devem possuir exatamente 16 caracteres. Sua senha atual de teste tem ' + cleanedPass.length + ' caracteres.');
+      showToast('⚠️ Formato de senha inválido para Gmail.');
+      return;
+    }
+
+    setSmtpDiagnosticStep('credentials_format');
+    setSmtpDiagnosticsMessage('Formatos estruturais de credenciais aprovados. Sanitizando dados...');
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Auto sanitize spaces if they had them
+    const sanitizedSmtpData = {
+      ...smtpData,
+      pass: cleanedPass
+    };
+    if (smtpData.pass !== cleanedPass) {
+      setSmtpData(sanitizedSmtpData);
+    }
+
+    setSmtpDiagnosticStep('testing_server');
+    setSmtpDiagnosticsMessage(`Iniciando conexão de handshake SMTP e enviando e-mail de teste de autenticidade para ${smtpData.user}...`);
+
     try {
-      showToast('Testando conexão SMTP...');
-      
-      // Fetch latest from firestore just to be sure server gets it if it pulls from there
-      // But we'll pass the current data in the request body for immediate testing
       const res = await fetch('/api/smtp/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ smtpConfig: smtpData })
+        body: JSON.stringify({ smtpConfig: sanitizedSmtpData })
       });
       
       const data = await res.json();
       if (data.success) {
-        showToast(`✅ Conexão SMTP verificada com sucesso!`);
+        setSmtpDiagnosticStep('success');
+        setSmtpDiagnosticsMessage('A conexão SMTP foi estabelecida com absoluto sucesso! O canal de e-mail está autenticado e ativo.');
         setSmtpStatus({
           configured: true,
-          user: smtpData.user,
-          host: smtpData.host,
-          passLength: smtpData.pass.length
+          user: sanitizedSmtpData.user,
+          host: sanitizedSmtpData.host,
+          passLength: sanitizedSmtpData.pass.length
         });
+        showToast('✅ SMTP validado com sucesso!');
       } else {
-        const isGmailError = data.message?.includes('Gmail') || data.message?.includes('App') || data.error?.includes('535') || data.error === 'INVALID_GMAIL_PASS_LENGTH';
+        setSmtpDiagnosticStep('failed');
+        const errMessage = data.message || '';
+        const errCode = data.error || '';
         
-        if (isGmailError) {
-          if (data.error === 'INVALID_GMAIL_PASS_LENGTH') {
-            showToast(`⚠️ ERRO: A Senha de App do Gmail deve ter 16 dígitos.`);
+        if (isGmail) {
+          if (errCode === 'INVALID_GMAIL_PASS_LENGTH' || cleanedPass.length !== 16) {
+            setSmtpDiagnosticsErrorType('gmail_password_format');
+            setSmtpDiagnosticsMessage('O servidor do Gmail rejeitou a senha de app porque o tamanho é diferente de 16 caracteres.');
           } else {
-            showToast(`⚠️ ERRO GMAIL: Você deve usar uma SENHA DE APP.`);
+            setSmtpDiagnosticsErrorType('gmail_wrong_pass');
+            setSmtpDiagnosticsMessage('O e-mail ou a Senha de App foi rejeitada pelo Gmail (Erro 535). Verifique se você ativou a Verificação em Duas Etapas e digitou a senha de app de 16 letras corretamente sem espaços adicionais.');
           }
-          setShowSMTPHelp(true);
         } else {
-          showToast(`❌ Erro SMTP: ${data.message || 'Verifique os dados'}`);
+          setSmtpDiagnosticsErrorType('auth_failed');
+          setSmtpDiagnosticsMessage(errMessage || 'Falha de Autenticação (Erro 535): Verifique o usuário e senha do seu provedor.');
         }
+        showToast('❌ Erro na validação SMTP.');
       }
     } catch (e) {
-      showToast('Erro ao conectar com o servidor para testar SMTP.');
+      console.error(e);
+      setSmtpDiagnosticStep('failed');
+      setSmtpDiagnosticsErrorType('network');
+      setSmtpDiagnosticsMessage('Ocorreu um erro de rede ou timeout ao conectar com o servidor SMTP. Verifique o host do seu e-mail ou tente utilizar as portas corretas ( SSL: 465, TLS: 587 ).');
+      showToast('❌ Falha na conexão de rede.');
     }
   };
 
@@ -972,6 +1085,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                             className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
                           />
                         </div>
+                        {smtpData.user && !rtSmtpAnalysis.isUserValid && (
+                          <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1 mt-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Insira um e-mail válido para autenticar.
+                          </p>
+                        )}
+                        {smtpData.user && rtSmtpAnalysis.isUserValid && (
+                          <p className="text-[10px] text-emerald-500 font-medium flex items-center gap-1 mt-1">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            E-mail formatado corretamente.
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -992,6 +1117,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                           >
                             {showSMTPPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
+                        </div>
+                        
+                        <div className="space-y-1 mt-1">
+                          {rtSmtpAnalysis.isGmail && rtSmtpAnalysis.hasSpacesInPass && (
+                            <div className="flex items-center justify-between p-2 bg-amber-500/10 rounded-lg border border-amber-500/20 mt-1">
+                              <p className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 animate-pulse shrink-0" />
+                                Senha contém espaços!
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleRemovePassSpaces}
+                                className="text-[9px] bg-amber-500 text-[#231d0f] font-black uppercase px-2 py-0.5 rounded-md hover:bg-amber-400 transition-colors cursor-pointer"
+                              >
+                                Limpar Espaços
+                              </button>
+                            </div>
+                          )}
+                          
+                          {smtpData.pass && (
+                            <p className={cn(
+                              "text-[10px] font-bold flex items-center gap-1",
+                              rtSmtpAnalysis.passCheck === 'valid_gmail_app' ? "text-emerald-500" :
+                              rtSmtpAnalysis.passCheck === 'invalid_gmail_app' ? "text-amber-500" : "text-slate-400"
+                            )}>
+                              {rtSmtpAnalysis.passCheck === 'valid_gmail_app' ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                              {rtSmtpAnalysis.passMessage}
+                            </p>
+                          )}
+                          
+                          {rtSmtpAnalysis.isGmail && rtSmtpAnalysis.passCheck === 'invalid_gmail_app' && (
+                            <button
+                              type="button"
+                              onClick={() => setShowSMTPHelp(true)}
+                              className="text-[10px] text-[#fdb612] font-black hover:underline flex items-center gap-1 border-none bg-transparent p-0 cursor-pointer"
+                            >
+                              <HelpCircle className="w-3 h-3" /> Passos para obter Senha de App Gmail
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1014,42 +1178,179 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 </div>
 
                 <div className="space-y-6">
+                  {/* Assistente de Conexão Inteligente */}
                   <div className="p-6 bg-[#231d0f] rounded-3xl border border-[#fdb612]/20 shadow-2xl relative overflow-hidden group">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[#fdb612] opacity-5 rounded-full -mr-16 -mt-16 transition-all group-hover:scale-150" />
                     
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] mb-4">Central de Segurança SMTP</h5>
-                    <div className="space-y-4 relative z-10">
-                      <div className="flex gap-3">
-                        <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
-                          <AlertCircle className="w-4 h-4" />
-                        </div>
-                        <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                          <strong>Atenção:</strong> Se você usa <strong>Gmail</strong>, você NÃO pode usar sua senha normal. 
-                          Ative a Verificação em 2 Etapas e gere uma <strong>Senha de App</strong> nas configurações da sua conta Google.
-                        </p>
-                      </div>
-                      
-                      <button 
-                        onClick={() => setShowSMTPHelp(true)}
-                        className="w-full flex items-center justify-center gap-2 py-3 border border-[#fdb612]/30 text-[#fdb612] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#fdb612]/10 transition-all"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Tutorial Passo a Passo
-                      </button>
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                      <h5 className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#fdb612] animate-pulse" />
+                        Assistente Virtual SMTP
+                      </h5>
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 uppercase">
+                        Real-Time
+                      </span>
+                    </div>
 
-                      <div className="pt-4 border-t border-white/10 space-y-3">
+                    <div className="space-y-4 relative z-10">
+                      {/* Real-time checklist */}
+                      <div className="bg-white/5 p-4 rounded-2xl space-y-3 border border-white/10">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-sans">Análise Automática das Credenciais</p>
+                        
+                        <div className="space-y-2 font-mono text-xs">
+                          {/* Host */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">1. Servidor Host:</span>
+                            {rtSmtpAnalysis.isHostValid ? (
+                              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                <Check className="w-3 h-3" /> Correto
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 font-semibold flex items-center gap-1">
+                                Digitando host...
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Email */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">2. E-mail de Login:</span>
+                            {rtSmtpAnalysis.isUserValid ? (
+                              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                <Check className="w-3 h-3" /> Válido
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 font-semibold flex items-center gap-1">
+                                Pendente
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Password */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-300">3. Formato da Senha:</span>
+                            {smtpData.pass ? (
+                              rtSmtpAnalysis.isGmail ? (
+                                rtSmtpAnalysis.passCheck === 'valid_gmail_app' ? (
+                                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Gmail Ok (16 d)
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-400 font-bold flex items-center gap-1">
+                                    Requer 16g
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-emerald-400 font-bold flex items-center gap-1">
+                                  <Check className="w-3 h-3" /> Preenchida
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-amber-400 font-semibold">Vazia</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Diagnostic Active State UI */}
+                      {smtpDiagnosticStep !== 'idle' && (
+                        <div className={cn(
+                          "p-4 rounded-xl text-xs space-y-2 border transition-all duration-300",
+                          smtpDiagnosticStep === 'success' && "bg-emerald-500/10 border-emerald-500/30 text-emerald-200",
+                          smtpDiagnosticStep === 'failed' && "bg-rose-500/10 border-rose-500/30 text-rose-200",
+                          (smtpDiagnosticStep === 'host_check' || smtpDiagnosticStep === 'credentials_format' || smtpDiagnosticStep === 'testing_server') && "bg-blue-500/10 border-blue-500/30 text-blue-200 animate-pulse"
+                        )}>
+                          <div className="flex items-center gap-2 font-black uppercase tracking-widest text-[10px]">
+                            {smtpDiagnosticStep === 'success' && <Check className="w-4 h-4 text-emerald-400" />}
+                            {smtpDiagnosticStep === 'failed' && <AlertTriangle className="w-4 h-4 text-rose-400" />}
+                            {(smtpDiagnosticStep === 'host_check' || smtpDiagnosticStep === 'credentials_format' || smtpDiagnosticStep === 'testing_server') && (
+                              <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+                            )}
+                            <span>status dos testes</span>
+                          </div>
+                          
+                          <p className="leading-relaxed text-slate-300 text-[11px] font-medium">
+                            {smtpDiagnosticsMessage}
+                          </p>
+
+                          {smtpDiagnosticStep === 'failed' && smtpDiagnosticsErrorType === 'gmail_password_format' && (
+                            <div className="pt-2">
+                              <p className="text-[10px] text-amber-300 font-semibold leading-relaxed">💡 O Gmail rejeitou o formato da senha de aplicativo. Ela deve ter de forma absoluta 16 letras, sem espaços.</p>
+                              <button
+                                type="button"
+                                onClick={() => setShowSMTPHelp(true)}
+                                className="mt-2 w-full py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-wider text-[10px] hover:bg-amber-400 transition-colors cursor-pointer border-none"
+                              >
+                                Ver Guia Completo Gmail
+                              </button>
+                            </div>
+                          )}
+
+                          {smtpDiagnosticStep === 'failed' && smtpDiagnosticsErrorType === 'gmail_wrong_pass' && (
+                            <div className="pt-2">
+                              <p className="text-[10px] text-amber-300 font-semibold leading-relaxed">💡 Falha de Autenticação (Gmail 535). Lembre-se que você DEVE ativar a segurança de Verificação de Duas Etapas na conta Google de antemão e obter a Senha de App. A sua senha comum de login não funcionará jamais.</p>
+                              <button
+                                type="button"
+                                onClick={() => setShowSMTPHelp(true)}
+                                className="mt-2 w-full py-2 bg-[#fdb612] text-[#231d0f] rounded-lg font-black uppercase tracking-wider text-[10px] hover:bg-amber-400 transition-colors cursor-pointer border-none"
+                              >
+                                Como Resolver no Gmail
+                              </button>
+                            </div>
+                          )}
+
+                          {smtpDiagnosticStep === 'failed' && smtpDiagnosticsErrorType === 'network' && (
+                            <p className="text-[10px] text-slate-400 italic">Dica: Verifique se digitou o Host SMTP sem erros de digitação e se a porta correspondente está correta (587 ou 465).</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Help Alert for Gmail natively */}
+                      {rtSmtpAnalysis.isGmail && smtpDiagnosticStep === 'idle' && (
+                        <div className="flex gap-3 bg-white/5 p-3 rounded-2xl border border-white/5">
+                          <div className="size-8 rounded-lg bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] shrink-0">
+                            <AlertCircle className="w-4 h-4" />
+                          </div>
+                          <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                            <strong>Aviso Gmail:</strong> O Google proíbe autenticação direta por senha comum. Você precisa de uma <strong>Senha de App</strong> de 16 dígitos exclusiva da conta Google.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="pt-2 border-t border-white/10 space-y-3">
                         <button 
                           onClick={handleSaveSMTP}
-                          className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/30 transition-all active:scale-[0.98]"
+                          className="w-full py-4 bg-[#fdb612] text-[#231d0f] rounded-2xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/30 transition-all active:scale-[0.98] cursor-pointer border-none"
                         >
                           Salvar Configurações
                         </button>
                         <button 
-                          onClick={handleSendTestEmail}
-                          className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                          onClick={handleSendTestEmailWithAssistant}
+                          disabled={smtpDiagnosticStep === 'host_check' || smtpDiagnosticStep === 'credentials_format' || smtpDiagnosticStep === 'testing_server'}
+                          className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                         >
-                          Testar Conexão
+                          {(smtpDiagnosticStep === 'host_check' || smtpDiagnosticStep === 'credentials_format' || smtpDiagnosticStep === 'testing_server') ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#fdb612]" />
+                              Diagnosticando...
+                            </>
+                          ) : (
+                            'Validar e Diagnosticar'
+                          )}
                         </button>
+                        
+                        {smtpDiagnosticStep !== 'idle' && (
+                          <button
+                            onClick={() => {
+                              setSmtpDiagnosticStep('idle');
+                              setSmtpDiagnosticsMessage('');
+                              setSmtpDiagnosticsErrorType('none');
+                            }}
+                            className="w-full py-1 text-[9px] font-bold text-slate-400 hover:text-slate-200 transition-colors uppercase tracking-widest border-none bg-transparent cursor-pointer"
+                          >
+                            Limpar Diagnósticos
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
