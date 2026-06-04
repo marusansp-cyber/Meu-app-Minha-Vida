@@ -169,6 +169,14 @@ export interface History {
   timestamp: any;
 }
 
+export interface InstallationAuditLog {
+  id: string;
+  user: string;
+  action: string;
+  timestamp: string;
+  details?: string;
+}
+
 export interface Installation {
   id: string;
   name: string;
@@ -193,6 +201,9 @@ export interface Installation {
     completed: boolean;
     createdAt: string;
   }[];
+  latitude?: number;
+  longitude?: number;
+  auditLogs?: InstallationAuditLog[];
 }
 
 export interface Proposal {

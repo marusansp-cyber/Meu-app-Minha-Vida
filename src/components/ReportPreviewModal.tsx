@@ -9,10 +9,14 @@ import {
   Sliders, 
   Check, 
   HelpCircle,
-  FileText
+  FileText,
+  ZoomIn,
+  ZoomOut,
+  Mail
 } from 'lucide-react';
 import { Proposal, Kit } from '../types';
 import { generateProposalPDF } from '../services/pdfService';
+import { sendProposalEmail } from '../services/emailService';
 import { cn } from '../lib/utils';
 
 interface ReportPreviewModalProps {
@@ -35,11 +39,20 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   const [themeColor, setThemeColor] = useState<'navy' | 'emerald' | 'amber' | 'slate'>('navy');
   const [compactSpacing, setCompactSpacing] = useState<boolean>(false);
   const [showComponents, setShowComponents] = useState<boolean>(true);
+  const [zoom, setZoom] = useState<number>(100); // Visual Scaling Zoom (%)
 
   // Preview management State
   const [pdfUrl, setPdfUrl] = useState<string>('');
+  const [pdfBase64, setPdfBase64] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
+
+  // Email delivery States
+  const [isEmailFormOpen, setIsEmailFormOpen] = useState<boolean>(false);
+  const [emailTo, setEmailTo] = useState<string>('');
+  const [emailSubject, setEmailSubject] = useState<string>('');
+  const [emailBody, setEmailBody] = useState<string>('');
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
 
   // Auto-hide toast after 3s
   useEffect(() => {
@@ -52,6 +65,15 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
   };
+
+  // Pre-fill email states when proposal loads
+  useEffect(() => {
+    if (proposal) {
+      setEmailTo(proposal.email || '');
+      setEmailSubject(`Proposta Comercial Solar #${proposal.proposalNumber || '2601'} - JV Mendes Junior Engenharia`);
+      setEmailBody(`Olá ${proposal.client || proposal.titular || 'Prezado Cliente'},\n\nSegue em anexo a nossa proposta comercial personalizada para o seu sistema de energia solar fotovoltaico de ${proposal.systemSize || ''} kWp, preparada pela JV Mendes Junior Engenharia.\n\nFicamos à total disposição para sanar quaisquer dúvidas e definir os próximos passos para a instalação do seu sistema.\n\nAtenciosamente,\nJV Mendes Junior Engenharia`);
+    }
+  }, [proposal]);
 
   // Re-generate PDF Blob URL when settings change
   useEffect(() => {
@@ -74,6 +96,9 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         });
 
         if (!active) return;
+
+        // Store base64 data for email sharing
+        setPdfBase64(pdfDataUri);
 
         // Decode Base64 to Blob to avoid iframe URL limitations with long strings
         const byteCharacters = atob(pdfDataUri.split(',')[1]);
@@ -145,6 +170,40 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
     } else {
       // Fallback
       window.open(pdfUrl, '_blank');
+    }
+  };
+
+  const handleSendByEmail = async () => {
+    if (!emailTo) {
+      triggerToast('⚠️ Por favor, insira o e-mail do destinatário.');
+      return;
+    }
+    if (!pdfBase64) {
+      triggerToast('⚠️ PDF ainda não gerado. Aguarde...');
+      return;
+    }
+
+    try {
+      setIsSendingEmail(true);
+      const res = await sendProposalEmail({
+        to: emailTo,
+        subject: emailSubject,
+        body: emailBody,
+        pdfBase64: pdfBase64,
+        fileName: `Proposta_${proposal.proposalNumber || '2601'}_${proposal.client?.replace(/\s+/g, '_')}.pdf`
+      });
+
+      if (res.success) {
+        triggerToast('✅ E-mail enviado com sucesso!');
+        setIsEmailFormOpen(false);
+      } else {
+        triggerToast(`❌ Erro: ${res.message}`);
+      }
+    } catch (error) {
+      console.error('Erro ao enviar e-mail:', error);
+      triggerToast('❌ Erro de conexão ao enviar e-mail.');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -275,6 +334,55 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                 </div>
               </div>
 
+              {/* Zoom Scale Selector */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest flex items-center gap-1.5">
+                    <ZoomIn className="w-3.5 h-3.5 text-[#fdb612]" /> Zoom da Visualização
+                  </label>
+                  <span className="text-xs font-mono font-black text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded-md">{zoom}%</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setZoom(prev => Math.max(50, prev - 10))}
+                    disabled={zoom <= 50}
+                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors"
+                    title="Diminuir Zoom"
+                  >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                  </button>
+                  <input 
+                    type="range" 
+                    min="50" 
+                    max="200" 
+                    step="5"
+                    value={zoom}
+                    onChange={(e) => setZoom(parseInt(e.target.value))}
+                    className="flex-1 accent-[#fdb612] bg-slate-200 dark:bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <button
+                    onClick={() => setZoom(prev => Math.min(200, prev + 10))}
+                    disabled={zoom >= 200}
+                    className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-850 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors"
+                    title="Aumentar Zoom"
+                  >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+                  <span>50%</span>
+                  <button 
+                    onClick={() => setZoom(100)}
+                    className="hover:text-[#fdb612] transition-colors focus:outline-none uppercase text-[8px] tracking-wider font-extrabold"
+                    type="button"
+                    title="Redefinir visualização"
+                  >
+                    Reset (100%)
+                  </button>
+                  <span>200%</span>
+                </div>
+              </div>
+
               {/* Font Size */}
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block tracking-widest mb-2">
@@ -388,14 +496,25 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             )}
 
             {/* Embed PDF Reader Frame */}
-            <div className="flex-1 rounded-[20px] overflow-hidden border border-slate-200 dark:border-slate-800 bg-white/5 shadow-inner">
+            <div className="flex-1 rounded-[20px] overflow-auto border border-slate-200 dark:border-slate-800 bg-slate-200/40 dark:bg-slate-950 shadow-inner flex justify-center items-start p-4">
               {pdfUrl ? (
-                <iframe
-                  id="pdf-preview-iframe"
-                  src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-                  className="w-full h-full bg-slate-100 dark:bg-slate-900"
-                  title="PDF Preview"
-                />
+                <div 
+                  style={{
+                    width: `${zoom}%`,
+                    height: `${zoom}%`,
+                    minWidth: zoom < 100 ? '300px' : '100%',
+                    minHeight: zoom < 100 ? '424px' : '100%',
+                    transition: 'width 0.15s ease, height 0.15s ease',
+                  }}
+                  className="relative shrink-0 rounded-2xl overflow-hidden shadow-xl border border-slate-300 dark:border-slate-800/80 bg-white transition-opacity duration-200"
+                >
+                  <iframe
+                    id="pdf-preview-iframe"
+                    src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                    className="w-full h-full bg-slate-100 dark:bg-slate-900 absolute inset-0 rounded-2xl"
+                    title="PDF Preview"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-550 gap-3">
                   <RefreshCw className="w-8 h-8 animate-spin text-slate-400" />
@@ -420,6 +539,14 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                   <span>Imprimir PDF</span>
                 </button>
                 <button
+                  onClick={() => setIsEmailFormOpen(true)}
+                  disabled={!pdfUrl}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-500/10 rounded-xl font-bold text-xs hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20 transition-all active:scale-95 disabled:opacity-50 animate-in fade-in duration-200"
+                >
+                  <Mail className="w-4 h-4 text-emerald-500" />
+                  <span>Enviar por Email</span>
+                </button>
+                <button
                   onClick={handleDownload}
                   disabled={!pdfUrl}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-[#fdb612] text-slate-900 shadow-lg shadow-[#fdb612]/20 rounded-xl font-black text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
@@ -431,6 +558,126 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Email Form Overlay */}
+        {isEmailFormOpen && (
+          <div className="absolute inset-0 z-[60] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#181a24] rounded-3xl w-full max-w-lg shadow-2xl border border-slate-150 dark:border-slate-800/80 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Header */}
+              <div className="px-6 py-4.5 border-b border-slate-100 dark:border-slate-850 bg-slate-50 dark:bg-[#161922] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/25">
+                    <Mail className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                      Enviar por E-mail
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      O PDF atualizado será anexado automaticamente.
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsEmailFormOpen(false)}
+                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+                >
+                  <X className="w-4.5 h-4.5 text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+
+              {/* Email form Body */}
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-400 block tracking-widest mb-1.5">
+                    E-mail do Destinatário *
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="exemplo@email.com"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#12141c] border border-slate-250 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-400 block tracking-widest mb-1.5">
+                    Assunto da Mensagem
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Assunto do e-mail"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#12141c] border border-slate-250 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-450 dark:text-slate-400 block tracking-widest mb-1.5">
+                    Corpo de Texto (Mensagem)
+                  </label>
+                  <textarea
+                    placeholder="Escreva sua mensagem personalizada..."
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={8}
+                    className="w-full bg-slate-50 dark:bg-[#12141c] border border-slate-250 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors resize-none leading-relaxed"
+                  />
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-[#12141c]/50 rounded-xl border border-slate-200/50 dark:border-slate-800/80 flex items-center gap-2.5">
+                  <FileText className="w-5 h-5 text-[#fdb612] shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[11px] font-black block text-slate-700 dark:text-slate-300 truncate">
+                      Proposta_{proposal.proposalNumber || '2601'}_{proposal.client?.replace(/\s+/g, '_')}.pdf
+                    </span>
+                    <span className="text-[9px] text-slate-400 block">
+                      Anexo PDF profissional otimizado para dimensões A4
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-[#161922] flex justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEmailFormOpen(false)}
+                  className="px-4.5 py-2.5 border border-slate-250 dark:border-slate-800 text-slate-650 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-850 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendByEmail}
+                  disabled={isSendingEmail || !emailTo}
+                  className={cn(
+                    "px-6 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all active:scale-95",
+                    isSendingEmail
+                      ? "bg-slate-300 dark:bg-slate-850 text-slate-500 cursor-not-allowed"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/10"
+                  )}
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Disparar E-mail</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* Floating Toast Notification */}
         {toastMessage && (

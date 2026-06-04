@@ -361,6 +361,37 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     }
   };
 
+  const exportToCSV = () => {
+    try {
+      showToast('Gerando relatório CSV...');
+      const headers = ['ID do Projeto', 'Nome', 'Endereço', 'Fase Atual', 'Técnico', 'Progresso %', 'Tipo', 'Data de Início', 'Prazo Estimado'];
+      
+      const csvData = installations.map(inst => [
+        inst.projectId || '',
+        `"${inst.name || ''}"`,
+        `"${inst.address || ''}"`,
+        `"${inst.stage || ''}"`,
+        `"${inst.technician?.name || ''}"`,
+        `${inst.progress || 0}`,
+        inst.type === 'residence' || inst.type === 'home' ? 'Residencial' : inst.type === 'industrial' ? 'Industrial' : 'Comercial',
+        inst.startDate || '',
+        inst.projectDeadline || inst.estimatedDeadline || ''
+      ]);
+      
+      const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `instalacoes_projetos_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      showToast('Relatório exportado em CSV com sucesso!');
+    } catch (err) {
+      console.error(err);
+      showToast('Erro ao exportar relatório.');
+    }
+  };
+
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
@@ -515,6 +546,13 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
               Filtrar Prazo
             </div>
           </div>
+          <button 
+            onClick={exportToCSV}
+            className="flex items-center justify-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-black/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
+          >
+            <Download className="w-5 h-5" />
+            <span>Exportar Relatório</span>
+          </button>
           <button 
             onClick={onOpenNewProject}
             className="flex items-center justify-center gap-2 bg-[#fdb612] text-[#231d0f] px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all active:scale-95"
@@ -896,7 +934,21 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
 
                         {item.address && (
                           <div className="mt-8 pt-8 border-t border-slate-200 dark:border-slate-800">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Localização da Instalação</h4>
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">Localização da Instalação</h4>
+                              {(item.latitude && item.longitude) ? (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`, '_blank');
+                                  }}
+                                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors border border-blue-200 dark:border-blue-800"
+                                >
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  Ver no Mapa
+                                </button>
+                              ) : null}
+                            </div>
                             <div className="h-[300px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner">
                               <MapView address={item.address} />
                             </div>

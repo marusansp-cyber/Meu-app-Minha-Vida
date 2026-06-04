@@ -394,8 +394,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     // Step 2: KIT FV
     panelBrandModel: initialData?.panelBrandModel || 'Módulos MAXEON 540 W',
     panelQuantity: initialData?.panelQuantity?.toString() || '24',
+    panelPowerW: initialData?.panelPowerW?.toString() || '540',
     inverterBrandModel: initialData?.inverterBrandModel || 'AUXSOL 7.5',
     invertersQuantity: initialData?.invertersQuantity?.toString() || '1',
+    inverterModel: initialData?.inverterModel || '',
+    inverterPowerCA_kW: initialData?.inverterPowerCA_kW?.toString() || '',
+    inverterPowerCCMax_kW: initialData?.inverterPowerCCMax_kW?.toString() || '',
+    inverterInmetro: initialData?.inverterInmetro || '',
     structureQuantity: initialData?.structureQuantity?.toString() || '1',
     structureType: initialData?.structureType || 'Alumínio Anodizado (específico para telhado)',
     cablesIncluded: initialData?.cablesIncluded !== undefined ? initialData.cablesIncluded : true,
@@ -483,14 +488,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   useEffect(() => {
     setFormData(prev => {
       // 1. Geometry Synchronization (Panels <-> Size)
-      const powerMatch = prev.panelBrandModel.match(/(\d+)\s*W/i);
-      const power = powerMatch ? parseInt(powerMatch[1]) : 550;
+      const power = parseFloat(prev.panelPowerW) || (prev.panelBrandModel.match(/(\d+)\s*W/i) ? parseInt(prev.panelBrandModel.match(/(\d+)\s*W/i)![1]) : 540);
       
       let newSz = prev.systemSize;
       let newQty = prev.panelQuantity;
 
       const currentSzNum = parseFloat(prev.systemSize);
-      const currentQtyNum = parseInt(prev.panelQuantity);
+      const currentQtyNum = parseInt(prev.panelQuantity) || 1;
 
       // Check for mutual consistency
       const expectedSz = (currentQtyNum * power) / 1000;
@@ -537,21 +541,47 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       // 4. Financial Indicators
       let pb = prev.payback;
       let r = prev.roi;
-      const consumption = parseFloat(prev.energyConsumption);
+      const consumption = parseFloat(prev.energyConsumption) || 0;
 
       if (!isNaN(valNum) && !isNaN(szNum) && valNum > 0 && szNum > 0) {
         const genNum = parseFloat(monGen);
         
-        // ECONOMY CALCULATION
-        // NEW FORMULA: Economia mensal = Geração × Tarifa
-        const monthlySavings = genNum * energyTariff;
+        // ECONOMY CALCULATION 
+        const taxaKwh = prev.tensaoFornecimento === 'Monofásico' ? 30 : prev.tensaoFornecimento === 'Bifásico' ? 50 : 100;
+        const taxaMinimaVal = taxaKwh * energyTariff;
+        
+        const generatedEconomy = Math.min(genNum, consumption) * energyTariff;
+        const currentBill = consumption * energyTariff;
+        const remainingBill = Math.max(taxaMinimaVal, currentBill - generatedEconomy);
+        const monthlySavings = currentBill - remainingBill; // Real Monthly Economy
         const annualSavings = monthlySavings * 12;
         
-        // Payback = Total Investment / Annual Savings
+        // Payback = Total Investment / Real Annual Savings
         pb = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : '0';
         
-        // ROI over 25 years (simplified)
-        const totalSavings25 = annualSavings * 25; 
+        // Total Savings 25 Years (Iterative with params)
+        let totalSavings25 = 0;
+        const degradacaoLinearAnual = 0.005; // 0.5%
+        const reajusteTarifarioAnual = 0.05; // 5%
+        const inflacaoEstimadaBr = 0.04;
+        let currentTariff = energyTariff;
+        let currentSavings = 0;
+        for (let year = 1; year <= 25; year++) {
+          const genYear = genNum * 12 * Math.pow(1 - degradacaoLinearAnual, year - 1);
+          const valYear = Math.min(genYear, consumption * 12) * currentTariff;
+          let netYearSavings = valYear - (taxaKwh * 12 * currentTariff);
+          if (netYearSavings < 0) netYearSavings = 0;
+          
+          // Discount Inverter Replacement on year 13 (~15% of investment current value)
+          if (year === 13) {
+            netYearSavings -= (valNum * 0.15) * Math.pow(1 + inflacaoEstimadaBr, year-1);
+          }
+          
+          totalSavings25 += netYearSavings;
+          currentTariff *= (1 + reajusteTarifarioAnual);
+        }
+        
+        // ROI over 25 years
         r = `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%`;
         
         const totalSavingsFinal = parseFloat(totalSavings25.toFixed(2));
@@ -640,6 +670,20 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       }
       if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Módulos são obrigatórios';
       if (!formData.inverterBrandModel?.trim()) errors.inverterBrandModel = 'Inversor é obrigatório';
+      
+      if (!formData.inverterModel?.trim()) errors.inverterModel = 'Modelo do Inversor é obrigatório';
+      if (!formData.inverterPowerCA_kW?.trim()) errors.inverterPowerCA_kW = 'Potência CA do Inversor é obrigatória';
+      if (!formData.inverterPowerCCMax_kW?.trim()) errors.inverterPowerCCMax_kW = 'Potência CC Máx é obrigatória';
+      if (!formData.inverterInmetro?.trim()) errors.inverterInmetro = 'Número INMETRO é obrigatório';
+
+      const cc = parseFloat(formData.systemSize);
+      const ca = parseFloat(formData.inverterPowerCA_kW);
+      if (!isNaN(cc) && !isNaN(ca) && ca > 0) {
+        const ratio = cc / ca;
+        if (ratio < 1.0 || ratio > 1.3) {
+          errors.inverterPowerCA_kW = `Relação CC/CA (${ratio.toFixed(2)}) fora do escopo normativo (1.0 - 1.3). Redimensione inversores ou painéis.`;
+        }
+      }
     } else if (step === 'financing') {
       if (formData.paymentMethod === 'financing') {
         if (!formData.financingBank?.trim()) errors.financingBank = 'Banco é obrigatório para financiamento';
@@ -945,28 +989,66 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   };
 
   const calculateSavings = () => {
-    const tariff = 0.89; 
+    const tariff = energyTariff; 
     const szNum = parseFloat(formData.systemSize) || 0;
-    const monthlyGen = szNum * 130;
-    const monthlyNetSaving = monthlyGen * tariff;
+    const genNum = szNum * hsp * 30 * pr;
+    const consumption = parseFloat(formData.energyConsumption) || 0;
+
+    const taxaKwh = formData.tensaoFornecimento === 'Monofásico' ? 30 : formData.tensaoFornecimento === 'Bifásico' ? 50 : 100;
+    const taxaMinimaVal = taxaKwh * tariff;
+    
+    const generatedEconomy = Math.min(genNum, consumption) * tariff;
+    const currentBill = consumption * tariff;
+    const remainingBill = Math.max(taxaMinimaVal, currentBill - generatedEconomy);
+    
+    const monthlyNetSaving = currentBill - remainingBill; 
     const annualSaving = monthlyNetSaving * 12;
-    const totalSavings25Years = annualSaving * 25;
+
+    const equip = parseFloat(formData.equipmentCost || '0');
+    const inst = parseFloat(formData.installationCost || '0');
+    const proj = parseFloat(formData.projectCost || '0');
+    const lic = parseFloat(formData.licensingCost || '0');
+    const log = parseFloat(formData.logisticCost || '0');
+    const add = parseFloat(formData.additionalCost || '0');
+    const discountVal = parseFloat(formData.discount || '0');
+    const marginP = parseFloat(formData.margin || '0');
+    const costs = equip + inst + proj + lic + log + add;
+    const multiplier = marginP >= 99 ? 100 : 1 / (1 - (marginP / 100));
+    const valWithMargin = costs * multiplier;
+    const valNum = Math.max(0, valWithMargin - discountVal);
+
+    let totalSavings25 = 0;
+    const degradacaoLinearAnual = 0.005; // 0.5%
+    const reajusteTarifarioAnual = 0.05; // 5%
+    const inflacaoEstimadaBr = 0.04;
+    let currentTariff = tariff;
+    
+    for (let year = 1; year <= 25; year++) {
+      const genYear = genNum * 12 * Math.pow(1 - degradacaoLinearAnual, year - 1);
+      const valYear = Math.min(genYear, consumption * 12) * currentTariff;
+      let netYearSavings = valYear - (taxaKwh * 12 * currentTariff);
+      if (netYearSavings < 0) netYearSavings = 0;
+      
+      // Discount Inverter Replacement on year 13 (~15% of total investment)
+      if (year === 13) {
+        netYearSavings -= (valNum * 0.15) * Math.pow(1 + inflacaoEstimadaBr, year-1);
+      }
+      
+      totalSavings25 += netYearSavings;
+      currentTariff *= (1 + reajusteTarifarioAnual);
+    }
     
     return {
-      monthly: monthlyNetSaving,
-      annual: annualSaving,
-      total25: totalSavings25Years
+      monthly: Math.max(0, monthlyNetSaving),
+      annual: Math.max(0, annualSaving),
+      total25: Math.max(0, totalSavings25)
     };
   };
 
   const calculateOversizing = () => {
-    // Extract power from brand model strings or quantity
-    const panelPowerMatch = formData.panelBrandModel.match(/(\d{3})\s*W/i);
-    const inverterPowerMatch = formData.inverterBrandModel.match(/(\d+(\.\d+)?)\s*(kW|K)/i);
-    
-    const panelPower = panelPowerMatch ? parseInt(panelPowerMatch[1]) : 540;
+    const panelPower = parseFloat(formData.panelPowerW) || 540;
     const panelQty = parseInt(formData.panelQuantity) || 0;
-    const inverterPower = inverterPowerMatch ? parseFloat(inverterPowerMatch[1]) : 5;
+    const inverterPower = parseFloat(formData.inverterPowerCA_kW) || 5;
     
     const totalKwp = (panelPower * panelQty) / 1000;
     const oversizing = inverterPower > 0 ? totalKwp / inverterPower : 0;
@@ -2057,7 +2139,18 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Marca/Modelo do Inversor</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência do Módulo (W) *</label>
+                    <input 
+                      type="number" 
+                      value={formData.panelPowerW || ''}
+                      onChange={(e) => setFormData({ ...formData, panelPowerW: e.target.value })}
+                      placeholder="Ex: 550"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Marca Comercial do Inversor</label>
                     <input 
                       type="text" 
                       value={formData.inverterBrandModel || ''}
@@ -2065,6 +2158,66 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       placeholder="Inversor Deye"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Modelo Exato Inversor *</label>
+                    <input 
+                      type="text" 
+                      value={formData.inverterModel || ''}
+                      onChange={(e) => setFormData({ ...formData, inverterModel: e.target.value })}
+                      placeholder="Ex: MIN 8000TL-X"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.inverterModel ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
+                    />
+                    {validationErrors.inverterModel && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.inverterModel}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CA Inversor (kW) *</label>
+                    <input 
+                      type="number" 
+                      value={formData.inverterPowerCA_kW || ''}
+                      onChange={(e) => setFormData({ ...formData, inverterPowerCA_kW: e.target.value })}
+                      placeholder="Ex: 8.0"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.inverterPowerCA_kW ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
+                    />
+                    {validationErrors.inverterPowerCA_kW && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.inverterPowerCA_kW}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CC Máx Inversor (kW) *</label>
+                    <input 
+                      type="number" 
+                      value={formData.inverterPowerCCMax_kW || ''}
+                      onChange={(e) => setFormData({ ...formData, inverterPowerCCMax_kW: e.target.value })}
+                      placeholder="Ex: 12.0"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.inverterPowerCCMax_kW ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
+                    />
+                    {validationErrors.inverterPowerCCMax_kW && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.inverterPowerCCMax_kW}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Nº Homologação INMETRO *</label>
+                    <input 
+                      type="text" 
+                      value={formData.inverterInmetro || ''}
+                      onChange={(e) => setFormData({ ...formData, inverterInmetro: e.target.value })}
+                      placeholder="Ex: 001234/2021"
+                      className={cn(
+                        "w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border rounded-2xl outline-none focus:ring-2 focus:ring-[#00A86B] transition-all",
+                        validationErrors.inverterInmetro ? "border-rose-500" : "border-slate-200 dark:border-slate-800"
+                      )}
+                    />
+                    {validationErrors.inverterInmetro && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.inverterInmetro}</p>}
                   </div>
 
                   <div className="space-y-2">

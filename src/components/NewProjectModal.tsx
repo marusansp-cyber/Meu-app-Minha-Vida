@@ -271,6 +271,23 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             ))}
           </div>
 
+          {installation?.auditLogs && installation.auditLogs.length > 0 && (
+            <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+              <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">Histórico de Alterações</h4>
+              <div className="space-y-3">
+                {installation.auditLogs.map(log => (
+                  <div key={log.id} className="flex gap-3 text-xs bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#fdb612] mt-1.5 shrink-0" />
+                    <div>
+                      <p className="font-bold text-slate-700 dark:text-slate-300">{log.action}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Por: {log.user} em {new Date(log.timestamp).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pt-4 flex gap-3">
             <button
               type="button"
@@ -283,7 +300,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
               type="submit"
               className="flex-1 py-3 rounded-xl bg-[#fdb612] text-[#231d0f] font-bold hover:shadow-lg hover:shadow-[#fdb612]/20 transition-all"
             >
-              Iniciar Instalação
+              {installation ? 'Salvar Alterações' : 'Iniciar Instalação'}
             </button>
           </div>
         </form>

@@ -776,9 +776,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#fdb612]/10">
-                {sortedInstallations.slice(0, 5).map((project) => (
+                {sortedInstallations.slice(0, 5).map((project) => {
+                  const inactiveDays = project.lastUpdated 
+                    ? Math.floor((new Date().getTime() - new Date(project.lastUpdated).getTime()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                  const isStalled = project.progress < 100 && project.stage === 'Em andamento' && inactiveDays > 20;
+
+                  return (
                   <tr key={project.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4 font-medium">{project.name}</td>
+                    <td className="px-6 py-4 font-medium flex items-center gap-2">
+                      {project.name}
+                      {isStalled && (
+                        <span className="flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-500 border border-rose-500/20" title={`Sem atualizações há ${inactiveDays} dias`}>
+                          <AlertCircle className="w-3 h-3" /> Parado
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-slate-500 font-mono text-xs">{project.projectId}</td>
                     <td className="px-6 py-4">
                       <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase bg-[#fdb612]/20 text-[#fdb612]">
@@ -797,7 +810,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

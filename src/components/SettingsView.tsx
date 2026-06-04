@@ -257,27 +257,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
   };
 
   const handleSaveSMTP = async () => {
-    try {
-      showToast('Salvando configurações SMTP...');
-      await setDocument('settings', 'smtp', {
-        ...smtpData,
-        updatedAt: new Date().toISOString()
-      });
-      showToast('Configurações SMTP salvas no Firestore!');
-      
-      // Attempt to test after saving
-      handleSendTestEmail();
-    } catch (error) {
-      console.error('Error saving SMTP settings:', error);
-      showToast('Erro ao salvar no Firestore.');
-    }
-  };
-
-  const handleSendTestEmail = async () => {
-    await handleSendTestEmailWithAssistant();
-  };
-
-  const handleSendTestEmailWithAssistant = async () => {
     // 1. Initial checks
     if (!smtpData.host || !smtpData.user || !smtpData.pass) {
       setSmtpDiagnosticStep('failed');
@@ -322,9 +301,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     }
 
     setSmtpDiagnosticStep('testing_server');
-    setSmtpDiagnosticsMessage(`Iniciando conexão de handshake SMTP e enviando e-mail de teste de autenticidade para ${smtpData.user}...`);
+    setSmtpDiagnosticsMessage(`Testando conexão SMTP para ${smtpData.user} antes de salvar...`);
 
     try {
+      showToast('Validando conexão SMTP com o servidor...');
       const res = await fetch('/api/smtp/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -334,14 +314,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       const data = await res.json();
       if (data.success) {
         setSmtpDiagnosticStep('success');
-        setSmtpDiagnosticsMessage('A conexão SMTP foi estabelecida com absoluto sucesso! O canal de e-mail está autenticado e ativo.');
-        setSmtpStatus({
-          configured: true,
-          user: sanitizedSmtpData.user,
-          host: sanitizedSmtpData.host,
-          passLength: sanitizedSmtpData.pass.length
-        });
-        showToast('✅ SMTP validado com sucesso!');
+        setSmtpDiagnosticsMessage('A conexão SMTP foi estabelecida com absoluto sucesso! Salvando configurações de forma segura...');
+        
+        try {
+          // Save to Firestore ONLY if successful
+          await setDocument('settings', 'smtp', {
+            ...sanitizedSmtpData,
+            updatedAt: new Date().toISOString()
+          });
+          
+          setSmtpStatus({
+            configured: true,
+            user: sanitizedSmtpData.user,
+            host: sanitizedSmtpData.host,
+            passLength: sanitizedSmtpData.pass.length
+          });
+          
+          showToast('✅ Configurações SMTP validadas e salvas com sucesso!');
+        } catch (error) {
+          console.error('Error saving SMTP settings:', error);
+          showToast('Erro ao salvar no Firestore.');
+        }
       } else {
         setSmtpDiagnosticStep('failed');
         const errMessage = data.message || '';
@@ -368,6 +361,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       setSmtpDiagnosticsMessage('Ocorreu um erro de rede ou timeout ao conectar com o servidor SMTP. Verifique o host do seu e-mail ou tente utilizar as portas corretas ( SSL: 465, TLS: 587 ).');
       showToast('❌ Falha na conexão de rede.');
     }
+  };
+
+  const handleSendTestEmail = async () => {
+    await handleSaveSMTP();
   };
 
   const handleRoleChange = (newRole: string) => {
@@ -1325,7 +1322,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                           Salvar Configurações
                         </button>
                         <button 
-                          onClick={handleSendTestEmailWithAssistant}
+                          onClick={handleSaveSMTP}
                           disabled={smtpDiagnosticStep === 'host_check' || smtpDiagnosticStep === 'credentials_format' || smtpDiagnosticStep === 'testing_server'}
                           className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                         >

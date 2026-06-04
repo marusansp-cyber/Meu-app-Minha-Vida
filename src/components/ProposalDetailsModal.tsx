@@ -1199,11 +1199,14 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                       const sysSizeNum = parseFloat((proposal.systemSize || "0").replace(/[^0-9.]/g, '')) || 0;
                       const monthlyGenNum = parseFloat(proposal.monthlyGeneration || (sysSizeNum * 108.34).toString()) || 550;
                       const annualGen = monthlyGenNum * 12;
+                      const consNum = parseFloat(proposal.energyConsumption || '500');
+                      const coverage = consNum > 0 ? ((monthlyGenNum / consNum) * 100).toFixed(1) : "0.0";
+                      
                       return [
                         { label: "Tarifa de referência", value: "R$ 0,89/kWh (Residencial)" },
                         { label: "Consumo médio", value: `${proposal.energyConsumption || '500'} kWh/mês` },
                         { label: "Taxa mínima estimada", value: "R$ 100,00/mês" },
-                        { label: "Dimensionamento", value: "100% do consumo histórico" },
+                        { label: "Cobertura Estimada", value: `${coverage}%` },
                         { label: "Validade dos créditos", value: "60 meses (Lei 14.300/2022)" },
                         { label: "Potência instalada", value: `${sysSizeNum.toFixed(2)} kWp` },
                         { label: "Geração anual estimada", value: `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(annualGen)} kWh/ano` }

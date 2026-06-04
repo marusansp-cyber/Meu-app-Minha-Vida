@@ -385,7 +385,23 @@ export default function App() {
   };
 
   const handleInstallationAdd = async (installation: any) => {
-    await createDocument('installations', installation);
+    const existing = installation.id ? installations.find(i => i.id === installation.id) : null;
+    const isEdit = !!existing;
+
+    const auditLog = {
+      id: Math.random().toString(36).substr(2, 9),
+      user: user?.name || 'Sistema',
+      action: isEdit ? 'Edição do Projeto de Instalação' : 'Criação do Projeto de Instalação',
+      timestamp: new Date().toISOString()
+    };
+    
+    installation.auditLogs = [...(existing?.auditLogs || []), auditLog];
+
+    if (isEdit) {
+      await updateDocument('installations', installation.id, installation);
+    } else {
+      await createDocument('installations', installation);
+    }
   };
 
   const addLead = async (lead: Lead) => {
@@ -396,6 +412,7 @@ export default function App() {
   };
 
   const handleConvertToClient = async (lead: Lead) => {
+
     // 1. Create client data from lead
     const clientData: Partial<Client> = {
       name: lead.name,
@@ -473,6 +490,16 @@ export default function App() {
   };
 
   const updateInstallation = async (id: string, data: any) => {
+    const existing = installations.find(i => i.id === id);
+    if (existing) {
+      const auditLog = {
+        id: Math.random().toString(36).substr(2, 9),
+        user: user?.name || 'Sistema',
+        action: 'Atualização Rápida: Instalação (Status/Etapa/Tarefa)',
+        timestamp: new Date().toISOString()
+      };
+      data.auditLogs = [...(existing.auditLogs || []), auditLog];
+    }
     await updateDocument('installations', id, data);
   };
 
