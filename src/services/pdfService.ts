@@ -81,7 +81,7 @@ export const generateKitsReportPDF = async (kits: Kit[]): Promise<string> => {
   return doc.output('datauristring');
 };
 
-export const generateInstallationReportPDF = async (installation: Installation): Promise<string> => {
+export const generateInstallationReportPDF = async (installation: Installation, signatureDataUrl?: string): Promise<string> => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -114,23 +114,82 @@ export const generateInstallationReportPDF = async (installation: Installation):
 
   // Info Box
   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-  doc.rect(20, 130, pageWidth - 40, 50, 'F');
+  doc.rect(20, 125, pageWidth - 40, 55, 'F');
   
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text("Técnico Responsável:", 30, 145);
+  doc.text("Técnico Responsável:", 30, 140);
   doc.setFont("helvetica", "normal");
-  doc.text(installation.technician?.name || "Técnico Responsável", 80, 145);
+  doc.text(installation.technician?.name || "Técnico Responsável", 80, 140);
 
   doc.setFont("helvetica", "bold");
-  doc.text("Data de Início:", 30, 155);
+  doc.text("Data de Início:", 30, 150);
   doc.setFont("helvetica", "normal");
-  doc.text(installation.startDate || "N/A", 80, 155);
+  doc.text(installation.startDate ? new Date(installation.startDate).toLocaleDateString('pt-BR') : "N/A", 80, 150);
 
   doc.setFont("helvetica", "bold");
-  doc.text("Progresso Atual:", 30, 165);
+  doc.text("Progresso Atual:", 30, 160);
   doc.setFont("helvetica", "normal");
-  doc.text(`${installation.progress}%`, 80, 165);
+  doc.text(`${installation.progress}%`, 80, 160);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Potência do Sistema:", 30, 170);
+  doc.setFont("helvetica", "normal");
+  doc.text(installation.systemPower ? `${installation.systemPower} kWp` : "N/A", 80, 170);
+
+  // --- Equipamentos ---
+  let currentY = 195;
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+  doc.text("RESUMO DE EQUIPAMENTOS", 20, currentY);
+
+  autoTable(doc, {
+    startY: currentY + 5,
+    body: [
+      ["Inversor Instalado", installation.inverterInfo || "Não especificado"],
+      ["Módulos Solares (Painéis)", installation.panelInfo || "Não especificado"]
+    ],
+    theme: 'plain',
+    styles: { fontSize: 10, cellPadding: 3 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 70 } },
+    margin: { left: 20 }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 15;
+
+  // --- Cronograma de Etapas ---
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("CRONOGRAMA DE ETAPAS", 20, currentY);
+
+  const stagesData = (installation.stages || []).map((s, i) => [
+    `Etapa ${i+1}`,
+    s.name,
+    s.status === 'completed' ? 'CONCLUÍDO' : s.status === 'in-progress' ? 'EM CURSO' : 'PENDENTE',
+    s.assignedTechnician || installation.technician?.name || '-',
+    s.progress ? `${s.progress}%` : '-'
+  ]);
+
+  if (stagesData.length > 0) {
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Etapa', 'Descrição da Etapa', 'Status', 'Técnico Atribuído', 'Progresso']],
+      body: stagesData,
+      headStyles: {
+        fillColor: secondaryColor as any,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      styles: { fontSize: 9, cellPadding: 3 },
+      alternateRowStyles: { fillColor: lightGray as any },
+      margin: { left: 20, right: 20 }
+    });
+  } else {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Nenhuma etapa cadastrada no cronograma.", 20, currentY + 10);
+  }
 
   // Footer
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -138,6 +197,7 @@ export const generateInstallationReportPDF = async (installation: Installation):
   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
   doc.setFontSize(9);
   centerText(`Gerado em ${new Date().toLocaleDateString('pt-BR')} | JV MENDES JUNIOR ENGENHARIA`, pageHeight - 6);
+
 
   // --- Stages ---
   if (installation.stages && installation.stages.length > 0) {
@@ -201,6 +261,42 @@ export const generateInstallationReportPDF = async (installation: Installation):
         });
       }
     });
+  }
+
+  if (signatureDataUrl) {
+    doc.addPage();
+    doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Aceite e Assinatura", 20, 25);
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const declaration = `Eu atesto que o relatório técnico de instalação para "${installation.name}" foi revisado e representa os serviços prestados até o presente momento.`;
+    const splitDeclaration = doc.splitTextToSize(declaration, pageWidth - 40);
+    doc.text(splitDeclaration, 20, 70);
+
+    doc.addImage(signatureDataUrl, 'PNG', 20, 100, 100, 50);
+    
+    doc.setLineWidth(0.5);
+    doc.line(20, 150, 120, 150);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`Assinatura do Cliente`, 20, 160);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${installation.name}`, 20, 165);
+    doc.text(`${new Date().toLocaleDateString('pt-BR')}`, 20, 170);
+
+    // Footer
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, pageHeight - 10, pageWidth, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')} | JV MENDES JUNIOR ENGENHARIA`, (pageWidth - doc.getTextWidth(`Gerado em ${new Date().toLocaleDateString('pt-BR')} | JV MENDES JUNIOR ENGENHARIA`)) / 2, pageHeight - 4);
   }
 
   return doc.output('datauristring');

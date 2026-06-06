@@ -19,6 +19,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
     startDate: installation?.startDate || '',
     estimatedDeadline: installation?.estimatedDeadline || '',
     projectDeadline: (installation?.projectDeadline || '') as string | null,
+    systemPower: installation?.systemPower || '',
+    inverterInfo: installation?.inverterInfo || '',
+    panelInfo: installation?.panelInfo || '',
     stages: installation?.stages || [
       { name: 'Engenharia', status: 'in-progress' as const, progress: 0, assignedTechnician: '' },
       { name: 'Materiais', status: 'pending' as const, progress: 0, assignedTechnician: '' },
@@ -38,6 +41,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
         startDate: installation.startDate || '',
         estimatedDeadline: installation.estimatedDeadline || '',
         projectDeadline: installation.projectDeadline || '',
+        systemPower: installation.systemPower || '',
+        inverterInfo: installation.inverterInfo || '',
+        panelInfo: installation.panelInfo || '',
         stages: installation.stages || []
       });
     }
@@ -66,6 +72,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       estimatedDeadline: formData.estimatedDeadline,
       projectDeadline: formData.projectDeadline,
       address: formData.address,
+      systemPower: formData.systemPower,
+      inverterInfo: formData.inverterInfo,
+      panelInfo: formData.panelInfo,
       stages: formData.stages,
     };
 
@@ -80,6 +89,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       startDate: '',
       estimatedDeadline: '',
       projectDeadline: '',
+      systemPower: '',
+      inverterInfo: '',
+      panelInfo: '',
       stages: [
         { name: 'Engenharia', status: 'in-progress', progress: 0, assignedTechnician: '' },
         { name: 'Materiais', status: 'pending', progress: 0, assignedTechnician: '' },
@@ -216,7 +228,48 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
             />
           </div>
 
-          <div className="space-y-4 pt-4">
+          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">Resumo Técnico (Para Relatórios)</h4>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <Zap className="w-4 h-4 text-[#fdb612]" />
+                Potência do Sistema (kWp)
+              </label>
+              <input
+                type="text"
+                value={formData.systemPower || ''}
+                onChange={(e) => setFormData({ ...formData, systemPower: e.target.value })}
+                placeholder="Ex: 7.5"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Inversor Instalado</label>
+                <input
+                  type="text"
+                  value={formData.inverterInfo || ''}
+                  onChange={(e) => setFormData({ ...formData, inverterInfo: e.target.value })}
+                  placeholder="Ex: Growatt MIN 8000"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Módulos Solares</label>
+                <input
+                  type="text"
+                  value={formData.panelInfo || ''}
+                  onChange={(e) => setFormData({ ...formData, panelInfo: e.target.value })}
+                  placeholder="Ex: 14x Canadian 550W"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
             <h4 className="text-sm font-black uppercase tracking-widest text-slate-400">Configuração de Etapas</h4>
             {formData.stages.map((stage, idx) => (
               <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
@@ -236,21 +289,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                     <option value="completed">Concluído</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Técnico</label>
-                    <input
-                      type="text"
-                      value={stage.assignedTechnician || ''}
-                      onChange={(e) => {
-                        const newStages = [...formData.stages];
-                        newStages[idx].assignedTechnician = e.target.value;
-                        setFormData({ ...formData, stages: newStages });
-                      }}
-                      placeholder="Nome do técnico"
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-3 mb-2">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Progresso (%)</label>
                     <input
@@ -266,6 +305,33 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Prazo da Etapa</label>
+                    <input
+                      type="date"
+                      value={stage.deadline || ''}
+                      onChange={(e) => {
+                        const newStages = [...formData.stages];
+                        newStages[idx].deadline = e.target.value;
+                        setFormData({ ...formData, stages: newStages });
+                      }}
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Técnico/Responsável</label>
+                  <input
+                    type="text"
+                    value={stage.assignedTechnician || ''}
+                    onChange={(e) => {
+                      const newStages = [...formData.stages];
+                      newStages[idx].assignedTechnician = e.target.value;
+                      setFormData({ ...formData, stages: newStages });
+                    }}
+                    placeholder="Nome do técnico"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs"
+                  />
                 </div>
               </div>
             ))}

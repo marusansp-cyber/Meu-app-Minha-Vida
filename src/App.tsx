@@ -21,7 +21,7 @@ import { UsersView } from './components/UsersView';
 import { GalleryView } from './components/GalleryView';
 import SolarLandingPage from './components/SolarLandingPage';
 import { LoginView } from './components/LoginView';
-import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client } from './types';
+import { View, Project, Lead, User, Proposal, Partner, Collaborator, Kit, Installation, Client, AppNotification } from './types';
 import { Sun, Moon, Menu, X, Bell, ShieldAlert, LogOut, Loader2, Search } from 'lucide-react';
 import { cn, parseDate } from './lib/utils';
 import { NotificationCenter } from './components/NotificationCenter';
@@ -30,12 +30,12 @@ import { ChatBot } from './components/ChatBot';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { syncCollection, createDocument, updateDocument, deleteDocument, setDocument, getDocument, setFirestoreErrorListener } from './firestoreUtils';
-
-import { ToastProvider } from './context/ToastContext';
-
+import { usePushNotifications } from './hooks/usePushNotifications';
+import { useDeadlinesReminder } from './hooks/useDeadlinesReminder';
 import { TwoFactorModal } from './components/TwoFactorModal';
 
 export default function App() {
+  usePushNotifications();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [is2FAVerified, setIs2FAVerified] = useState(false);
   const [pendingView, setPendingView] = useState<View | null>(null);
@@ -89,6 +89,9 @@ export default function App() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  useDeadlinesReminder(installations);
 
   useEffect(() => {
     const ensureDemoData = async () => {
@@ -354,6 +357,13 @@ export default function App() {
     const unsubscribeCollaborators = syncCollection<Collaborator>('collaborators', setCollaborators, 'createdAt');
     const unsubscribeKits = syncCollection<Kit>('kits', setKits, 'createdAt');
     const unsubscribeClients = syncCollection<Client>('clients', setClients, 'createdAt');
+    let unsubscribeNotifications = () => {};
+    
+    import('./services/notificationService').then(({ syncNotifications }) => {
+      unsubscribeNotifications = syncNotifications(user.id, (notifs) => {
+        setNotifications(notifs as any[]);
+      });
+    });
     
     return () => {
       unsubscribeLeads();
@@ -363,6 +373,7 @@ export default function App() {
       unsubscribeCollaborators();
       unsubscribeKits();
       unsubscribeClients();
+      unsubscribeNotifications();
     };
   }, [isAuthenticated, user?.id, user?.role, user?.email]);
 
@@ -552,6 +563,26 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
+  const handleMarkNotificationAsRead = async (id: string) => {
+    if (id.startsWith('static-') || id.startsWith('expiry-')) return;
+    const notif = notifications.find(n => n.id === id);
+    if (notif && user && !(notif as any).read) {
+      await updateDocument('notifications', id, {
+        read: true
+      });
+    }
+  };
+
+  const handleMarkAllNotificationsAsRead = async () => {
+    if (!user) return;
+    const unread = notifications.filter(n => !(n as any).read && !n.id.startsWith('static-') && !n.id.startsWith('expiry-'));
+    for (const notif of unread) {
+      await updateDocument('notifications', notif.id, {
+        read: true
+      });
+    }
+  };
+
   const handle2FAVerify = (code: string) => {
     setIs2FAVerified(true);
     if (pendingView) {
@@ -670,7 +701,6 @@ export default function App() {
   }
 
   return (
-    <ToastProvider>
       <div className="flex min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] text-slate-900 dark:text-slate-100">
         {/* Mobile Search Modal */}
         {isMobileSearchOpen && (
@@ -744,7 +774,13 @@ export default function App() {
               <span className="font-bold text-sm">JV Mendes</span>
             </div>
             <div className="flex items-center gap-2">
-              <NotificationCenter proposals={proposals} />
+              <NotificationCenter 
+                proposals={proposals} 
+                notifications={notifications}
+                user={user}
+                onMarkAsRead={handleMarkNotificationAsRead}
+                onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+              />
               <button 
                 onClick={() => setIsMobileSearchOpen(true)}
                 className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors"
@@ -782,7 +818,13 @@ export default function App() {
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
-              <NotificationCenter proposals={proposals} />
+              <NotificationCenter 
+                proposals={proposals} 
+                notifications={notifications}
+                user={user}
+                onMarkAsRead={handleMarkNotificationAsRead}
+                onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+              />
               <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
               <div className="flex items-center gap-3">
                 <div className="text-right">
@@ -1032,6 +1074,5 @@ export default function App() {
           </div>
         </footer>
       </div>
-    </ToastProvider>
   );
 }

@@ -14,30 +14,22 @@ interface Notification {
 
 interface NotificationCenterProps {
   proposals?: Proposal[];
+  notifications?: import('../types').AppNotification[];
+  user?: import('../types').User | null;
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
-export const NotificationCenter: React.FC<NotificationCenterProps> = ({ proposals = [] }) => {
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
+  proposals = [],
+  notifications = [],
+  user,
+  onMarkAsRead,
+  onMarkAllAsRead
+}) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [readNotifications, setReadNotifications] = useState<string[]>([]);
+  const [localRead, setLocalRead] = useState<string[]>([]);
 
-  const staticNotifications: Notification[] = [
-    {
-      id: 'static-1',
-      title: 'Nova Proposta Aceita',
-      message: 'O cliente João Silva aceitou a proposta para o Projeto Alpha.',
-      type: 'success',
-      time: 'há 5 min',
-      read: false,
-    },
-    {
-      id: 'static-2',
-      title: 'Vistoria Agendada',
-      message: 'Vistoria técnica agendada para Residencial Vale Verde amanhã às 14h.',
-      type: 'info',
-      time: 'há 1 hora',
-      read: false,
-    }
-  ];
 
   const dynamicNotifications = useMemo(() => {
     const alerts: Notification[] = [];
@@ -65,23 +57,39 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ proposal
   }, [proposals]);
 
   const allNotifications = useMemo(() => {
-    const combined = [...dynamicNotifications, ...staticNotifications];
-    return combined.map(n => ({
-      ...n,
-      read: readNotifications.includes(n.id)
-    }));
-  }, [dynamicNotifications, staticNotifications, readNotifications]);
+    const dbNotifs = notifications.map(n => {
+      const isRead = (n as any).read === true;
+      return {
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type || 'info', // Map FCM types to notification types
+        time: n.createdAt ? formatDate(new Date(n.createdAt)) : '',
+        read: isRead || localRead.includes(n.id)
+      } as Notification;
+    });
+    const combined = [...dynamicNotifications, ...dbNotifs];
+    // Sort by most recent
+    combined.sort((a, b) => b.id.localeCompare(a.id));
+    return combined;
+  }, [dynamicNotifications, notifications, user, localRead]);
 
   const unreadCount = allNotifications.filter(n => !n.read).length;
 
   const markAsRead = (id: string) => {
-    if (!readNotifications.includes(id)) {
-      setReadNotifications(prev => [...prev, id]);
+    if (!localRead.includes(id)) {
+      setLocalRead(prev => [...prev, id]);
+    }
+    if (onMarkAsRead) {
+      onMarkAsRead(id);
     }
   };
 
   const markAllAsRead = () => {
-    setReadNotifications(allNotifications.map(n => n.id));
+    setLocalRead(prev => [...prev, ...allNotifications.filter(n => !n.read).map(n => n.id)]);
+    if (onMarkAllAsRead) {
+      onMarkAllAsRead();
+    }
   };
 
   return (

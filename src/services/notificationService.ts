@@ -1,7 +1,7 @@
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 
-export type NotificationType = 'lead_assigned' | 'proposal_status' | 'installation_update' | 'system';
+export type NotificationType = 'lead_assigned' | 'proposal_status' | 'installation_update' | 'system' | 'deadline_reminder';
 
 export interface Notification {
   id?: string;

@@ -36,6 +36,16 @@ export interface Interaction {
   timestamp?: number;
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  userId?: string; // Optional: If empty, it's for everyone
+  createdAt: string;
+  readBy: string[]; // List of user IDs who have read this notification
+}
+
 export interface ClientAuditLog {
   id: string;
   userId: string;
@@ -153,6 +163,7 @@ export interface InstallationStage {
   photos?: string[];
   assignedTechnician?: string;
   progress?: number;
+  deadline?: string;
 }
 
 export interface History {
@@ -180,7 +191,7 @@ export interface InstallationAuditLog {
 export interface Installation {
   id: string;
   name: string;
-  projectId: string;
+  projectId: string; // Used to link to Proposal
   stage: string;
   technician: {
     name: string;
@@ -195,6 +206,9 @@ export interface Installation {
   address?: string;
   representativeId?: string;
   stages?: InstallationStage[];
+  systemPower?: string;
+  inverterInfo?: string;
+  panelInfo?: string;
   tasks?: {
     id: string;
     title: string;

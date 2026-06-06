@@ -37,6 +37,7 @@ import { cn, formatDate, parseDate } from '../lib/utils';
 import { Installation, InstallationStage } from '../types';
 import { MapView } from './MapView';
 import { generateInstallationReportPDF } from '../services/pdfService';
+import { SignatureModal } from './SignatureModal';
 
 interface StageReportModalProps {
   isOpen: boolean;
@@ -193,6 +194,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   const [activeTab, setActiveTab] = React.useState('all');
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const [signatureModalUrl, setSignatureModalUrl] = React.useState<{ installation: Installation | null, isOpen: boolean }>({ installation: null, isOpen: false });
   const [currentPage, setCurrentPage] = React.useState(1);
   const [projectDeadlineFilter, setProjectDeadlineFilter] = React.useState<string | null>(null);
   const [technicianFilter, setTechnicianFilter] = React.useState<string>('all');
@@ -346,10 +348,18 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     }
   };
 
-  const generateFullReport = async (installation: Installation) => {
+  const requestFullReport = (installation: Installation) => {
+    setSignatureModalUrl({ installation, isOpen: true });
+  };
+
+  const handleSignatureConfirm = async (signatureDataUrl: string) => {
+    const installation = signatureModalUrl.installation;
+    if (!installation) return;
+    setSignatureModalUrl({ installation: null, isOpen: false });
+
     try {
       showToast('Gerando relatório técnico completo...');
-      const pdfDataUri = await generateInstallationReportPDF(installation);
+      const pdfDataUri = await generateInstallationReportPDF(installation, signatureDataUrl);
       const link = document.createElement('a');
       link.href = pdfDataUri;
       link.download = `Relatorio_Instalacao_${installation.name.replace(/\s+/g, '_')}.pdf`;
@@ -871,6 +881,17 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                                         />
                                       </div>
                                     </div>
+                                    {stage.deadline && (
+                                      <div className="mb-2 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Prazo</span>
+                                        <span className={cn(
+                                          "text-[10px] font-bold",
+                                          new Date(stage.deadline) < new Date() && stage.status !== 'completed' ? "text-rose-500" : "text-slate-700 dark:text-slate-300"
+                                        )}>
+                                          {formatDate(new Date(stage.deadline))}
+                                        </span>
+                                      </div>
+                                    )}
                                     <div className="mb-3 flex items-center gap-2" title={stage.assignedTechnician ? `Técnico: ${stage.assignedTechnician}` : 'Não atribuído'}>
                                       <div className="size-5 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
                                         {stage.assignedTechnician ? (
@@ -921,7 +942,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  generateFullReport(item);
+                                  requestFullReport(item);
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity"
                               >
@@ -1105,6 +1126,14 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
             onSave={handleSaveStageReport}
           />
         )}
+
+        <SignatureModal
+          isOpen={signatureModalUrl.isOpen}
+          onClose={() => setSignatureModalUrl({ installation: null, isOpen: false })}
+          onConfirm={handleSignatureConfirm}
+          clientName={signatureModalUrl.installation?.name || ''}
+        />
+
         <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 gap-4">
           <p className="text-sm text-slate-500">Mostrando <span className="font-bold text-slate-900 dark:text-slate-100">{startItem} a {endItem}</span> de <span className="font-bold text-slate-900 dark:text-slate-100">{filteredInstallations.length}</span> projetos</p>
           <div className="flex items-center gap-2">

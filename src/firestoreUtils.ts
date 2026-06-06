@@ -140,6 +140,23 @@ function cleanData(data: any) {
   return clean;
 }
 
+export async function createNotification(title: string, message: string, type: 'info' | 'success' | 'warning' | 'error', userId?: string) {
+  try {
+    const colRef = collection(db, 'notifications');
+    await addDoc(colRef, {
+      title,
+      message,
+      type,
+      userId: userId || null,
+      readBy: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error creating notification: ", error);
+  }
+}
+
 export async function createDocument(collectionPath: string, data: any) {
   try {
     const colRef = collection(db, collectionPath);

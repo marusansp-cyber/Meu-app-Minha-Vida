@@ -1180,7 +1180,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                           {lead.name.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             {lead.name}
                             {(lead as any).flagged && (
                               <div className="size-2 bg-rose-500 rounded-full animate-pulse" title={(lead as any).flagReason} />
@@ -1188,7 +1188,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             {lead.status === 'survey' && lead.scheduledDate && (
                               <Calendar className="w-3.5 h-3.5 text-[#fdb612]" />
                             )}
-                          </p>
+                          </div>
                           <p className="text-xs text-slate-400">{lead.email}</p>
                         </div>
                       </div>
