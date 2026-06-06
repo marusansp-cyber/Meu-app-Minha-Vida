@@ -312,6 +312,7 @@ export const generateProposalPDF = async (
     themeColor?: 'navy' | 'emerald' | 'amber' | 'slate';
     compactSpacing?: boolean;
     showComponents?: boolean;
+    signatureDataUrl?: string;
   } = {}
 ): Promise<string> => {
   const doc = new jsPDF({
@@ -762,6 +763,29 @@ export const generateProposalPDF = async (
   doc.setFont("helvetica", "normal");
   doc.text(`CNPJ: ${COMPANY.cnpj}`, pageWidth - margin - 80, currentY + 15);
   doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - margin - 80, currentY + 20);
+
+  // --- Signature Block ---
+  if (options.signatureDataUrl) {
+    if (currentY + 60 > pageHeight - margin) {
+      doc.addPage();
+      currentY = margin;
+    } else {
+      currentY += 10;
+    }
+    
+    doc.addImage(options.signatureDataUrl, 'PNG', margin, currentY, 80, 40);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(margin, currentY + 40, margin + 80, currentY + 40);
+    
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(primaryNavy[0], primaryNavy[1], primaryNavy[2]);
+    doc.text("Assinatura do Cliente", margin, currentY + 45);
+    doc.setFont("helvetica", "normal");
+    doc.text(aguardando(proposal.client || proposal.titular), margin, currentY + 50);
+    doc.text(new Date().toLocaleDateString('pt-BR'), margin, currentY + 55);
+  }
 
   // Running header and dynamic footer
   const pageCount = (doc as any).internal.getNumberOfPages();

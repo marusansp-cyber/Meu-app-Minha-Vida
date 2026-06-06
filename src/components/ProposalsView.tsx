@@ -8,6 +8,7 @@ import { NewProposalModal } from './NewProposalModal';
 import { NewProposalView } from './NewProposalView';
 import { ProposalDetailsModal } from './ProposalDetailsModal';
 import { ReportPreviewModal } from './ReportPreviewModal';
+import { SignatureModal } from './SignatureModal';
 import { SMTPHelpModal } from './SMTPHelpModal';
 import { HelpCircle } from 'lucide-react';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
@@ -97,6 +98,35 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [signatureModalUrl, setSignatureModalUrl] = useState<{ proposal: Proposal | null, isOpen: boolean }>({ proposal: null, isOpen: false });
+
+  const requestReportWithSignature = (proposal: Proposal) => {
+    setSignatureModalUrl({ proposal, isOpen: true });
+  };
+
+  const handleSignatureConfirm = async (signatureDataUrl: string) => {
+    const proposal = signatureModalUrl.proposal;
+    if (!proposal) return;
+    setSignatureModalUrl({ proposal: null, isOpen: false });
+
+    try {
+      showToast('Gerando Relatório...', 'info');
+      const kit = kits.find(k => k.id === proposal.kitId);
+      const pdfBase64 = await generateProposalPDF(proposal, kit, { signatureDataUrl });
+      
+      const link = document.createElement('a');
+      link.href = pdfBase64;
+      link.download = `Relatorio_Proposta_${proposal.id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Relatório gerado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao baixar Relatório:', error);
+      showToast('Erro ao gerar Relatório.', 'info');
+    }
+  };
   const [visibleCount, setVisibleCount] = useState(20);
   const [activeTab, setActiveTab] = useState<'history' | 'new'>('history');
 
@@ -1232,6 +1262,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         kits={kits}
       />
 
+      <SignatureModal
+        isOpen={signatureModalUrl.isOpen}
+        onClose={() => setSignatureModalUrl({ proposal: null, isOpen: false })}
+        onConfirm={handleSignatureConfirm}
+        clientName={signatureModalUrl.proposal?.client || signatureModalUrl.proposal?.titular || ''}
+      />
+
       <SMTPHelpModal 
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
@@ -1989,6 +2026,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                         <Download className="w-4 h-4" />
                       </button>
                       <button 
+                        onClick={() => requestReportWithSignature(prop)}
+                        className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
+                        title="Relatório com Assinatura"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                      <button 
                         onClick={() => handlePrint(prop.id)}
                         className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
                         title="Imprimir"
@@ -2038,6 +2082,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           >
                             <Download className="w-4 h-4 text-slate-400" />
                             Baixar PDF
+                          </button>
+                          <button 
+                            onClick={() => requestReportWithSignature(prop)}
+                            className="w-full px-4 py-2 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4 text-slate-400" />
+                            Download de Relatório
                           </button>
                           <button 
                             onClick={() => handlePrint(prop.id)}
