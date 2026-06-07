@@ -698,12 +698,42 @@ export const generateProposalPDF = async (
   doc.setFont("helvetica", "bold");
   doc.text("CONDIÇÕES COMERCIAIS", margin + 2, currentY + (compact ? 4.5 : 5.5));
 
+  let paymentText = proposal.paymentTerms || "À vista";
+  if (proposal.paymentMethod) {
+    if (proposal.paymentMethod === 'cash') {
+      paymentText = "À vista";
+    } else if (proposal.paymentMethod === 'financing') {
+      const bank = proposal.financingBank || "Banco";
+      const installments = proposal.financingInstallments || 60;
+      const val = proposal.financingInstallmentValue || 0;
+      paymentText = `Financiamento (${bank}) em ${installments}x de ${formatCurrency(val)}`;
+    } else if (proposal.paymentMethod === 'pix_plus_installments') {
+      const type = proposal.pixInstallmentType === 'credit_card' ? 'Cartão' : 'Boleto';
+      const down = proposal.downPayment || 0;
+      const val = proposal.financingInstallmentValue || 0;
+      paymentText = `Entrada PIX de ${formatCurrency(Number(down))} + 10x de ${formatCurrency(val)} no ${type}`;
+    } else if (proposal.paymentMethod === 'credit_card') {
+      paymentText = "Cartão de Crédito";
+    } else if (proposal.paymentMethod === 'pix') {
+      paymentText = "PIX";
+    } else if (proposal.paymentMethod === 'boleto') {
+      paymentText = "Boleto Bancário";
+    } else if (proposal.paymentMethod === 'custom') {
+      if (proposal.customInstallments && proposal.customInstallments.length > 0) {
+        paymentText = proposal.customInstallments.map(c => `${c.label}: ${formatCurrency(c.value || 0)}${c.date ? ` (${c.date})` : ''}`).join(' | ');
+      } else {
+        paymentText = "Personalizado";
+      }
+    }
+  }
+
   autoTable(doc, {
     startY: currentY + (compact ? 6 : 8),
     body: [
-      ["Validade dos créditos energeticos", "60 meses (sob termos da Lei Federal 14.300/2022)"],
+      ["Validade dos créditos energéticos", "60 meses (sob termos da Lei Federal 14.300/2022)"],
       ["Taxa mínima estimada da concessionária", proposal.disclaimerTaxaMinima || "Estimada R$ 100,00/mês"],
-      ["Condição de Pagamento e Financiamentos", proposal.paymentTerms || "A definir / Conforme simulação"]
+      ["Condição de Pagamento / Financiamento", paymentText],
+      ["Prazo de validade desta proposta", `${proposal.validityDays || 15} dias corridos (sujeito à disponibilidade de estoque)`]
     ],
     theme: 'plain',
     styles: { fontSize: fontSize, cellPadding: compact ? 1.5 : 2 },

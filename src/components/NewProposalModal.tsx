@@ -43,9 +43,12 @@ import {
   MessageSquare,
   Image as ImageIcon,
   MapPin,
-  Crosshair
+  Crosshair,
+  Trash2,
+  Settings2
 } from 'lucide-react';
 import { cn, validateEmail, validatePhone, maskPhone, maskCurrency, currencyToNumber, maskCNPJ, maskCPF, validateCpfCnpj } from '../lib/utils';
+import { validarRelacaoCCCA } from '../lib/engineeringUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { Proposal, Kit, User as UserType, Lead, Client } from '../types';
 import { syncCollection, updateDocument, createDocument } from '../firestoreUtils';
@@ -417,6 +420,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     // Step 4: FINANCIAMENTO
     paymentMethod: initialData?.paymentMethod || 'cash',
     pixInstallmentType: initialData?.pixInstallmentType || 'credit_card',
+    customInstallments: initialData?.customInstallments || [],
     financingRate: initialData?.financingRate?.toString() || '',
     financingCET: initialData?.financingCET?.toString() || '',
     downPayment: initialData?.downPayment?.toString() || '',
@@ -515,13 +519,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       const monGen = !isNaN(szNum) && szNum > 0 ? (szNum * hsp * 30 * pr).toFixed(0) : prev.monthlyGeneration;
 
       // 3. Pricing
-      const equip = parseFloat(prev.equipmentCost || '0');
-      const inst = parseFloat(prev.installationCost || '0');
-      const proj = parseFloat(prev.projectCost || '0');
-      const lic = parseFloat(prev.licensingCost || '0');
-      const log = parseFloat(prev.logisticCost || '0');
-      const add = parseFloat(prev.additionalCost || '0');
-      const discountVal = parseFloat(prev.discount || '0');
+      const equip = currencyToNumber(prev.equipmentCost || '0');
+      const inst = currencyToNumber(prev.installationCost || '0');
+      const proj = currencyToNumber(prev.projectCost || '0');
+      const lic = currencyToNumber(prev.licensingCost || '0');
+      const log = currencyToNumber(prev.logisticCost || '0');
+      const add = currencyToNumber(prev.additionalCost || '0');
+      const discountVal = currencyToNumber(prev.discount || '0');
       const marginP = parseFloat(prev.margin || '0');
       
       const costs = equip + inst + proj + lic + log + add;
@@ -670,18 +674,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       }
       if (!formData.panelBrandModel?.trim()) errors.panelBrandModel = 'Módulos são obrigatórios';
       if (!formData.inverterBrandModel?.trim()) errors.inverterBrandModel = 'Inversor é obrigatório';
-      
-      if (!formData.inverterModel?.trim()) errors.inverterModel = 'Modelo do Inversor é obrigatório';
-      if (!formData.inverterPowerCA_kW?.trim()) errors.inverterPowerCA_kW = 'Potência CA do Inversor é obrigatória';
-      if (!formData.inverterPowerCCMax_kW?.trim()) errors.inverterPowerCCMax_kW = 'Potência CC Máx é obrigatória';
-      if (!formData.inverterInmetro?.trim()) errors.inverterInmetro = 'Número INMETRO é obrigatório';
 
-      const cc = parseFloat(formData.systemSize);
-      const ca = parseFloat(formData.inverterPowerCA_kW);
-      if (!isNaN(cc) && !isNaN(ca) && ca > 0) {
-        const ratio = cc / ca;
-        if (ratio < 1.0 || ratio > 1.3) {
-          errors.inverterPowerCA_kW = `Relação CC/CA (${ratio.toFixed(2)}) fora do escopo normativo (1.0 - 1.3). Redimensione inversores ou painéis.`;
+      if (formData.inverterPowerCA_kW?.trim() && formData.panelQuantity?.trim() && formData.panelPowerW?.trim()) {
+        const ca = parseFloat(formData.inverterPowerCA_kW);
+        const qt = parseInt(formData.panelQuantity);
+        const wp = parseFloat(formData.panelPowerW);
+        if (!isNaN(ca) && ca > 0 && !isNaN(qt) && qt > 0 && !isNaN(wp) && wp > 0) {
+          const validation = validarRelacaoCCCA(qt, wp, ca);
+          if (!validation.isValid) {
+            errors.inverterPowerCA_kW = validation.message;
+          }
         }
       }
     } else if (step === 'financing') {
@@ -730,11 +732,35 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         if (!formData.financingRate || parseFloat(formData.financingRate) <= 0) errors.financingRate = 'Taxa inválida';
       }
       
+      if (formData.paymentMethod === 'custom') {
+        if (!formData.customInstallments || formData.customInstallments.length === 0) {
+          errors.customInstallments = 'Adicione pelo menos uma parcela';
+        } else {
+          // Check if sum matches total
+          const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                       currencyToNumber(formData.installationCost || '0') + 
+                       currencyToNumber(formData.projectCost || '0') + 
+                       currencyToNumber(formData.licensingCost || '0') + 
+                       currencyToNumber(formData.logisticCost || '0') +
+                       currencyToNumber(formData.additionalCost || '0'));
+          const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
+          const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
+          const totalVal = Math.max(0, (sub * multiplier) - currencyToNumber(formData.discount || '0'));
+          
+          const sumInstallments = formData.customInstallments.reduce((acc, curr) => acc + (parseFloat(curr.value as any) || 0), 0);
+          
+          // Allow a small rounding difference (e.g., 1 real)
+          if (Math.abs(sumInstallments - totalVal) > 1.0) {
+            errors.customInstallments = `A soma das parcelas (R$ ${sumInstallments.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}) diverge do valor total da proposta (R$ ${totalVal.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}).`;
+          }
+        }
+      }
+      
       // Tech Validation for Kit Price
       if (formData.kitId) {
         const kit = kits.find(k => k.id === formData.kitId);
         if (kit && kit.price > 0) {
-          const currentCost = parseFloat(formData.equipmentCost);
+          const currentCost = currencyToNumber(formData.equipmentCost);
           if (Math.abs(currentCost - kit.price) > kit.price * 0.15) {
             errors.equipmentCost = `O custo do equipamento (R$ ${currentCost.toLocaleString()}) diverge significativamente do valor original do kit (R$ ${kit.price.toLocaleString()}).`;
           }
@@ -872,6 +898,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
  
         paymentMethod: initialData.paymentMethod || 'cash',
         pixInstallmentType: initialData.pixInstallmentType || 'credit_card',
+        customInstallments: initialData.customInstallments || [],
         financingRate: initialData.financingRate?.toString() || '1.2',
         financingCET: initialData.financingCET?.toString() || '18.5',
         downPayment: initialData.downPayment?.toString() || '',
@@ -934,6 +961,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
  
         paymentMethod: 'cash',
         pixInstallmentType: 'credit_card',
+        customInstallments: [],
         financingRate: '1.2',
         financingCET: '18.5',
         downPayment: '',
@@ -1004,13 +1032,13 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     const monthlyNetSaving = currentBill - remainingBill; 
     const annualSaving = monthlyNetSaving * 12;
 
-    const equip = parseFloat(formData.equipmentCost || '0');
-    const inst = parseFloat(formData.installationCost || '0');
-    const proj = parseFloat(formData.projectCost || '0');
-    const lic = parseFloat(formData.licensingCost || '0');
-    const log = parseFloat(formData.logisticCost || '0');
-    const add = parseFloat(formData.additionalCost || '0');
-    const discountVal = parseFloat(formData.discount || '0');
+    const equip = currencyToNumber(formData.equipmentCost || '0');
+    const inst = currencyToNumber(formData.installationCost || '0');
+    const proj = currencyToNumber(formData.projectCost || '0');
+    const lic = currencyToNumber(formData.licensingCost || '0');
+    const log = currencyToNumber(formData.logisticCost || '0');
+    const add = currencyToNumber(formData.additionalCost || '0');
+    const discountVal = currencyToNumber(formData.discount || '0');
     const marginP = parseFloat(formData.margin || '0');
     const costs = equip + inst + proj + lic + log + add;
     const multiplier = marginP >= 99 ? 100 : 1 / (1 - (marginP / 100));
@@ -1046,16 +1074,23 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
   };
 
   const calculateOversizing = () => {
-    const panelPower = parseFloat(formData.panelPowerW) || 540;
-    const panelQty = parseInt(formData.panelQuantity) || 0;
-    const inverterPower = parseFloat(formData.inverterPowerCA_kW) || 5;
+    const qt = parseInt(formData.panelQuantity) || 0;
+    const wp = parseFloat(formData.panelPowerW) || 0;
+    const inverterPower = parseFloat(formData.inverterPowerCA_kW) || 0;
     
-    const totalKwp = (panelPower * panelQty) / 1000;
-    const oversizing = inverterPower > 0 ? totalKwp / inverterPower : 0;
+    const validation = validarRelacaoCCCA(qt, wp, inverterPower);
     
     return {
-      kwp: totalKwp,
-      ratio: oversizing
+      kwp: validation.dcPowerKw,
+      ratio: validation.ratio,
+      inverterPower,
+      isValid: validation.isValid,
+      idealCA: validation.suggestedInverterPowerKw || 0,
+      hasBoth: validation.dcPowerKw > 0 && inverterPower > 0,
+      qt,
+      wp,
+      validationMessage: validation.message,
+      referenceLinks: validation.referenceLinks
     };
   };
 
@@ -1099,14 +1134,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
     try {
       // Calculate total value correctly (Subtotal - Discount)
       const subtotal = (
-        parseFloat(formData.equipmentCost || '0') + 
-        parseFloat(formData.installationCost || '0') + 
-        parseFloat(formData.projectCost || '0') + 
-        parseFloat(formData.licensingCost || '0') + 
-        parseFloat(formData.logisticCost || '0') +
-        parseFloat(formData.additionalCost || '0')
+        currencyToNumber(formData.equipmentCost || '0') + 
+        currencyToNumber(formData.installationCost || '0') + 
+        currencyToNumber(formData.projectCost || '0') + 
+        currencyToNumber(formData.licensingCost || '0') + 
+        currencyToNumber(formData.logisticCost || '0') +
+        currencyToNumber(formData.additionalCost || '0')
       );
-      const discountVal = parseFloat(formData.discount || '0');
+      const discountVal = currencyToNumber(formData.discount || '0');
       const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
       
       // Safety check for margin: Total = Costs / (1 - Margin/100)
@@ -1131,7 +1166,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
           installmentValue = totalVal / n;
         }
       } else if (formData.paymentMethod === 'pix_plus_installments') {
-        const down = parseFloat(formData.downPayment || '0');
+        const down = currencyToNumber(formData.downPayment || '0');
         const remaining = Math.max(0, totalVal - down);
         installmentValue = remaining / 10;
       }
@@ -1184,13 +1219,14 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         financingInstallments: formData.paymentMethod === 'pix_plus_installments' ? 10 : (parseInt(formData.financingInstallments) || 0),
         financingInstallmentValue: installmentValue,
         pixInstallmentType: formData.paymentMethod === 'pix_plus_installments' ? formData.pixInstallmentType : null,
+        customInstallments: formData.customInstallments,
         email: formData.email || null,
         photoUrl: formData.photoUrl || null,
         customImageLinks: formData.customImageLinks || [],
         
         // Advanced Analytics and Savings
         totalSavings25Years: savings.total25,
-        downPayment: parseFloat(formData.downPayment) || 0,
+        downPayment: currencyToNumber(formData.downPayment || '0') || 0,
         financingRate: parseFloat(formData.financingRate) || 0,
         systemOversizing: tech.ratio,
 
@@ -1198,12 +1234,12 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         panelQuantity: parseInt(formData.panelQuantity) || 0,
         invertersQuantity: parseInt(formData.invertersQuantity) || 0,
         structureQuantity: parseInt(formData.structureQuantity) || 0,
-        equipmentCost: parseFloat(formData.equipmentCost) || 0,
-        installationCost: parseFloat(formData.installationCost) || 0,
-        projectCost: parseFloat(formData.projectCost) || 0,
-        licensingCost: parseFloat(formData.licensingCost) || 0,
-        logisticCost: parseFloat(formData.logisticCost) || 0,
-        additionalCost: parseFloat(formData.additionalCost) || 0,
+        equipmentCost: currencyToNumber(formData.equipmentCost) || 0,
+        installationCost: currencyToNumber(formData.installationCost) || 0,
+        projectCost: currencyToNumber(formData.projectCost) || 0,
+        licensingCost: currencyToNumber(formData.licensingCost) || 0,
+        logisticCost: currencyToNumber(formData.logisticCost) || 0,
+        additionalCost: currencyToNumber(formData.additionalCost) || 0,
         installationStartDate: formData.installationStartDate || null,
         estimatedCompletionDate: formData.estimatedCompletionDate || null,
         assignedTechnician: formData.assignedTechnician || null,
@@ -2161,7 +2197,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Modelo Exato Inversor *</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Modelo Exato Inversor</label>
                     <input 
                       type="text" 
                       value={formData.inverterModel || ''}
@@ -2176,7 +2212,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CA Inversor (kW) *</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CA Inversor (kW)</label>
                     <input 
                       type="number" 
                       value={formData.inverterPowerCA_kW || ''}
@@ -2188,10 +2224,53 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                       )}
                     />
                     {validationErrors.inverterPowerCA_kW && <p className="text-[10px] font-bold text-rose-500 mt-1">{validationErrors.inverterPowerCA_kW}</p>}
+                    
+                    {tech.hasBoth && (
+                      <div className="mt-2">
+                        {tech.isValid ? (
+                          <div className="flex flex-col gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 p-2 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Relação CC/CA Válida: {tech.ratio.toFixed(2)}
+                            </div>
+                            <p className="font-normal opacity-90 leading-tight">
+                              {tech.validationMessage}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-500/10 p-2 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 shrink-0" />
+                              <span>PROPOSTA INVÁLIDA (PRODIST/NBR 16149)</span>
+                            </div>
+                            <p className="font-normal mt-1 opacity-90 leading-tight">
+                              {tech.validationMessage}
+                            </p>
+                            <div className="bg-white/50 dark:bg-black/20 p-2 rounded mt-1 border border-rose-100 dark:border-rose-900/30">
+                              <span className="block text-xs font-black uppercase text-rose-700 dark:text-rose-400 mb-1">Correção Sugerida:</span>
+                              Para {tech.kwp.toFixed(2)} kWp de painéis, a potência CA ideal mínima do inversor seria de <strong>{tech.idealCA.toFixed(2)} kW</strong> (visando relação 1.15).
+                              <br />
+                              <em>Ajuste a Potência CA para um modelo comercial dentro da margem que estabeleça a relação entre 1.0 e 1.3.</em>
+                            </div>
+                            <div className="mt-1">
+                              <span className="font-bold text-rose-700 dark:text-rose-400 block mb-1">Fatores Normativos:</span>
+                              <ul className="list-disc pl-3 font-normal opacity-90 text-[9px] space-y-1">
+                                <li>
+                                  <a href="https://antigo.aneel.gov.br/documents/656827/14866908/Modulo3_Revisao_11" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100">PRODIST Módulo 3 (ANEEL)</a>
+                                </li>
+                                <li>
+                                  <a href="https://antigo.aneel.gov.br/documents/656827/15218406/Nota+T%C3%A9cnica+0088_2021" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-100">Nota Técnica 0088/2021</a>
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CC Máx Inversor (kW) *</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Potência CC Máx Inversor (kW)</label>
                     <input 
                       type="number" 
                       value={formData.inverterPowerCCMax_kW || ''}
@@ -2206,7 +2285,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Nº Homologação INMETRO *</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-slate-400">Nº Homologação INMETRO</label>
                     <input 
                       type="text" 
                       value={formData.inverterInmetro || ''}
@@ -2717,7 +2796,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-6 lg:grid-cols-7 gap-3">
                   {[
                     { id: 'cash', label: 'À vista', icon: DollarSign },
                     { id: 'financing', label: 'Financiamento', icon: Landmark },
@@ -2725,6 +2804,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                     { id: 'pix', label: 'PIX', icon: Zap },
                     { id: 'boleto', label: 'Boleto', icon: FileText },
                     { id: 'pix_plus_installments', label: 'Pix + 10x', icon: QrCode },
+                    { id: 'custom', label: 'Personalizado', icon: Settings2 },
                   ].map((method) => (
                     <button
                       key={method.id}
@@ -2778,16 +2858,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         >
                           <option value="0">Selecione as parcelas</option>
                           {[12, 24, 36, 48, 60, 72, 84, 96, 120].map(n => {
-                            const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                         parseFloat(formData.installationCost || '0') + 
-                                         parseFloat(formData.projectCost || '0') + 
-                                         parseFloat(formData.licensingCost || '0') + 
-                                         parseFloat(formData.logisticCost || '0') +
-                                         parseFloat(formData.additionalCost || '0'));
+                            const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                         currencyToNumber(formData.installationCost || '0') + 
+                                         currencyToNumber(formData.projectCost || '0') + 
+                                         currencyToNumber(formData.licensingCost || '0') + 
+                                         currencyToNumber(formData.logisticCost || '0') +
+                                         currencyToNumber(formData.additionalCost || '0'));
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                            const downPay = parseFloat(formData.downPayment || '0');
-                            const total = (sub * multiplier) - parseFloat(formData.discount || '0') - downPay;
+                            const downPay = currencyToNumber(formData.downPayment || '0');
+                            const total = (sub * multiplier) - currencyToNumber(formData.discount || '0') - downPay;
                             
                             const r = parseFloat(formData.financingRate) || 1.2;
                             const i = r / 100;
@@ -2814,7 +2894,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           <input 
                             type="text"
                             value={maskCurrency(formData.downPayment || '')}
-                            onChange={(e) => setFormData({ ...formData, downPayment: e.target.value.replace(/\D/g, '') })}
+                            onChange={(e) => setFormData({ ...formData, downPayment: maskCurrency(e.target.value) })}
                             placeholder="R$ 0,00"
                             className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                           />
@@ -2860,15 +2940,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Simulação de Parcela</p>
                           <p className="text-lg font-black text-slate-900 dark:text-slate-100">
                             {(() => {
-                              const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                           parseFloat(formData.installationCost || '0') + 
-                                           parseFloat(formData.projectCost || '0') + 
-                                           parseFloat(formData.licensingCost || '0') + 
-                                           parseFloat(formData.logisticCost || '0') +
-                                           parseFloat(formData.additionalCost || '0'));
+                              const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                           currencyToNumber(formData.installationCost || '0') + 
+                                           currencyToNumber(formData.projectCost || '0') + 
+                                           currencyToNumber(formData.licensingCost || '0') + 
+                                           currencyToNumber(formData.logisticCost || '0') +
+                                           currencyToNumber(formData.additionalCost || '0'));
                               const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                               const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                              const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
                               const n = parseInt(formData.financingInstallments) || 60;
                               const r = parseFloat(formData.financingRate) || 1.2;
                               const i = r / 100;
@@ -2903,7 +2983,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           <input 
                             type="text" 
                             value={maskCurrency(formData.downPayment?.toString() || '')}
-                            onChange={(e) => setFormData({ ...formData, downPayment: currencyToNumber(e.target.value) })}
+                            onChange={(e) => setFormData({ ...formData, downPayment: maskCurrency(e.target.value) })}
                             placeholder="R$ 0,00"
                             className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                           />
@@ -2945,16 +3025,16 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#00A86B]">Calculo das Parcelas</p>
                           <p className="text-lg font-black text-slate-900 dark:text-slate-100">
                             {(() => {
-                              const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                           parseFloat(formData.installationCost || '0') + 
-                                           parseFloat(formData.projectCost || '0') + 
-                                           parseFloat(formData.licensingCost || '0') + 
-                                           parseFloat(formData.logisticCost || '0') +
-                                           parseFloat(formData.additionalCost || '0'));
+                              const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                           currencyToNumber(formData.installationCost || '0') + 
+                                           currencyToNumber(formData.projectCost || '0') + 
+                                           currencyToNumber(formData.licensingCost || '0') + 
+                                           currencyToNumber(formData.logisticCost || '0') +
+                                           currencyToNumber(formData.additionalCost || '0'));
                               const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                               const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                              const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                              const down = parseFloat(formData.downPayment || '0');
+                              const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
+                              const down = currencyToNumber(formData.downPayment || '0');
                               const remaining = Math.max(0, total - down);
                               const installment = remaining / 10;
                               
@@ -2967,21 +3047,116 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Saldo a parcelar</p>
                         <p className="text-sm font-bold text-slate-600 dark:text-slate-300">
                           {(() => {
-                            const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                         parseFloat(formData.installationCost || '0') + 
-                                         parseFloat(formData.projectCost || '0') + 
-                                         parseFloat(formData.licensingCost || '0') + 
-                                         parseFloat(formData.logisticCost || '0') +
-                                         parseFloat(formData.additionalCost || '0'));
+                            const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                         currencyToNumber(formData.installationCost || '0') + 
+                                         currencyToNumber(formData.projectCost || '0') + 
+                                         currencyToNumber(formData.licensingCost || '0') + 
+                                         currencyToNumber(formData.logisticCost || '0') +
+                                         currencyToNumber(formData.additionalCost || '0'));
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
-                            const down = parseFloat(formData.downPayment || '0');
+                            const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
+                            const down = currencyToNumber(formData.downPayment || '0');
                             return (total - down).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {formData.paymentMethod === 'custom' && (
+                  <div className="p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-6 animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400">Parcelas</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIns = [...(formData.customInstallments || [])];
+                          newIns.push({ value: 0, date: '', label: `Parcela ${newIns.length + 1}` });
+                          setFormData({ ...formData, customInstallments: newIns });
+                        }}
+                        className="px-3 py-1.5 bg-[#fdb612] text-black rounded-lg text-xs font-bold hover:brightness-110 flex items-center gap-1"
+                      >
+                        + Adicionar Parcela
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {formData.customInstallments?.map((inst, index) => (
+                        <div key={index} className="flex gap-3 items-end">
+                          <div className="flex-[1.5] space-y-2">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">Descrição</label>
+                            <input
+                              type="text"
+                              value={inst.label || ''}
+                              onChange={(e) => {
+                                const newIns = [...(formData.customInstallments || [])];
+                                newIns[index].label = e.target.value;
+                                setFormData({ ...formData, customInstallments: newIns });
+                              }}
+                              placeholder="Ex: Sinal, Entrega"
+                              className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">Quando?</label>
+                            <input
+                              type="text"
+                              value={inst.date || ''}
+                              onChange={(e) => {
+                                const newIns = [...(formData.customInstallments || [])];
+                                newIns[index].date = e.target.value;
+                                setFormData({ ...formData, customInstallments: newIns });
+                              }}
+                              placeholder="30 dias / Data"
+                              className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                            />
+                          </div>
+                          <div className="flex-[1.5] space-y-2">
+                            <label className="text-[10px] font-bold uppercase text-slate-400">Valor (R$)</label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                              <input
+                                type="text"
+                                value={maskCurrency((inst.value || 0).toString())}
+                                onChange={(e) => {
+                                  const newIns = [...(formData.customInstallments || [])];
+                                  newIns[index].value = maskCurrency(e.target.value);
+                                  setFormData({ ...formData, customInstallments: newIns });
+                                }}
+                                className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newIns = [...(formData.customInstallments || [])];
+                              newIns.splice(index, 1);
+                              setFormData({ ...formData, customInstallments: newIns });
+                            }}
+                            className="p-2.5 text-rose-500 bg-rose-50 dark:bg-rose-500/10 rounded-xl hover:scale-105 transition-all outline-none"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="p-4 bg-slate-200 dark:bg-slate-800 rounded-xl flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase">Total da Soma das Parcelas</span>
+                      <span className="text-sm font-black">
+                        {(formData.customInstallments?.reduce((acc, curr) => acc + (curr.value || 0), 0) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    </div>
+                    
+                    {validationErrors.customInstallments && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 rounded-xl flex items-start gap-2 text-rose-600 dark:text-rose-400 text-xs font-bold leading-relaxed">
+                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <div>{validationErrors.customInstallments}</div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3380,15 +3555,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                             <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">Payback</label>
                             <p className="text-sm font-black text-slate-900 dark:text-slate-100">
                               {(() => {
-                                const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                             parseFloat(formData.installationCost || '0') + 
-                                             parseFloat(formData.projectCost || '0') + 
-                                             parseFloat(formData.licensingCost || '0') + 
-                                             parseFloat(formData.logisticCost || '0') +
-                                             parseFloat(formData.additionalCost || '0'));
+                                const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                             currencyToNumber(formData.installationCost || '0') + 
+                                             currencyToNumber(formData.projectCost || '0') + 
+                                             currencyToNumber(formData.licensingCost || '0') + 
+                                             currencyToNumber(formData.logisticCost || '0') +
+                                             currencyToNumber(formData.additionalCost || '0'));
                                 const mPerc = Math.min(99, parseFloat(formData.margin || '0'));
                                 const mult = mPerc >= 99 ? 100 : 1 / (1 - (mPerc / 100));
-                                const total = Math.max(0, (sub * mult) - parseFloat(formData.discount || '0'));
+                                const total = Math.max(0, (sub * mult) - currencyToNumber(formData.discount || '0'));
                                 return (total / (savings.annual || 1)).toFixed(1);
                               })()} Anos
                             </p>
@@ -3397,15 +3572,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                             <label className="text-[8px] font-black uppercase text-slate-400 block tracking-widest">ROI (25 Anos)</label>
                             <p className="text-sm font-black text-[#00A86B]">
                               {(() => {
-                                const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                             parseFloat(formData.installationCost || '0') + 
-                                             parseFloat(formData.projectCost || '0') + 
-                                             parseFloat(formData.licensingCost || '0') + 
-                                             parseFloat(formData.logisticCost || '0') +
-                                             parseFloat(formData.additionalCost || '0'));
+                                const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                             currencyToNumber(formData.installationCost || '0') + 
+                                             currencyToNumber(formData.projectCost || '0') + 
+                                             currencyToNumber(formData.licensingCost || '0') + 
+                                             currencyToNumber(formData.logisticCost || '0') +
+                                             currencyToNumber(formData.additionalCost || '0'));
                                 const mPerc = Math.min(99, parseFloat(formData.margin || '0'));
                                 const mult = mPerc >= 99 ? 100 : 1 / (1 - (mPerc / 100));
-                                const total = Math.max(0, (sub * mult) - parseFloat(formData.discount || '0'));
+                                const total = Math.max(0, (sub * mult) - currencyToNumber(formData.discount || '0'));
                                 return (( (savings.total25 - total) / (total || 1)) * 100).toFixed(0);
                               })()}%
                             </p>
@@ -3515,15 +3690,15 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                         <label className="text-[10px] font-black uppercase opacity-60 block mb-1 tracking-widest">Investimento Total</label>
                         <p className="text-2xl font-black">
                           {(() => {
-                            const sub = (parseFloat(formData.equipmentCost || '0') + 
-                                         parseFloat(formData.installationCost || '0') + 
-                                         parseFloat(formData.projectCost || '0') + 
-                                         parseFloat(formData.licensingCost || '0') + 
-                                         parseFloat(formData.logisticCost || '0') +
-                                         parseFloat(formData.additionalCost || '0'));
+                            const sub = (currencyToNumber(formData.equipmentCost || '0') + 
+                                         currencyToNumber(formData.installationCost || '0') + 
+                                         currencyToNumber(formData.projectCost || '0') + 
+                                         currencyToNumber(formData.licensingCost || '0') + 
+                                         currencyToNumber(formData.logisticCost || '0') +
+                                         currencyToNumber(formData.additionalCost || '0'));
                             const marginPerc = Math.min(99, parseFloat(formData.margin || '0'));
                             const multiplier = marginPerc >= 99 ? 100 : 1 / (1 - (marginPerc / 100));
-                            const total = (sub * multiplier) - parseFloat(formData.discount || '0');
+                            const total = (sub * multiplier) - currencyToNumber(formData.discount || '0');
                             return total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>

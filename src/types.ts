@@ -230,6 +230,7 @@ export interface Proposal {
   representative: string;
   representativeId?: string;
   representativeEmail?: string;
+  auditLogs?: { timestamp: string; action: string; user: string; details: string; }[];
   proposalNumber?: string;
   expiryDate?: string | null;
   roi?: string | null;
@@ -304,8 +305,9 @@ export interface Proposal {
   subtotal?: number;
   
   // Step 4: FINANCIAMENTO
-  paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto' | 'pix_plus_installments';
+  paymentMethod?: 'cash' | 'financing' | 'credit_card' | 'pix' | 'boleto' | 'pix_plus_installments' | 'custom';
   pixInstallmentType?: 'credit_card' | 'boleto';
+  customInstallments?: { value: number; date?: string; label?: string }[];
   financingCET?: number;
   
   // Step 5: FINALIZAÇÃO

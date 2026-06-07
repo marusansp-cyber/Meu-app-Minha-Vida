@@ -1,0 +1,10 @@
+const fs = require('fs');
+const file = 'src/components/NewProposalModal.tsx';
+let content = fs.readFileSync(file, 'utf8');
+content = content.replace(/parseFloat\(formData\.equipmentCost \|\| '0'\)/g, "currencyToNumber(formData.equipmentCost || '0')");
+content = content.replace(/parseFloat\(formData\.installationCost \|\| '0'\)/g, "currencyToNumber(formData.installationCost || '0')");
+content = content.replace(/parseFloat\(formData\.projectCost \|\| '0'\)/g, "currencyToNumber(formData.projectCost || '0')");
+content = content.replace(/parseFloat\(formData\.licensingCost \|\| '0'\)/g, "currencyToNumber(formData.licensingCost || '0')");
+content = content.replace(/parseFloat\(formData\.logisticCost \|\| '0'\)/g, "currencyToNumber(formData.logisticCost || '0')");
+content = content.replace(/parseFloat\(formData\.additionalCost \|\| '0'\)/g, "currencyToNumber(formData.additionalCost || '0')");
+fs.writeFileSync(file, content);

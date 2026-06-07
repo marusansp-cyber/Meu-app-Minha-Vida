@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, HardHat, MapPin, Zap, Activity, User as UserIcon } from 'lucide-react';
+import { X, HardHat, MapPin, Zap, Activity, User as UserIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Installation, InstallationStage } from '../types';
+import { validarRelacaoCCCA, CCAValidationResult } from '../lib/engineeringUtils';
 
 interface NewProjectModalProps {
   isOpen: boolean;
@@ -22,7 +23,11 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
     systemPower: installation?.systemPower || '',
     inverterInfo: installation?.inverterInfo || '',
     panelInfo: installation?.panelInfo || '',
+    panelQuantity: '',
+    panelPowerW: '',
+    inverterPowerCA_kW: '',
     stages: installation?.stages || [
+
       { name: 'Engenharia', status: 'in-progress' as const, progress: 0, assignedTechnician: '' },
       { name: 'Materiais', status: 'pending' as const, progress: 0, assignedTechnician: '' },
       { name: 'Instalação', status: 'pending' as const, progress: 0, assignedTechnician: '' },
@@ -92,6 +97,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       systemPower: '',
       inverterInfo: '',
       panelInfo: '',
+      panelQuantity: '',
+      panelPowerW: '',
+      inverterPowerCA_kW: '',
       stages: [
         { name: 'Engenharia', status: 'in-progress', progress: 0, assignedTechnician: '' },
         { name: 'Materiais', status: 'pending', progress: 0, assignedTechnician: '' },
@@ -100,6 +108,12 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
       ]
     });
   };
+
+  const qt = parseInt(formData.panelQuantity) || 0;
+  const wp = parseFloat(formData.panelPowerW) || 0;
+  const invCA = parseFloat(formData.inverterPowerCA_kW) || 0;
+  const hasBoth = qt > 0 && wp > 0 && invCA > 0;
+  const validation = hasBoth ? validarRelacaoCCCA(qt, wp, invCA) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -267,6 +281,56 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
                 />
               </div>
             </div>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500">Qtd. Módulos</label>
+                <input
+                  type="number"
+                  value={formData.panelQuantity || ''}
+                  onChange={(e) => setFormData({ ...formData, panelQuantity: e.target.value })}
+                  placeholder="Ex: 14"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-500">Wp p/ Módulo</label>
+                <input
+                  type="number"
+                  value={formData.panelPowerW || ''}
+                  onChange={(e) => setFormData({ ...formData, panelPowerW: e.target.value })}
+                  placeholder="Ex: 550"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2 col-span-2 lg:col-span-1">
+                <label className="text-xs font-bold text-slate-500">Inversor (kW CA)</label>
+                <input
+                  type="number"
+                  value={formData.inverterPowerCA_kW || ''}
+                  onChange={(e) => setFormData({ ...formData, inverterPowerCA_kW: e.target.value })}
+                  placeholder="Ex: 8.0"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#fdb612] outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {hasBoth && validation && (
+              <div className={`p-3 rounded-xl border ${validation.isValid ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 text-rose-700 dark:text-rose-400'}`}>
+                <div className="flex items-center gap-2 text-xs font-bold mb-1">
+                  {validation.isValid ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                  {validation.isValid ? `Relação CC/CA Válida: ${validation.ratio.toFixed(2)}` : 'PROPOSTA INVÁLIDA (PRODIST/NBR 16149)'}
+                </div>
+                <p className="text-[10px] opacity-90 leading-tight">
+                  {validation.message}
+                </p>
+                {!validation.isValid && validation.suggestedInverterPowerKw && (
+                  <div className="mt-2 text-[10px] bg-white/50 dark:bg-black/20 p-2 rounded">
+                    <strong>Sugestão:</strong> Inversor com CA mínima de {(validation.suggestedInverterPowerKw).toFixed(2)} kW.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">

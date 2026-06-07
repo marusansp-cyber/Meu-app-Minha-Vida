@@ -30,7 +30,8 @@ import {
   Eye,
   MapPin,
   HardHat,
-  Loader2
+  Loader2,
+  Settings2
 } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import { Proposal, User as UserType, History, Kit } from '../types';
@@ -502,6 +503,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     <option value="pix">PIX</option>
                     <option value="boleto">Boleto</option>
                     <option value="pix_plus_installments">Pix + 10x</option>
+                    <option value="custom">Personalizado</option>
                   </select>
                 </div>
                 {editForm.paymentMethod === 'pix_plus_installments' && (
@@ -941,6 +943,28 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                             return (remaining / 10).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
                           })()}
                         </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {proposal.paymentMethod === 'custom' && proposal.customInstallments && proposal.customInstallments.length > 0 && (
+                    <div className="flex items-start gap-4">
+                      <div className="size-12 rounded-2xl bg-[#fdb612]/20 shrink-0 flex items-center justify-center">
+                        <Settings2 className="w-6 h-6 text-[#fdb612]" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">Composição do Pagamento</label>
+                        <div className="space-y-1.5">
+                          {proposal.customInstallments.map((inst, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                              <div>
+                                <span className="font-bold">{inst.label}</span>
+                                {inst.date && <span className="text-slate-500 text-xs ml-2">({inst.date})</span>}
+                              </div>
+                              <span className="font-black">{(inst.value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}

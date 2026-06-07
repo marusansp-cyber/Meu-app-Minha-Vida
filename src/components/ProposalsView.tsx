@@ -16,6 +16,7 @@ import { generateProposalPDF } from '../services/pdfService';
 import { sendProposalEmail } from '../services/emailService';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { validarRelacaoCCCA } from '../lib/engineeringUtils';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -294,10 +295,26 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         proposalNumber = await getNextProposalNumber();
       }
       
+      const qt = parseInt(proposalData.panelInfo?.split('x')[0] || proposalData.systemSize) || 0;
+      const invKW = parseFloat(proposalData.inverterInfo?.match(/(\d+(?:\.\d+)?)/)?.[0] || '0');
+      const qtPanel = parseInt(proposalData.panelInfo?.match(/(\d+)/)?.[0] || '0');
+      const wpPanel = parseInt(proposalData.panelInfo?.match(/(\d{3,4})W/)?.[1] || '0');
+
+      const validation = validarRelacaoCCCA(qtPanel, wpPanel, invKW);
+      
       const newProposal = {
         ...proposalData,
         proposalNumber,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        auditLogs: [
+          ...(proposalData.auditLogs || []),
+          {
+            timestamp: new Date().toISOString(),
+            action: 'VALIDATION_CCCA',
+            user: user?.name || 'Sistema',
+            details: `Validação Relação CC/CA: ${validation.isValid ? 'Aprovado' : 'Reprovado'} - Relação: ${validation.ratio.toFixed(2)}. Mensagem: ${validation.message}`
+          }
+        ]
       };
       const createdId = await createDocument('proposals', newProposal);
       
