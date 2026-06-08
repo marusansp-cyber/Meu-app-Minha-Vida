@@ -282,6 +282,20 @@ export default function App() {
   });
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only auto-switch if user hasn't manually overridden (optional, but let's just sync it if they want automatic sync)
+      // Actually, to perfectly sync with OS settings, we can just update it.
+      if (!localStorage.getItem('theme_override')) {
+         setIsDarkMode(e.matches);
+      }
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -290,6 +304,11 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    localStorage.setItem('theme_override', 'true');
+    setIsDarkMode(!isDarkMode);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -747,7 +766,7 @@ export default function App() {
             user={user}
             companyLogo={companyLogo}
             isDarkMode={isDarkMode}
-            toggleTheme={() => setIsDarkMode(!isDarkMode)}
+            toggleTheme={toggleTheme}
           />
         </div>
         
@@ -812,7 +831,7 @@ export default function App() {
                 </div>
               )}
               <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
+                onClick={toggleTheme}
                 className="p-2 text-slate-400 hover:text-[#fdb612] transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
                 title={isDarkMode ? "Modo Claro" : "Modo Escuro"}
               >

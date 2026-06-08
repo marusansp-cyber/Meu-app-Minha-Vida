@@ -1085,25 +1085,54 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                               </div>
                             </div>
                             
-                            <div className="bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
-                              <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Resumo da Obra</h5>
-                              <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-slate-500">Etapas Concluídas</span>
-                                  <span className="text-sm font-bold">{item.stages?.filter(s => s.status === 'completed').length || 0} / {item.stages?.length || 0}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm text-slate-500">Tarefas Pendentes</span>
-                                  <span className="text-sm font-bold">{item.tasks?.filter(t => !t.completed).length || 0}</span>
-                                </div>
-                                <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-sm font-bold">Saúde do Projeto</span>
-                                    <span className="text-sm font-bold text-emerald-500">Excelente</span>
+                            <div className="flex flex-col gap-6">
+                              <div className="bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Resumo da Obra</h5>
+                                <div className="space-y-4">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-slate-500">Etapas Concluídas</span>
+                                    <span className="text-sm font-bold">{item.stages?.filter(s => s.status === 'completed').length || 0} / {item.stages?.length || 0}</span>
                                   </div>
-                                  <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 w-[92%]"></div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm text-slate-500">Tarefas Pendentes</span>
+                                    <span className="text-sm font-bold">{item.tasks?.filter(t => !t.completed).length || 0}</span>
                                   </div>
+                                  <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <span className="text-sm font-bold">Saúde do Projeto</span>
+                                      <span className="text-sm font-bold text-emerald-500">Excelente</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                      <div className="h-full bg-emerald-500 w-[92%]"></div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="bg-slate-50 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 flex-1">
+                                <h5 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Histórico do Projeto</h5>
+                                <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 dark:before:via-slate-800 before:to-transparent">
+                                  {item.auditLogs && item.auditLogs.length > 0 ? (
+                                    item.auditLogs.map((log, i) => (
+                                      <div key={log.id || i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                        <div className="flex items-center justify-center w-6 h-6 rounded-full border border-white dark:border-slate-900 bg-slate-200 dark:bg-slate-700 text-slate-500 group-[.is-active]:bg-[#fdb612] group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                        </div>
+                                        <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-[#1a160d] shadow-sm">
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">{log.action}</span>
+                                            <span className="text-[10px] text-slate-500">{formatDate(new Date(log.timestamp))}</span>
+                                          </div>
+                                          {log.details && <p className="text-[10px] text-slate-500">{log.details}</p>}
+                                          <p className="text-[10px] font-medium text-slate-400 mt-1">Por: {log.user}</p>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="text-center py-6 text-slate-400 relative z-10 bg-slate-50 dark:bg-slate-900/40">
+                                      <p className="text-xs">Nenhum evento registrado</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

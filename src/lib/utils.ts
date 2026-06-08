@@ -174,5 +174,7 @@ export function validateCpfCnpj(value: string): string | null {
 
 export function currencyToNumber(value: string): number {
   if (!value) return 0;
-  return parseFloat(value.replace(/\D/g, '')) / 100;
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return 0;
+  return parseFloat(digits) / 100;
 }

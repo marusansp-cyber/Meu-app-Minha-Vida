@@ -99,6 +99,9 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info'; isProminent?: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [pdfPreviewProposal, setPdfPreviewProposal] = useState<Proposal | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [signatureModalUrl, setSignatureModalUrl] = useState<{ proposal: Proposal | null, isOpen: boolean }>({ proposal: null, isOpen: false });
 
   const requestReportWithSignature = (proposal: Proposal) => {
@@ -497,6 +500,20 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     const proposal = proposals.find(p => p.id === id);
     if (!proposal) return;
     setPreviewProposal(proposal);
+  };
+
+  const handlePreviewPDF = async (id: string) => {
+    const proposal = proposals.find(p => p.id === id);
+    if (!proposal) return;
+    
+    setIsPreviewModalOpen(true);
+    setIsGeneratingPreview(true);
+    setPdfPreviewProposal(proposal);
+    
+    // mock PDF generation layout
+    setTimeout(() => {
+      setIsGeneratingPreview(false);
+    }, 2000);
   };
 
   const handleDownload = async (id: string) => {
@@ -1300,6 +1317,100 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
         />
       )}
 
+      {isPreviewModalOpen && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1a160b] w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-[#231d0f]">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 dark:text-slate-100">Prévia da Proposta</h3>
+                  <p className="text-xs text-slate-500 font-medium">Visualização de impressão - {pdfPreviewProposal?.client || 'Cliente'}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto p-8 bg-slate-200/50 dark:bg-black/50 flex items-start justify-center">
+              {isGeneratingPreview ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4 opacity-60">
+                  <div className="size-16 rounded-full border-4 border-slate-200 border-t-[#fdb612] animate-spin" />
+                  <p className="text-sm font-bold tracking-widest uppercase">Gerando Prévia...</p>
+                </div>
+              ) : (
+                <div className="bg-white w-[794px] min-h-[1123px] shadow-lg rounded print-container p-12 text-slate-900 flex flex-col gap-8 transform origin-top sm:scale-100 scale-[0.35]">
+                  {/* Mock PDF Template Content */}
+                  <div className="flex items-center justify-between border-b-4 border-[#00A86B] pb-6">
+                    <div>
+                      <h1 className="text-4xl font-black text-[#00A86B] mb-2">PROPOSTA COMERCIAL</h1>
+                      <p className="text-lg font-bold text-slate-500">Energia Solar Fotovoltaica</p>
+                    </div>
+                    {/* Placeholder for Logo */}
+                    <div className="w-40 h-16 bg-slate-100 rounded flex items-center justify-center">
+                      <span className="font-black text-slate-400">LOGO OMEGA</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-8 text-sm">
+                    <div>
+                      <h3 className="font-black border-b border-slate-200 pb-2 mb-3">DADOS DO CLIENTE</h3>
+                      <p><strong>Nome:</strong> {pdfPreviewProposal?.client || pdfPreviewProposal?.titular}</p>
+                      <p><strong>Endereço:</strong> {pdfPreviewProposal?.endereco || 'Não informado'}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-black border-b border-slate-200 pb-2 mb-3">DADOS DO SISTEMA</h3>
+                      <p><strong>Potência:</strong> {pdfPreviewProposal?.systemSize} kWp</p>
+                      <p><strong>Geração Estimada:</strong> {pdfPreviewProposal?.monthlyGeneration} kWh/mês</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="font-black text-xl text-center bg-slate-100 py-2 rounded">INVESTIMENTO</h3>
+                    <div className="flex items-center justify-between text-2xl font-black px-8 py-4 border-2 border-[#fdb612] rounded-xl text-slate-800">
+                      <span>Valor Total:</span>
+                      <span>{pdfPreviewProposal?.value?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-auto pt-8 border-t border-slate-200 text-center text-xs text-slate-500">
+                    <p>Esta proposta é válida por {pdfPreviewProposal?.validityDays || 15} dias.</p>
+                    <p>Gerado pelo sistema AI Studio em {new Date().toLocaleDateString('pt-BR')}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-[#231d0f] flex justify-end gap-3">
+              <button
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="px-6 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+              >
+                Fechar
+              </button>
+              <button
+                disabled={isGeneratingPreview}
+                onClick={() => {
+                  if (pdfPreviewProposal) {
+                    handleDownload(pdfPreviewProposal.id!);
+                  }
+                }}
+                className="px-6 py-2.5 bg-[#fdb612] text-black font-bold flex items-center justify-center gap-2 rounded-xl hover:brightness-110 transition-all disabled:opacity-50"
+              >
+                <Download className="w-5 h-5" />
+                Download PDF Oficial
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#231d0f] w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -2036,6 +2147,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                         <Share2 className="w-4 h-4" />
                       </button>
                       <button 
+                        onClick={() => handlePreviewPDF(prop.id)}
+                        className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
+                        title="Prévia PDF"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                      <button 
                         onClick={() => handleDownload(prop.id)}
                         className="p-2 hover:bg-[#fdb612]/10 text-slate-400 hover:text-[#fdb612] rounded-lg transition-colors" 
                         title="Baixar PDF"
@@ -2092,6 +2210,13 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                           >
                             <Share2 className="w-4 h-4 text-slate-400" />
                             Compartilhar
+                          </button>
+                          <button 
+                            onClick={() => handlePreviewPDF(prop.id)}
+                            className="w-full px-4 py-2 text-left text-sm font-bold hover:bg-slate-50 dark:hover:bg-white/5 flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4 text-slate-400" />
+                            Prévia PDF
                           </button>
                           <button 
                             onClick={() => handleDownload(prop.id)}

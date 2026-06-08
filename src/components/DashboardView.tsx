@@ -209,9 +209,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const revenueVariation = calculateVariation(currentMonthRevenue, lastMonthRevenue);
     const leadsVariation = calculateVariation(currentMonthLeads, lastMonthLeads);
 
-    const conversionRate = (leads || []).length > 0 
-      ? (((proposals || []).filter(p => p.status === 'accepted').length / (leads || []).length) * 100)
-      : 0;
+    const pendingProposalsCount = (proposals || []).filter(p => p.status === 'pending').length;
 
     const baseStats = [
       { 
@@ -221,22 +219,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         trend: currentMonthRevenue >= lastMonthRevenue ? 'up' : 'down' 
       },
       { 
-        label: 'Leads no Mês', 
+        label: 'Instalações Ativas', 
+        value: (installations || []).length.toString(), 
+        change: '', 
+        trend: 'neutral' 
+      },
+      { 
+        label: 'Propostas Pendentes', 
+        value: pendingProposalsCount.toString(), 
+        change: '', 
+        trend: 'neutral' 
+      },
+      { 
+        label: 'Novos Leads', 
         value: currentMonthLeads.toString(), 
         change: leadsVariation, 
         trend: currentMonthLeads >= lastMonthLeads ? 'up' : 'down' 
-      },
-      { 
-        label: 'Projetos Ativos', 
-        value: (installations || []).length.toString(), 
-        change: '+5%', 
-        trend: 'up' 
-      },
-      { 
-        label: 'Taxa de Conversão', 
-        value: `${conversionRate.toFixed(1)}%`, 
-        change: '+2.4%', 
-        trend: 'up' 
       },
     ];
 
@@ -440,18 +438,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="size-10 rounded-xl bg-[#fdb612]/10 flex items-center justify-center text-[#fdb612] group-hover:scale-110 transition-transform">
                 {stat.label.includes('Vendas') && <TrendingUp className="w-5 h-5" />}
                 {stat.label.includes('Leads') && <Users className="w-5 h-5" />}
+                {stat.label.includes('Instalações') && <Zap className="w-5 h-5" />}
                 {stat.label.includes('Projetos') && <Zap className="w-5 h-5" />}
                 {stat.label.includes('Margem') && <Percent className="w-5 h-5" />}
                 {stat.label.includes('Comissão') && <DollarSign className="w-5 h-5" />}
+                {stat.label.includes('Pendentes') && <FileText className="w-5 h-5" />}
                 {stat.label.includes('Conversão') && <ArrowUpRight className="w-5 h-5" />}
               </div>
-              <span className={cn(
-                "text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1",
-                stat.trend === 'up' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-              )}>
-                {stat.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                {stat.change}
-              </span>
+              {stat.change && (
+                <span className={cn(
+                  "text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest flex items-center gap-1",
+                  stat.trend === 'up' ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" : 
+                  stat.trend === 'down' ? "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400" : 
+                  "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                )}>
+                  {stat.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : stat.trend === 'down' ? <ArrowDownRight className="w-3 h-3" /> : null}
+                  {stat.change}
+                </span>
+              )}
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-xs font-black uppercase tracking-widest">{stat.label}</p>
             <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1">{stat.value}</h3>
