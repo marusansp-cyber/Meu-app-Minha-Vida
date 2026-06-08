@@ -810,7 +810,7 @@ export const generateProposalPDF = async (
     
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.setTextColor(primaryNavy[0], primaryNavy[1], primaryNavy[2]);
+    doc.setTextColor(secondaryNavy[0], secondaryNavy[1], secondaryNavy[2]);
     doc.text("Assinatura do Cliente", margin, currentY + 45);
     doc.setFont("helvetica", "normal");
     doc.text(aguardando(proposal.client || proposal.titular), margin, currentY + 50);

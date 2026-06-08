@@ -2,6 +2,7 @@ export type UserRole = 'admin' | 'sales' | 'engineer' | 'installer' | 'finance' 
 
 export interface User {
   id: string;
+  uid?: string;
   name: string;
   email: string;
   role: UserRole;
@@ -10,6 +11,7 @@ export interface User {
   address?: string;
   status?: 'active' | 'inactive' | 'pending';
   createdAt?: string;
+  twoFactorEnabled?: boolean;
 }
 
 export type View = 'dashboard' | 'leads' | 'installations' | 'team' | 'users' | 'sales' | 'proposals' | 'settings' | 'partners' | 'collaborators' | 'kits' | 'finance' | 'clients' | 'reports' | 'gallery' | 'landing';
@@ -225,6 +227,7 @@ export interface Proposal {
   client: string;
   value: number;
   date: string;
+  createdAt?: string;
   status: 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled';
   systemSize: string;
   representative: string;
@@ -242,6 +245,8 @@ export interface Proposal {
   energyConsumption?: string | null;
   monthlyGeneration?: string | null;
   kitId?: string | null;
+  panelInfo?: string | null;
+  inverterInfo?: string | null;
   discount?: number | null;
   financingBank?: string | null;
   financingInstallments?: number | null;
@@ -394,6 +399,8 @@ export interface CompanySettings {
   address?: string;
   phone?: string;
   email?: string;
+  cnpj?: string;
+  contactEmail?: string;
   updatedAt?: string;
 }
 
@@ -402,7 +409,8 @@ export interface SMTPSettings {
   port: number;
   user: string;
   pass: string;
-  secure: boolean;
+  secure?: boolean;
   fromName?: string;
+  from?: string;
   fromEmail?: string;
 }

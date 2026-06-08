@@ -80,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onViewChange(item.id as View);
               }}
               className={cn(
+                `sidebar-${item.id}`,
                 "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium",
                 isActive 
                   ? "bg-[#fdb612] text-[#231d0f]" 

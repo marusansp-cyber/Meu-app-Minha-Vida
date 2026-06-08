@@ -300,7 +300,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
       // CPF/CNPJ
       if (filters.cpfCnpj) {
         const client = clients.find(c => c.name === p.client);
-        if (!client?.document?.includes(filters.cpfCnpj)) return false;
+        const hasDoc = client?.cpf?.includes(filters.cpfCnpj) || client?.cnpj?.includes(filters.cpfCnpj);
+        if (!hasDoc) return false;
       }
 
       // Has Project (Installation)
@@ -727,8 +728,9 @@ export const SalesView: React.FC<SalesViewProps> = ({
         }}
         onAdd={handleAddProposal}
         initialData={selectedProposal || undefined}
-        user={user}
-        kits={kits}
+        user={user!}
+        clients={clients}
+        leads={leads}
         proposals={proposals}
       />
 
@@ -738,7 +740,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
           setIsDetailsModalOpen(false);
           setSelectedProposal(null);
         }}
-        proposal={selectedProposal || undefined}
+        proposal={selectedProposal || null}
+        user={user}
         kits={kits}
       />
     </div>

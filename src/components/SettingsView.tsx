@@ -32,6 +32,8 @@ import { User as UserType, CompanySettings, SMTPSettings } from '../types';
 import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
 import { SMTPHelpModal } from './SMTPHelpModal';
 import { Eye, EyeOff, CheckCircle, AlertCircle, Lock, AlertTriangle, Sparkles, Check, RefreshCw } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface SettingsViewProps {
   user: UserType | null;
@@ -223,6 +225,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     } catch (error) {
       console.error('Error updating profile:', error);
       showToast('Erro ao salvar configurações.');
+    }
+  };
+
+  const handleFirestoreBackup = async () => {
+    try {
+      showToast('Iniciando backup...', 'info');
+      const collectionsToBackup = ['proposals', 'leads', 'installations', 'clients', 'companySettings', 'kits'];
+      const backupData: Record<string, any[]> = {};
+      
+      for (const collName of collectionsToBackup) {
+        const querySnapshot = await getDocs(collection(db, collName));
+        backupData[collName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+      
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const date = new Date().toISOString().split('T')[0];
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `backup_jv_mendes_${date}.json`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('Backup concluído com sucesso!', 'success');
+    } catch (err: any) {
+      console.error('Backup fail:', err);
+      showToast(`Erro no backup: ${err.message || 'Falha ao exportar os dados.'}`, 'error');
     }
   };
 
@@ -715,6 +748,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
                   >
                     Acesso por Usuário
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Backup do Sistema</h3>
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="size-12 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600">
+                      <Download className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Backup Manual de Dados</h4>
+                      <p className="text-xs text-slate-500">Baixe um arquivo JSON com todas as propostas, leads, instalações e configurações</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleFirestoreBackup}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95"
+                  >
+                    Gerar Backup
                   </button>
                 </div>
               </div>

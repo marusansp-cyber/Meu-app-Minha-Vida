@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Joyride, Step } from 'react-joyride';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { LeadsView } from './components/LeadsView';
@@ -50,6 +51,53 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(true);
   const [isFirestoreConnected, setIsFirestoreConnected] = useState(true);
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  const [runTour, setRunTour] = useState(false);
+  const tourSteps: Step[] = [
+    {
+      target: 'body',
+      content: 'Bem-vindo(a) ao CRM JV Mendes! Vamos fazer um rápido tour pelas principais funcionalidades.',
+      placement: 'center',
+    },
+    {
+      target: '.sidebar-dashboard',
+      content: 'Aqui é o Painel de Controle, onde você vê as métricas principais.',
+    },
+    {
+      target: '.sidebar-leads',
+      content: 'No CRM (Leads), você gerencia as oportunidades e potenciais clientes.',
+    },
+    {
+      target: '.sidebar-propostas',
+      content: 'Crie e envie propostas comerciais em PDF com a identidade visual da empresa.',
+    },
+    {
+      target: '.sidebar-instalacoes',
+      content: 'Em Instalações, acompanhe o andamento técnico e adicione evidências (fotos) e assinaturas.',
+    },
+    {
+      target: '.sidebar-kits',
+      content: 'Gerencie os preços e informações de Kits Fotovoltaicos.',
+    },
+    {
+      target: '.sidebar-settings',
+      content: 'Nas Configurações você pode customizar e fazer backup de seus dados.',
+    }
+  ];
+
+  const handleTourCallback = (data: any) => {
+    const { status } = data;
+    if (status === 'finished' || status === 'skipped') {
+      setRunTour(false);
+      localStorage.setItem('jv_tour_completed', 'true');
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && !localStorage.getItem('jv_tour_completed')) {
+      setRunTour(true);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     setFirestoreErrorListener((err) => {
@@ -721,6 +769,23 @@ export default function App() {
 
   return (
       <div className="flex min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] text-slate-900 dark:text-slate-100">
+        <Joyride
+          steps={tourSteps}
+          run={runTour}
+          continuous
+          showSkipButton
+          callback={handleTourCallback}
+          styles={{
+            options: {
+              primaryColor: '#fdb612',
+              textColor: '#231d0f',
+              backgroundColor: '#ffffff',
+              arrowColor: '#ffffff',
+              overlayColor: 'rgba(0, 0, 0, 0.6)',
+              zIndex: 1000,
+            }
+          }}
+        />
         {/* Mobile Search Modal */}
         {isMobileSearchOpen && (
           <div className="fixed inset-0 z-[200] bg-white dark:bg-[#231d0f] p-4 flex flex-col items-center animate-in fade-in slide-in-from-top duration-300">

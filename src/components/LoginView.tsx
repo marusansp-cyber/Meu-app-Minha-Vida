@@ -27,7 +27,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         onLogin(result.user.email);
       }
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
         setError('O login com Google não está habilitado no Console do Firebase. Vá em Console > Authentication > Sign-in method e habilite "Google".');
       } else if (err.code === 'auth/popup-closed-by-user') {
@@ -53,7 +52,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
       setError('E-mail de redefinição enviado! Verifique sua caixa de entrada.');
       setIsLoading(false);
     } catch (err: any) {
-      console.error(err);
       setError('Erro ao enviar e-mail de redefinição.');
       setIsLoading(false);
     }
@@ -119,7 +117,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
         }
       }
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/operation-not-allowed') {
         setError('O login com E-mail/Senha não está habilitado no Console do Firebase. Vá em Console > Authentication > Sign-in method e habilite "E-mail/Senha".');
       } else if (err.code === 'auth/weak-password') {

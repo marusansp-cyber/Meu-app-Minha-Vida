@@ -38,6 +38,8 @@ import { Installation, InstallationStage } from '../types';
 import { MapView } from './MapView';
 import { generateInstallationReportPDF } from '../services/pdfService';
 import { SignatureModal } from './SignatureModal';
+import { InstallationsMap } from './InstallationsMap';
+import 'leaflet/dist/leaflet.css';
 
 interface StageReportModalProps {
   isOpen: boolean;
@@ -593,6 +595,8 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
           </div>
         ))}
       </div>
+
+      <InstallationsMap installations={filteredInstallations} />
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-2">
         {[
