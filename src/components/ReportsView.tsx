@@ -46,6 +46,8 @@ interface ReportsViewProps {
   isDarkMode?: boolean;
 }
 
+import { PageTransition } from './PageTransition';
+
 export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installations, leads, clients, isDarkMode = false }) => {
   const [dateRange, setDateRange] = useState('30days');
   const [consultantFilter, setConsultantFilter] = useState('all');
@@ -256,6 +258,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   };
 
   return (
+    <PageTransition>
     <div className="space-y-8 pb-20">
       {/* Header & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -652,5 +655,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
         </div>
       </div>
     </div>
+    </PageTransition>
   );
 };

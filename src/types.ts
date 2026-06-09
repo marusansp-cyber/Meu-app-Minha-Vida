@@ -137,6 +137,10 @@ export interface Lead {
   state?: string;
   latitude?: number;
   longitude?: number;
+  energyConsumption?: string;
+  calculatedKwp?: number;
+  calculatedMonthlyGen?: number;
+  calculatedPayback?: number;
   
   history?: {
     date: string;

@@ -54,6 +54,8 @@ import { LEADS } from '../constants';
 import { cn, formatDate } from '../lib/utils';
 import { Lead } from '../types';
 import { extractLeadFromPdf } from '../services/geminiService';
+import { SolarCalculator } from './SolarCalculator';
+import { PageTransition } from './PageTransition';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -93,7 +95,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [leadModalTab, setLeadModalTab] = useState<'info' | 'history' | 'files'>('info');
+  const [leadModalTab, setLeadModalTab] = useState<'info' | 'history' | 'files' | 'calculator'>('info');
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -602,7 +604,8 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <PageTransition>
+      <div className="flex flex-col h-full relative">
       {toast && (
         <div className="fixed bottom-8 right-8 z-[200] bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
           <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
@@ -1461,6 +1464,16 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                     <Paperclip className="w-3" />
                     Arquivos
                   </button>
+                  <button 
+                    onClick={() => setLeadModalTab('calculator')}
+                    className={cn(
+                      "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                      leadModalTab === 'calculator' ? "text-[#fdb612] border-b-2 border-[#fdb612] bg-[#fdb612]/5" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
+                    )}
+                  >
+                    <Zap className="w-3" />
+                    Calculadora
+                  </button>
                 </div>
               )}
               
@@ -1898,6 +1911,15 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                           </div>
                         )}
                       </>
+                    ) : leadModalTab === 'calculator' ? (
+                        <SolarCalculator 
+                          lead={selectedLead} 
+                          onSave={async (kwp, gen) => {
+                            const item = { date: new Date().toISOString(), action: `Cálculo Solar Salvo: ${kwp.toFixed(2)} kWp (${gen.toFixed(0)} kWh)`, user: 'Sistema' };
+                            await onUpdateLead({ ...selectedLead, history: [item, ...(selectedLead.history || [])] } as Lead);
+                            setSelectedLead(prev => prev ? { ...prev, history: [item, ...(prev.history || [])] } : null);
+                          }} 
+                        />
                     ) : leadModalTab === 'history' ? (
                       <div className="space-y-6">
                         <div className="flex flex-col gap-4">
@@ -2106,6 +2128,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
         )}
       </AnimatePresence>
     </div>
+    </PageTransition>
   );
 };
 

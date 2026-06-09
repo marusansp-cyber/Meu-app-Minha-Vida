@@ -56,6 +56,8 @@ interface DashboardViewProps {
 type SortField = 'name' | 'projectId' | 'stage' | 'progress';
 type SortOrder = 'asc' | 'desc';
 
+import { PageTransition } from './PageTransition';
+
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
   installations, 
   leads, 
@@ -360,7 +362,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 relative">
+    <PageTransition>
+      <div className="space-y-8 relative">
       {toast && (
         <div className="fixed bottom-8 right-8 z-50 bg-[#231d0f] text-white px-6 py-3 rounded-xl shadow-2xl border border-[#fdb612]/30 animate-in slide-in-from-right duration-300 flex items-center gap-3">
           <div className="size-2 bg-[#fdb612] rounded-full animate-pulse" />
@@ -821,6 +824,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
     </div>
+    </PageTransition>
   );
 };
 

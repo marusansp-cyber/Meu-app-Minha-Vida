@@ -186,6 +186,8 @@ interface InstallationsViewProps {
   onDeleteInstallation: (id: string) => Promise<void>;
 }
 
+import { PageTransition } from './PageTransition';
+
 export const InstallationsView: React.FC<InstallationsViewProps> = ({ 
   installations, 
   onOpenNewProject,
@@ -485,6 +487,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
   const endItem = Math.min(currentPage * itemsPerPage, filteredInstallations.length);
 
   return (
+    <PageTransition>
     <div className="space-y-8 relative">
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
@@ -1188,5 +1191,6 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         </div>
       </div>
     </div>
+    </PageTransition>
   );
 };

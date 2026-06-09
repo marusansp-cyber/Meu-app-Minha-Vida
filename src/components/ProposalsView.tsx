@@ -56,6 +56,8 @@ const SkeletonRow = () => (
   </tr>
 );
 
+import { PageTransition } from './PageTransition';
+
 export const ProposalsView: React.FC<ProposalsViewProps> = ({ 
   proposals: initialProposals, 
   user, 
@@ -1018,7 +1020,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <PageTransition>
+      <div className="space-y-8 pb-20">
       {/* Header with Stats and Quick Nav */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="flex items-center gap-4">
@@ -2295,6 +2298,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       </>
     )}
     </div>
+    </PageTransition>
   );
 };
 
