@@ -1347,6 +1347,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
           isOpen={!!selectedProposal}
           onClose={() => setSelectedProposal(null)}
           proposal={selectedProposal}
+          onUpdate={async (updatedProp) => {
+            if (!updatedProp.id) return;
+            await updateDocument('proposals', updatedProp.id, updatedProp);
+            setSelectedProposal(updatedProp);
+          }}
           user={user}
         />
       )}

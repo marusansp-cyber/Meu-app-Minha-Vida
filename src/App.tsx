@@ -137,6 +137,32 @@ export default function App() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+
+  useEffect(() => {
+    // FIX PROPOSALS SCRIPT
+    if (proposals.length > 0) {
+      proposals.forEach(async p => {
+        let currentCommission = p.commission;
+        if (typeof currentCommission === 'string') {
+          currentCommission = parseFloat((currentCommission as string).replace(',', '.'));
+        }
+        if (
+          (currentCommission && currentCommission > 100) || 
+          p.proposalNumber === '2601/06' || 
+          p.proposalNumber === '2601' || 
+          p.client?.includes('Felipe') || 
+          p.client?.includes('Fabio')
+        ) {
+          if (p.commission !== 5) {
+             console.log(`Fixing commission for ${p.client}`, p.id);
+             await updateDocument('proposals', p.id!, { commission: 5 });
+             // Wait briefly to avoid spamming
+             await new Promise(r => setTimeout(r, 100));
+          }
+        }
+      });
+    }
+  }, [proposals]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   useDeadlinesReminder(installations);

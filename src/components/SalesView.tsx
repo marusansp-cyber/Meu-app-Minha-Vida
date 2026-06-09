@@ -741,6 +741,12 @@ export const SalesView: React.FC<SalesViewProps> = ({
           setSelectedProposal(null);
         }}
         proposal={selectedProposal || null}
+        onUpdate={async (updatedProp) => {
+          if (!updatedProp.id) return;
+          await updateDocument('proposals', updatedProp.id, updatedProp);
+          setSelectedProposal(updatedProp);
+          showToast('Proposta atualizada com sucesso!');
+        }}
         user={user}
         kits={kits}
       />
