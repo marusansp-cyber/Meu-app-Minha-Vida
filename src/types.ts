@@ -67,11 +67,12 @@ export interface Client {
   email: string;
   phone: string;
   address?: string;
+  cpfCnpj?: string;
+  cpf?: string;
+  cnpj?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
-  cnpj?: string;
-  cpf?: string;
   createdAt: string;
   projects: string[]; // IDs of installations/proposals
   status: 'active' | 'inactive';
@@ -127,15 +128,15 @@ export interface Lead {
   scheduledDate?: string;
   createdAt?: string;
   representative?: string;
-  
-  // New Fields
   cpfCnpj?: string;
   address?: string;
+  cep?: string;
+  ucNumber?: string;
   neighborhood?: string;
   city?: string;
   state?: string;
-  cep?: string;
-  ucNumber?: string;
+  latitude?: number;
+  longitude?: number;
   
   history?: {
     date: string;
@@ -170,7 +171,8 @@ export interface InstallationStage {
 
 export interface History {
   id: string;
-  type: 'create' | 'update' | 'delete';
+  type?: 'create' | 'update' | 'delete';
+  action?: string;
   collection: string;
   docId: string;
   data?: any;
@@ -211,6 +213,10 @@ export interface Installation {
   systemPower?: string;
   inverterInfo?: string;
   panelInfo?: string;
+  panelQuantity?: number;
+  panelPowerW?: number;
+  inverterPowerCA_kW?: number;
+  status?: string;
   tasks?: {
     id: string;
     title: string;
@@ -247,6 +253,11 @@ export interface Proposal {
   kitId?: string | null;
   panelInfo?: string | null;
   inverterInfo?: string | null;
+  panelPowerW?: number | null;
+  inverterModel?: string | null;
+  inverterPowerCA_kW?: number | null;
+  inverterPowerCCMax_kW?: number | null;
+  inverterInmetro?: string | null;
   discount?: number | null;
   financingBank?: string | null;
   financingInstallments?: number | null;

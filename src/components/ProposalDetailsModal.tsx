@@ -577,7 +577,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     type="number" 
                     step="0.01"
                     value={editForm.financingRate || 0}
-                    onChange={(e) => setEditForm({ ...editForm, financingRate: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, financingRate: parseFloat(e.target.value) || 0 })}
                     className={cn(
                       "w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612]"
                     )}

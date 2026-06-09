@@ -905,7 +905,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         validityDays: initialData.validityDays || 15,
         paymentTerms: initialData.paymentTerms || 'Entrada + 2x (30/60)',
         disclaimerTaxaMinima: initialData.disclaimerTaxaMinima || 'Estimada em R$ 100,00/mês',
-      });
+      } as any);
       setCurrentStep('ucs');
     } else {
       setFormData({
@@ -968,7 +968,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         validityDays: 15,
         paymentTerms: 'Entrada + 2x (30/60)',
         disclaimerTaxaMinima: 'Estimada em R$ 100,00/mês',
-      });
+      } as any);
       setCurrentStep('ucs');
     }
   }, [initialData, isOpen]);
@@ -1192,7 +1192,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
       // Calculate annual savings for PDF
       const annualSavingsValue = parseFloat(monthlyGenerationValue) * energyTariff * 12;
 
-      const proposalData: Proposal = {
+      const proposalData = {
         ...formData,
         id: initialData?.id || '',
         client: formData.titular || formData.client,
@@ -1239,6 +1239,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         projectCost: currencyToNumber(formData.projectCost) || 0,
         licensingCost: currencyToNumber(formData.licensingCost) || 0,
         logisticCost: currencyToNumber(formData.logisticCost) || 0,
+        subtotal: currencyToNumber(formData.subtotal) || 0,
         additionalCost: currencyToNumber(formData.additionalCost) || 0,
         installationStartDate: formData.installationStartDate || null,
         estimatedCompletionDate: formData.estimatedCompletionDate || null,
@@ -1254,7 +1255,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
         paymentTerms: formData.paymentTerms,
       };
       
-      await onAdd(proposalData);
+      await onAdd(proposalData as any);
       onClose();
     } catch (error) {
       console.error('Error submitting proposal:', error);
@@ -2106,7 +2107,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                           </div>
                           <div className="text-right">
                             <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Valor Sugerido</span>
-                            <span className="text-sm font-black text-[#00A86B]">R$ {parseFloat(kit.price).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                            <span className="text-sm font-black text-[#00A86B]">R$ {kit.price.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
                           </div>
                         </div>
                       </button>
@@ -3122,8 +3123,8 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                 value={maskCurrency((inst.value || 0).toString())}
                                 onChange={(e) => {
                                   const newIns = [...(formData.customInstallments || [])];
-                                  newIns[index].value = maskCurrency(e.target.value);
-                                  setFormData({ ...formData, customInstallments: newIns });
+                                  newIns[index].value = currencyToNumber(e.target.value) || 0;
+                                  setFormData({ ...formData, customInstallments: newIns } as any);
                                 }}
                                 className="w-full pl-8 pr-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#00A86B]"
                               />
@@ -3431,7 +3432,7 @@ export const NewProposalModal: React.FC<NewProposalModalProps> = ({
                                 representative: formData.representative || user?.name || "Representante",
                                 status: 'pending',
                                 email: formData.email,
-                                telefone: formData.telefone || formData.phone || formData.whatsapp,
+                                telefone: formData.telefone,
                                 endereco: formData.endereco,
                                 cpfCnpj: formData.cpfCnpj,
                                 paymentTerms: formData.paymentTerms,

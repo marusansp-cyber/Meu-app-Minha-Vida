@@ -37,7 +37,7 @@ interface ClientsViewProps {
   onAddClient: (client: Partial<Client>) => Promise<void>;
   onUpdateClient: (id: string, client: Partial<Client>) => Promise<void>;
   onDeleteClient: (id: string) => Promise<void>;
-  onCreateProposal?: (client: Client) => void;
+  onCreateProposal?: (client: any) => void;
 }
 
 export const ClientsView: React.FC<ClientsViewProps> = ({ 

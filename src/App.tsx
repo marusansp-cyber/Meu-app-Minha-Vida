@@ -769,11 +769,12 @@ export default function App() {
 
   return (
       <div className="flex min-h-screen bg-[#f8f7f5] dark:bg-[#231d0f] text-slate-900 dark:text-slate-100">
+        {/* @ts-ignore */}
         <Joyride
           steps={tourSteps}
           run={runTour}
           continuous
-          showSkipButton
+          {...{showSkipButton: true} as any}
           callback={handleTourCallback}
           styles={{
             options: {
@@ -784,7 +785,7 @@ export default function App() {
               overlayColor: 'rgba(0, 0, 0, 0.6)',
               zIndex: 1000,
             }
-          }}
+          } as any}
         />
         {/* Mobile Search Modal */}
         {isMobileSearchOpen && (

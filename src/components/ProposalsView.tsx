@@ -1507,7 +1507,8 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
             {(searchTerm || statusFilters.length > 0 || representativeFilter !== 'all' || filters.id || filters.client || filters.system || filters.value || filters.representative !== 'all' || filters.startDate || filters.endDate) && (
               <button 
                 onClick={() => {
-                  setFilters({
+                  setFilters(prev => ({
+                    ...prev,
                     id: '',
                     client: '',
                     system: '',
@@ -1515,7 +1516,7 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
                     representative: 'all',
                     startDate: '',
                     endDate: ''
-                  });
+                  }));
                   setSearchTerm('');
                   setStatusFilters([]);
                   setRepresentativeFilter('all');

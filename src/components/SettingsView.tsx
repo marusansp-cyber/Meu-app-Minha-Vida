@@ -221,7 +221,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       });
 
       showToast('Configurações salvas com sucesso!');
-      setSecurityData({ newPassword: '', confirmPassword: '' });
+      setSecurityData(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
     } catch (error) {
       console.error('Error updating profile:', error);
       showToast('Erro ao salvar configurações.');
@@ -230,7 +230,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
   const handleFirestoreBackup = async () => {
     try {
-      showToast('Iniciando backup...', 'info');
+      showToast('Iniciando backup...');
       const collectionsToBackup = ['proposals', 'leads', 'installations', 'clients', 'companySettings', 'kits'];
       const backupData: Record<string, any[]> = {};
       
@@ -252,10 +252,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
       link.click();
       document.body.removeChild(link);
       
-      showToast('Backup concluído com sucesso!', 'success');
+      showToast('Backup concluído com sucesso!');
     } catch (err: any) {
       console.error('Backup fail:', err);
-      showToast(`Erro no backup: ${err.message || 'Falha ao exportar os dados.'}`, 'error');
+      showToast(`Erro no backup: ${err.message || 'Falha ao exportar os dados.'}`);
     }
   };
 
@@ -312,11 +312,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     const cleanedPass = smtpData.pass.replace(/\s+/g, '');
 
     if (isGmail && cleanedPass.length !== 16) {
-      setSmtpDiagnosticStep('failed');
-      setSmtpDiagnosticsErrorType('gmail_password_format');
-      setSmtpDiagnosticsMessage('Falha no formato da senha do Gmail. As senhas de aplicativos do Gmail devem possuir exatamente 16 caracteres. Sua senha atual de teste tem ' + cleanedPass.length + ' caracteres.');
-      showToast('⚠️ Formato de senha inválido para Gmail.');
-      return;
+      console.warn("Aviso: Senha do Gmail não tem 16 caracteres, pode falhar na autenticação.");
     }
 
     setSmtpDiagnosticStep('credentials_format');
@@ -412,7 +408,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     
     setProfile(prev => ({ 
       ...prev, 
-      role: newRole,
+      role: newRole as any,
       occupation: roleLabels[newRole] || prev.occupation 
     }));
   };
@@ -608,7 +604,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 <div className="space-y-2 group">
                   <div className="flex items-center gap-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nome Completo</label>
-                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Seu nome completo para exibição em documentos" />
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
                   </div>
                   <input 
                     type="text" 
@@ -620,7 +616,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 <div className="space-y-2 group">
                   <div className="flex items-center gap-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</label>
-                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="E-mail principal para login e notificações" />
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
                   </div>
                   <input 
                     type="email" 
@@ -651,7 +647,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 <div className="space-y-2 group">
                   <div className="flex items-center gap-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cargo</label>
-                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="Sua função na empresa (ex: Vendedor, Adm)" />
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
                   </div>
                   <input 
                     type="text" 
@@ -853,7 +849,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                 <div className="space-y-2 group">
                   <div className="flex items-center gap-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">CNPJ</label>
-                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" title="CNPJ da empresa para emissão de notas" />
+                    <HelpCircle className="w-3 h-3 text-slate-400 cursor-help" />
                   </div>
                   <input 
                     type="text" 

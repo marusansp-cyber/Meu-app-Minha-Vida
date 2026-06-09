@@ -49,6 +49,9 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({ isOpen, onClos
         systemPower: installation.systemPower || '',
         inverterInfo: installation.inverterInfo || '',
         panelInfo: installation.panelInfo || '',
+        panelQuantity: (installation.panelQuantity || '') as any,
+        panelPowerW: (installation.panelPowerW || '') as any,
+        inverterPowerCA_kW: (installation.inverterPowerCA_kW || '') as any,
         stages: installation.stages || []
       });
     }

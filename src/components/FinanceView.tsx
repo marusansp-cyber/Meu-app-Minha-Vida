@@ -1347,9 +1347,6 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
           isOpen={!!selectedProposal}
           onClose={() => setSelectedProposal(null)}
           proposal={selectedProposal}
-          onSend={() => {}}
-          onDownload={() => {}}
-          onPrint={() => {}}
           user={user}
         />
       )}

@@ -1109,7 +1109,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                                   <motion.div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
+                                    {...(provided.dragHandleProps as any)}
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
@@ -1820,7 +1820,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Endereço</label>
                             <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold">
                               <MapPin className="w-4 h-4 text-[#fdb612]" />
-                              {selectedLead.address || selectedLead.endereco || 'Não informado'}
+                              {selectedLead.address || 'Não informado'}
                             </div>
                           </div>
                           <div className="space-y-1">

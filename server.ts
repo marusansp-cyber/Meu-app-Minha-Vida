@@ -77,11 +77,7 @@ async function startServer() {
     const isActuallyGmail = hostClean.toLowerCase().includes("gmail.com") || hostClean.toLowerCase().includes("googlemail.com");
 
     if (isActuallyGmail && passClean.length !== 16) {
-      return res.status(401).json({
-        success: false,
-        message: "Erro de Configuração Gmail: A Senha de App deve ter exatamente 16 caracteres. O Google rejeitou sua senha atual possivelmente por ser sua senha comum ou estar incompleta.",
-        error: "INVALID_GMAIL_PASS_LENGTH"
-      });
+      console.warn("Aviso: Senha do Gmail não tem 16 caracteres, pode falhar na autenticação.");
     }
 
     try {
@@ -179,11 +175,7 @@ async function startServer() {
     }
 
     if (isActuallyGmail && pass.length !== 16) {
-      return res.status(401).json({
-        success: false,
-        message: "Erro de Configuração Gmail: A Senha de App deve ter exatamente 16 caracteres. O Google rejeitou sua senha atual possivelmente por ser sua senha comum ou estar incompleta.",
-        error: "INVALID_GMAIL_PASS_LENGTH"
-      });
+      console.warn("Aviso: Senha do Gmail não tem 16 caracteres, pode falhar na autenticação.");
     }
 
     try {

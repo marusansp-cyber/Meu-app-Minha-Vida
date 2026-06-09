@@ -81,7 +81,14 @@ export const NewKitModal: React.FC<NewKitModalProps> = ({ isOpen, onClose, kit, 
   const editComponent = (index: number) => {
     const component = formData.components?.[index];
     if (component) {
-      setNewComponent({ ...component });
+      setNewComponent({ 
+        name: component.name, 
+        brand: component.brand || '', 
+        model: component.model || '', 
+        notes: component.notes || '', 
+        quantity: component.quantity, 
+        verified: component.verified || false 
+      });
       setEditingComponentIndex(index);
     }
   };

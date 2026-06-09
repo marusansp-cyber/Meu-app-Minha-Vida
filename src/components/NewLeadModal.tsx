@@ -227,7 +227,9 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
       setFormData({ 
         name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', 
         representative: 'Marusan Pinto', status: 'new', urgent: false,
-        cpfCnpj: '', address: '', cep: '', ucNumber: ''
+        cpfCnpj: '', address: '', cep: '', ucNumber: '',
+        neighborhood: '', city: '', state: '', scheduledDate: '',
+        latitude: undefined, longitude: undefined
       });
       setErrors({});
       onClose();
