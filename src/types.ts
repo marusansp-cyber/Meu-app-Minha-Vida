@@ -207,6 +207,12 @@ export interface Installation {
   };
   progress: number;
   lastUpdated: string;
+  checklist?: {
+    id: string;
+    step: string;
+    completed: boolean;
+    note: string;
+  }[];
   type: 'residence' | 'industrial' | 'home' | 'apartment';
   startDate?: string;
   estimatedDeadline?: string;

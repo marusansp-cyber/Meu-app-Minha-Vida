@@ -14,6 +14,7 @@ import { HelpCircle } from 'lucide-react';
 import { syncCollection, createDocument, updateDocument, deleteDocument } from '../firestoreUtils';
 import { generateProposalPDF } from '../services/pdfService';
 import { sendProposalEmail } from '../services/emailService';
+import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { validarRelacaoCCCA } from '../lib/engineeringUtils';
@@ -518,23 +519,33 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
     }, 2000);
   };
 
+  const hiddenPdfRef = React.useRef<HTMLDivElement>(null);
+
   const handleDownload = async (id: string) => {
     const proposal = proposals.find(p => p.id === id);
     if (!proposal) return;
 
     try {
-      showToast('Gerando PDF...', 'info');
-      const kit = kits.find(k => k.id === proposal.kitId);
-      const pdfBase64 = await generateProposalPDF(proposal, kit);
+      showToast('Gerando PDF premium...', 'info');
+      setPdfPreviewProposal(proposal);
+      // Wait for React to render the hidden template block
+      await new Promise(resolve => setTimeout(resolve, 500)); 
       
-      const link = document.createElement('a');
-      link.href = pdfBase64;
-      link.download = `proposta_${proposal.id}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showToast('Download concluído!');
+      if (hiddenPdfRef.current) {
+        const canvas = await html2canvas(hiddenPdfRef.current, {
+          scale: 2,
+          useCORS: true,
+          logging: false
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`proposta_${proposal.client.replace(/\s+/g, '_')}_${formatDate(new Date()).replace(/\//g, '-')}.pdf`);
+        showToast('Download concluído!');
+      }
     } catch (error) {
       console.error('Erro ao baixar PDF:', error);
       showToast('Erro ao gerar PDF.', 'info');
@@ -2297,6 +2308,73 @@ export const ProposalsView: React.FC<ProposalsViewProps> = ({
       </div>
       </>
     )}
+      {/* Hidden PDF Premium Template */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        {pdfPreviewProposal && (
+          <div ref={hiddenPdfRef} className="bg-white text-slate-900 w-[794px] min-h-[1123px] p-12">
+            <div className="flex justify-between items-start border-b-[4px] border-[#fdb612] pb-6 mb-8">
+              <div>
+                <h1 className="text-4xl font-black uppercase text-[#231d0f]">Proposta Comercial</h1>
+                <p className="text-xl font-bold text-slate-500 mt-2">Sistema Fotovoltaico</p>
+              </div>
+              <div className="text-right">
+                <div className="w-16 h-16 bg-[#fdb612] rounded-xl flex items-center justify-center text-2xl font-black mb-2 ml-auto">
+                  V
+                </div>
+                <p className="font-bold">Vieira's Solar</p>
+                <p className="text-sm">energia@vieirassolar.com.br</p>
+              </div>
+            </div>
+
+            <div className="flex gap-8 mb-8">
+              <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <h3 className="text-xs font-black text-[#fdb612] uppercase tracking-widest mb-4">Dados do Cliente</h3>
+                <p className="font-bold text-lg">{pdfPreviewProposal.client}</p>
+                <p className="text-sm text-slate-600 mt-2">Endereço: {pdfPreviewProposal.endereco || 'A ser definido'}</p>
+              </div>
+              <div className="flex-1 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                <h3 className="text-xs font-black text-[#fdb612] uppercase tracking-widest mb-4">Dados da Proposta</h3>
+                <p className="font-bold">Data: {formatDate(pdfPreviewProposal.date)}</p>
+                <p className="text-sm text-slate-600 mt-2">Consultor: {pdfPreviewProposal.representative}</p>
+                <p className="text-sm text-slate-600">ID: {pdfPreviewProposal.proposalNumber || pdfPreviewProposal.id}</p>
+              </div>
+            </div>
+
+            <div className="mb-8">
+              <h2 className="text-xl font-black uppercase tracking-widest text-[#231d0f] mb-4">Dimensionamento do Sistema</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 border border-slate-200 rounded-xl">
+                  <p className="text-xs font-bold text-slate-500 uppercase">Potência do Sistema</p>
+                  <p className="text-2xl font-black text-emerald-600">{pdfPreviewProposal.systemSize}</p>
+                </div>
+                <div className="p-4 border border-slate-200 rounded-xl">
+                  <p className="text-xs font-bold text-slate-500 uppercase">Geração Estimada</p>
+                  <p className="text-2xl font-black text-blue-600">{pdfPreviewProposal.monthlyGeneration} kWh/mês</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-8 p-6 bg-[#fdb612]/10 rounded-2xl border border-[#fdb612]/30">
+              <h2 className="text-xl font-black uppercase tracking-widest text-[#231d0f] mb-4">Investimento</h2>
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-3xl font-black text-[#231d0f]">
+                  R$ {typeof pdfPreviewProposal.value === 'number' ? pdfPreviewProposal.value.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) : pdfPreviewProposal.value}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-16 pt-8 border-t border-slate-200">
+              <p className="text-center text-xs font-bold text-slate-400">
+                Proposta válida por {pdfPreviewProposal.validityDays || 15} dias a partir da data de emissão.
+              </p>
+              <p className="text-center text-xs text-slate-400 mt-2">
+                Gerado automaticamente pelo sistema Meu App Minha Vida
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
     </PageTransition>
   );

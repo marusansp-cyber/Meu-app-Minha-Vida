@@ -35,6 +35,7 @@ import { cn, formatDate, fixOklch } from '../lib/utils';
 import { Proposal, Installation, Lead, Client } from '../types';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import Papa from 'papaparse';
 
 import { getDocument } from '../firestoreUtils';
 
@@ -257,6 +258,50 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
     }
   };
 
+  const exportCSV = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Export Proposals
+    const proposalsCSVData = filteredData.proposals.map(p => ({
+      ID: p.proposalNumber || p.id,
+      Cliente: p.client,
+      Consultor: p.representative,
+      Valor: p.value,
+      Status: p.status,
+      Data: p.date,
+      "Tamanho Sistema": p.systemSize,
+      "Comissão": p.commission
+    }));
+
+    const proposalsCSV = Papa.unparse(proposalsCSVData);
+    const proposalsBlob = new Blob([proposalsCSV], { type: 'text/csv;charset=utf-8;' });
+    const proposalsLink = document.createElement("a");
+    proposalsLink.href = URL.createObjectURL(proposalsBlob);
+    proposalsLink.setAttribute("download", `propostas_${todayStr}.csv`);
+    document.body.appendChild(proposalsLink);
+    proposalsLink.click();
+    document.body.removeChild(proposalsLink);
+
+    // Export Installations
+    const installationsCSVData = filteredData.installations.map(i => ({
+      ID: i.projectId || i.id,
+      Cliente: i.client,
+      Progresso: `${i.progress}%`,
+      Etapa: i.stage,
+      Instalador: i.installer,
+      Data_Criacao: i.createdAt
+    }));
+
+    const installationsCSV = Papa.unparse(installationsCSVData);
+    const installationsBlob = new Blob([installationsCSV], { type: 'text/csv;charset=utf-8;' });
+    const installationsLink = document.createElement("a");
+    installationsLink.href = URL.createObjectURL(installationsBlob);
+    installationsLink.setAttribute("download", `projetos_${todayStr}.csv`);
+    document.body.appendChild(installationsLink);
+    installationsLink.click();
+    document.body.removeChild(installationsLink);
+  };
+
   return (
     <PageTransition>
     <div className="space-y-8 pb-20">
@@ -297,13 +342,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
             </select>
           </div>
 
-          <button 
-            onClick={exportPDF}
-            className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm hover:scale-105 transition-transform shadow-lg shadow-[#fdb612]/20"
-          >
-            <Printer className="w-4 h-4" />
-            EXPORTAR PDF
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={exportCSV}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-[#fdb612]/30 text-[#fdb612] rounded-2xl font-black text-sm hover:scale-105 transition-transform shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              EXPORTAR CSV
+            </button>
+            <button 
+              onClick={exportPDF}
+              className="flex items-center gap-2 px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-2xl font-black text-sm hover:scale-105 transition-transform shadow-lg shadow-[#fdb612]/20"
+            >
+              <Printer className="w-4 h-4" />
+              EXPORTAR PDF
+            </button>
+          </div>
         </div>
       </div>
 

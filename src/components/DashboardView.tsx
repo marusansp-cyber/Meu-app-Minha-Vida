@@ -56,6 +56,7 @@ interface DashboardViewProps {
 type SortField = 'name' | 'projectId' | 'stage' | 'progress';
 type SortOrder = 'asc' | 'desc';
 
+import { SalesGaugeChart } from './SalesGaugeChart';
 import { PageTransition } from './PageTransition';
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
@@ -163,6 +164,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .slice(0, 5);
   }, [proposals]);
 
+  const currentMonthRevenueGlobal = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const currentMonthAcceptedProposals = (proposals || []).filter(p => {
+      const pDate = parseDate(p.date);
+      return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.status === 'accepted';
+    });
+    return currentMonthAcceptedProposals.reduce((acc, p) => {
+      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
+      return acc + val;
+    }, 0);
+  }, [proposals]);
+
   const stats = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -171,15 +186,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
     // Current Month Totals
-    const currentMonthAcceptedProposals = (proposals || []).filter(p => {
-      const pDate = parseDate(p.date);
-      return pDate.getMonth() === currentMonth && pDate.getFullYear() === currentYear && p.status === 'accepted';
-    });
-
-    const currentMonthRevenue = currentMonthAcceptedProposals.reduce((acc, p) => {
-      const val = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-      return acc + val;
-    }, 0);
+    const currentMonthRevenue = currentMonthRevenueGlobal;
 
     const currentMonthLeads = (leads || []).filter(l => {
       const lDate = parseDate(l.history?.[0]?.date);
@@ -467,6 +474,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1 space-y-8">
+          <SalesGaugeChart currentSales={currentMonthRevenueGlobal} />
+        </div>
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm mb-8">
             <div className="flex justify-between items-center mb-6">

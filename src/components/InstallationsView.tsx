@@ -38,6 +38,7 @@ import { Installation, InstallationStage } from '../types';
 import { MapView } from './MapView';
 import { generateInstallationReportPDF } from '../services/pdfService';
 import { SignatureModal } from './SignatureModal';
+import { InstallationsChecklistModal } from './InstallationsChecklistModal';
 import { InstallationsMap } from './InstallationsMap';
 import 'leaflet/dist/leaflet.css';
 
@@ -236,6 +237,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     stageIndex: null,
     installationId: null
   });
+  const [checklistModal, setChecklistModal] = useState<Installation | null>(null);
   const itemsPerPage = 5;
 
   const toggleExpand = (id: string) => {
@@ -788,6 +790,16 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
+                            setChecklistModal(item);
+                          }}
+                          className="p-2 text-slate-400 hover:text-emerald-500 transition-all rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+                          title="Ver Checklist"
+                        >
+                          <CheckCircle2 className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
                             onEditProject(item);
                           }}
                           className="p-2 text-slate-400 hover:text-[#fdb612] transition-all rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -1190,6 +1202,17 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {checklistModal && (
+        <InstallationsChecklistModal 
+          installation={checklistModal} 
+          onClose={() => setChecklistModal(null)} 
+          onUpdate={(updated) => {
+            onUpdateInstallation(updated.id, { checklist: updated.checklist });
+            showToast('Checklist salvo com sucesso!');
+          }} 
+        />
+      )}
     </div>
     </PageTransition>
   );
