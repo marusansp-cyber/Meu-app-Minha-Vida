@@ -72,7 +72,7 @@ export const InstallationsChecklistModal: React.FC<InstallationsChecklistModalPr
             <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">
               Checklist de Instalação
             </h2>
-            <p className="text-sm font-bold text-slate-400 mt-1">Projeto: {installation.client}</p>
+            <p className="text-sm font-bold text-slate-400 mt-1">Projeto: {installation.name}</p>
           </div>
           <button 
             onClick={onClose}

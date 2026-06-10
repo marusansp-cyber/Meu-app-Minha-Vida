@@ -60,6 +60,7 @@ import { PageTransition } from './PageTransition';
 interface LeadsViewProps {
   leads: Lead[];
   clients?: any[];
+  user?: { role?: string; [key: string]: any } | null;
   onOpenNewLead: () => void;
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
@@ -74,6 +75,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   const { 
     leads, 
     clients = [],
+    user,
     onOpenNewLead, 
     onDeleteLead, 
     onUpdateLead, 
@@ -82,6 +84,8 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     onConvertToClient,
     onViewLanding 
   } = props;
+
+  const isAdmin = user?.role === 'admin';
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -1124,6 +1128,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                                   >
                                     <LeadCard 
                                       lead={lead} 
+                                      isAdmin={isAdmin}
                                       onDelete={() => setLeadToDelete(lead)}
                                       onClick={() => setSelectedLead(lead)}
                                       onEdit={() => handleEditLead(lead)}
@@ -1325,17 +1330,19 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             </button>
 
                             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLeadToDelete(lead);
-                                setActiveActionMenu(null);
-                              }}
-                              className="w-full px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl flex items-center gap-2 transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Excluir Lead
-                            </button>
+                            {isAdmin && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLeadToDelete(lead);
+                                  setActiveActionMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl flex items-center gap-2 transition-all"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Excluir Lead
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1383,9 +1390,16 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                 Cancelar
               </button>
               <button 
-                onClick={() => {
-                  onDeleteLead(leadToDelete.id);
-                  setLeadToDelete(null);
+                onClick={async () => {
+                  try {
+                    await onDeleteLead(leadToDelete.id);
+                    if (typeof setToast === 'function') setToast('Lead excluído com sucesso');
+                  } catch (e) {
+                    console.error('Erro ao excluir lead:', e);
+                    if (typeof setToast === 'function') setToast('Erro ao excluir lead');
+                  } finally {
+                    setLeadToDelete(null);
+                  }
                 }}
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors"
               >
@@ -1421,15 +1435,29 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                 <h3 className="text-xl font-black text-slate-900 dark:text-slate-100">
                   {isEditing ? 'Editar Lead' : 'Detalhes do Lead'}
                 </h3>
-                <button 
-                  onClick={() => {
-                    setSelectedLead(null);
-                    setIsEditing(false);
-                  }}
-                  className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {isAdmin && !isEditing && (
+                    <button 
+                      onClick={() => {
+                        setLeadToDelete(selectedLead);
+                        setSelectedLead(null);
+                      }}
+                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full transition-colors"
+                      title="Excluir Lead"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => {
+                      setSelectedLead(null);
+                      setIsEditing(false);
+                    }}
+                    className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {!isEditing && (
@@ -2142,7 +2170,8 @@ const LeadCard: React.FC<{
   setActiveActionMenu: (id: string | null) => void;
   onViewLanding?: () => void;
   onConvertToClient?: (lead: Lead) => void;
-}> = ({ lead, onDelete, onClick, onEdit, onStartSimulation, activeActionMenu, setActiveActionMenu, onViewLanding, onConvertToClient }) => {
+  isAdmin?: boolean;
+}> = ({ lead, onDelete, onClick, onEdit, onStartSimulation, activeActionMenu, setActiveActionMenu, onViewLanding, onConvertToClient, isAdmin }) => {
   return (
     <div 
       onClick={onClick}
@@ -2230,17 +2259,19 @@ const LeadCard: React.FC<{
             Converter em Cliente
           </button>
 
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-              setActiveActionMenu(null);
-            }}
-            className="w-full px-3 py-2 text-left text-[10px] font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg flex items-center gap-2"
-          >
-            <Trash2 className="w-3 h-3" />
-            Excluir
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+                setActiveActionMenu(null);
+              }}
+              className="w-full px-3 py-2 text-left text-[10px] font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg flex items-center gap-2"
+            >
+              <Trash2 className="w-3 h-3" />
+              Excluir
+            </button>
+          )}
         </div>
       )}
 

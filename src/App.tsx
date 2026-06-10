@@ -585,7 +585,18 @@ export default function App() {
   };
 
   const deleteLead = async (id: string) => {
-    await deleteDocument('leads', id);
+    console.log('[DEBUG] Executing deleteLead with ID:', id);
+    if (!id) {
+      console.error('[DEBUG] ID is undefined for lead deletion!');
+      return;
+    }
+    try {
+      await deleteDocument('leads', id);
+      console.log('[DEBUG] Successfully deleted lead with ID:', id);
+    } catch (err) {
+      console.error('[DEBUG] Error deleting lead:', err);
+      throw err; // Ensure UI can catch and show toast if needed
+    }
   };
 
   const updateLead = async (updatedLead: Lead) => {
@@ -1026,6 +1037,7 @@ export default function App() {
                   <LeadsView 
                     leads={leads} 
                     clients={clients}
+                    user={user}
                     onOpenNewLead={() => setIsLeadModalOpen(true)} 
                     onDeleteLead={deleteLead}
                     onUpdateLead={updateLead}

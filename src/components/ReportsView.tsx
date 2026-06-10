@@ -285,11 +285,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
     // Export Installations
     const installationsCSVData = filteredData.installations.map(i => ({
       ID: i.projectId || i.id,
-      Cliente: i.client,
+      Cliente: i.name,
       Progresso: `${i.progress}%`,
       Etapa: i.stage,
-      Instalador: i.installer,
-      Data_Criacao: i.createdAt
+      Instalador: i.technician?.name || 'N/A',
+      Data_Criacao: i.startDate || i.lastUpdated || 'N/A'
     }));
 
     const installationsCSV = Papa.unparse(installationsCSVData);
