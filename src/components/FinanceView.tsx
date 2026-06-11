@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -31,11 +31,12 @@ import {
   ResponsiveContainer,
   Cell,
   PieChart,
-  Pie
+  Pie,
+  Legend
 } from 'recharts';
 import { cn, fixOklch } from '../lib/utils';
-import { Proposal, User as UserType } from '../types';
-import { updateDocument } from '../firestoreUtils';
+import { Proposal, User as UserType, CompanySettings } from '../types';
+import { updateDocument, getDocument } from '../firestoreUtils';
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import { ProposalDetailsModal } from './ProposalDetailsModal';
@@ -58,6 +59,22 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
   const [representativeFilter, setRepresentativeFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  const [defaultCommission, setDefaultCommission] = useState(5);
+  
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await getDocument('settings', 'company') as CompanySettings;
+        if (settings && typeof settings.defaultCommissionPercentage === 'number') {
+          setDefaultCommission(settings.defaultCommissionPercentage);
+        }
+      } catch (err) {
+        console.error('Error fetching company settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
@@ -128,14 +145,14 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
 
     const totalCommission = filteredAcceptedProposals.reduce((acc, p) => {
       const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-      const rate = p.commission || 5;
+      const rate = p.commission || defaultCommission;
       return acc + (val * (rate / 100));
     }, 0);
 
     const paidCommission = filteredAcceptedProposals.reduce((acc, p) => {
       if (p.commissionStatus !== 'paid') return acc;
       const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-      const rate = p.commission || 5;
+      const rate = p.commission || defaultCommission;
       return acc + (val * (rate / 100));
     }, 0);
 
@@ -179,7 +196,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
       }
       
       const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-      const rate = p.commission || 5;
+      const rate = p.commission || defaultCommission;
       months[monthKey].revenue += val;
       months[monthKey].commission += (val * (rate / 100));
     });
@@ -201,7 +218,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         reps[p.representative] = { name: p.representative, paid: 0, pending: 0, total: 0 };
       }
       const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-      const rate = p.commission || 5;
+      const rate = p.commission || defaultCommission;
       const commission = val * (rate / 100);
       
       if (p.commissionStatus === 'paid') {
@@ -430,7 +447,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         }
 
         const projectValue = typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-        const commissionRate = p.commission || 5;
+        const commissionRate = p.commission || defaultCommission;
         const commissionValue = projectValue * (commissionRate / 100);
 
         doc.text(p.client.substring(0, 25), 20, y);
@@ -872,7 +889,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {tableProposals.map((prop) => {
                     const projectValue = typeof prop.value === 'number' ? prop.value : (parseFloat(String(prop.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0);
-                    const commissionRate = prop.commission || 5;
+                    const commissionRate = prop.commission || defaultCommission;
                     const commissionValue = projectValue * (commissionRate / 100);
                     const isPaid = prop.commissionStatus === 'paid';
 

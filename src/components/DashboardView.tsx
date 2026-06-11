@@ -220,6 +220,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     const pendingProposalsCount = (proposals || []).filter(p => p.status === 'pending').length;
 
+    const activeInstallationsCount = (installations || []).filter(i => i.status !== 'completed' && i.stage !== 'Finalizado').length;
+    const totalRevenue = (proposals || []).filter(p => p.status === 'accepted').reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
+    const closedLeads = (leads || []).filter(l => l.status === 'closed').length;
+    const totalLeadsCount = (leads || []).length;
+    const conversionRate = totalLeadsCount > 0 ? ((closedLeads / totalLeadsCount) * 100).toFixed(1) : '0';
+
     const baseStats = [
       { 
         label: 'Vendas do Mês', 
@@ -228,22 +234,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         trend: currentMonthRevenue >= lastMonthRevenue ? 'up' : 'down' 
       },
       { 
+        label: 'Receita Total', 
+        value: `R$ ${totalRevenue.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 
+        change: '', 
+        trend: 'neutral' 
+      },
+      { 
         label: 'Instalações Ativas', 
-        value: (installations || []).length.toString(), 
+        value: activeInstallationsCount.toString(), 
         change: '', 
         trend: 'neutral' 
       },
       { 
-        label: 'Propostas Pendentes', 
-        value: pendingProposalsCount.toString(), 
+        label: 'Taxa de Conversão', 
+        value: `${conversionRate}%`, 
         change: '', 
         trend: 'neutral' 
-      },
-      { 
-        label: 'Novos Leads', 
-        value: currentMonthLeads.toString(), 
-        change: leadsVariation, 
-        trend: currentMonthLeads >= lastMonthLeads ? 'up' : 'down' 
       },
     ];
 

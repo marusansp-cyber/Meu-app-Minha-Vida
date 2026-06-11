@@ -53,9 +53,11 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { LEADS } from '../constants';
 import { cn, formatDate } from '../lib/utils';
 import { Lead } from '../types';
+import Papa from 'papaparse';
 import { extractLeadFromPdf } from '../services/geminiService';
 import { SolarCalculator } from './SolarCalculator';
 import { PageTransition } from './PageTransition';
+import { InteractionTimeline } from './InteractionTimeline';
 
 interface LeadsViewProps {
   leads: Lead[];
@@ -79,6 +81,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     onOpenNewLead, 
     onDeleteLead, 
     onUpdateLead, 
+    onAddLead,
     onLogout, 
     onCreateProposal,
     onConvertToClient,
@@ -230,6 +233,71 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      showToast('Por favor, selecione um arquivo CSV.');
+      return;
+    }
+
+    if (!onAddLead) {
+      showToast('Criação de leads desabilitada no modo atual.');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      showToast('Processando planilha de leads...');
+      
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          let successCount = 0;
+          for (const row of results.data as any[]) {
+            const newLead: any = {
+              name: row.name || row.Nome || row.Cliente || 'Lead Importado',
+              email: row.email || row.Email || '',
+              phone: row.phone || row.Telefone || row.Celular || '',
+              whatsapp: row.whatsapp || row.Whatsapp || '',
+              cpfCnpj: row.cpfCnpj || row.CPF || row.CNPJ || '',
+              address: row.address || row.Endereco || '',
+              cep: row.cep || row.CEP || '',
+              city: row.city || row.Cidade || '',
+              state: row.state || row.UF || row.Estado || '',
+              systemSize: row.systemSize || row.Potencia || row['Tamanho do Sistema'] || '0',
+              value: row.value || row.Valor || '0,00',
+              status: 'new',
+              history: [{ date: new Date().toISOString(), action: 'Lead importado via CSV', user: user?.name || 'Sistema' }]
+            };
+            
+            try {
+              await onAddLead(newLead);
+              successCount++;
+            } catch (err) {
+              console.error('Error importing lead row:', err);
+            }
+          }
+          showToast(`Importação concluída: ${successCount} leads criados.`);
+          setIsUploading(false);
+          // reset input
+          e.target.value = '';
+        },
+        error: (error) => {
+          console.error('CSV Parsing Error:', error);
+          showToast('Erro ao ler arquivo CSV.');
+          setIsUploading(false);
+        }
+      });
+    } catch (error) {
+      console.error('CSV Import Error:', error);
+      showToast('Erro ao processar arquivo CSV.');
+      setIsUploading(false);
+    }
   };
 
   const handlePdfImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -526,12 +594,12 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
     }
   };
 
-  const handleAddNote = () => {
-    if (!selectedLead || !newNote?.trim()) return;
+  const handleAddNote = (noteText: string) => {
+    if (!selectedLead || !noteText.trim()) return;
 
     const newHistoryItem = {
       date: new Date().toISOString(),
-      action: newNote,
+      action: noteText,
       user: 'Marusan Pinto' // Should come from auth
     };
 
@@ -938,6 +1006,20 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
             <Download className="w-4 h-4" />
             Exportar CSV
           </button>
+          <label className={cn(
+            "px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer",
+            isUploading && "opacity-50 cursor-not-allowed"
+          )}>
+            {isUploading ? <Loader2 className="w-4 h-4 animate-spin text-[#fdb612]" /> : <Download className="w-4 h-4 text-slate-500" />}
+            <span className="hidden sm:inline">Importar CSV</span>
+            <input 
+              type="file" 
+              accept=".csv" 
+              className="hidden" 
+              onChange={handleCsvImport}
+              disabled={isUploading}
+            />
+          </label>
           <label className={cn(
             "px-4 py-2 bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer",
             isUploading && "opacity-50 cursor-not-allowed"
@@ -1991,65 +2073,12 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                             </button>
                           </div>
                           
-                          <h4 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-slate-100">Notas</h4>
-                          <div className="space-y-2">
-                            <textarea 
-                              placeholder="Adicione uma nota sobre este lead..."
-                              className="w-full p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#fdb612] min-h-[100px] resize-none"
-                              value={newNote}
-                              onChange={(e) => setNewNote(e.target.value)}
-                            />
-                            <div className="flex justify-end">
-                              <button 
-                                onClick={handleAddNote}
-                                disabled={!newNote?.trim()}
-                                className="px-4 py-2 bg-[#fdb612] text-[#231d0f] rounded-lg text-xs font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                              >
-                                <Plus className="w-4 h-4" />
-                                Adicionar Nota
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                          <InteractionTimeline 
+                            history={selectedLead.history || []} 
+                            onAddNote={handleAddNote} 
+                            currentUser="Marusan Pinto" 
+                          />
 
-                        <div className="relative space-y-4 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
-                          {selectedLead.history?.map((item, i) => (
-                            <motion.div 
-                              key={i} 
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.05 }}
-                              className="relative pl-10"
-                            >
-                              <div className={cn(
-                                "absolute left-0 top-1 size-8 rounded-full border-2 flex items-center justify-center z-10 shadow-sm",
-                                item.action.toLowerCase().includes('chamada') ? "bg-blue-50 border-blue-500 text-blue-500" :
-                                item.action.toLowerCase().includes('email') || item.action.toLowerCase().includes('e-mail') ? "bg-amber-50 border-amber-500 text-amber-500" :
-                                item.action.toLowerCase().includes('whatsapp') ? "bg-emerald-50 border-emerald-500 text-emerald-500" :
-                                "bg-slate-50 border-slate-400 text-slate-400"
-                              )}>
-                                {item.action.toLowerCase().includes('chamada') ? <Phone className="w-4 h-4" /> :
-                                 item.action.toLowerCase().includes('email') || item.action.toLowerCase().includes('e-mail') ? <Mail className="w-4 h-4" /> :
-                                 item.action.toLowerCase().includes('whatsapp') ? <MessageCircle className="w-4 h-4" /> :
-                                 <Clock className="w-4 h-4" />}
-                              </div>
-                              <div className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <HistoryIcon className="w-4 h-4 text-slate-300" />
-                                </div>
-                                <div className="flex justify-between items-start mb-2">
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{formatDate(item.date)}</span>
-                                  <span className="text-[10px] font-black uppercase tracking-widest text-[#fdb612] bg-[#fdb612]/10 px-2 py-0.5 rounded-full">{item.user}</span>
-                                </div>
-                                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-relaxed">{item.action}</p>
-                              </div>
-                            </motion.div>
-                          )) || (
-                            <div className="text-center py-8 text-slate-400">
-                              <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                              <p className="text-sm font-medium">Nenhum histórico registrado</p>
-                            </div>
-                          )}
                         </div>
                       </div>
                     ) : (

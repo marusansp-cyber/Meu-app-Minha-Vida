@@ -422,6 +422,7 @@ export interface CompanySettings {
   email?: string;
   cnpj?: string;
   contactEmail?: string;
+  defaultCommissionPercentage?: number;
   updatedAt?: string;
 }
 

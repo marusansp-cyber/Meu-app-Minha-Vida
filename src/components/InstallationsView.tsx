@@ -724,13 +724,25 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalhes do Projeto</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Etapa Atual</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Técnico</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-64">Progresso</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Progresso</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Última Atualização</th>
                 <th className="px-6 py-4 w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {paginatedInstallations.map((item) => (
+              {paginatedInstallations.map((item) => {
+                let overallStatus = 'Pendente';
+                let statusColor = 'bg-slate-100 text-slate-500 dark:bg-slate-800';
+                if (item.progress === 100 || item.stage?.toLowerCase() === 'finalizado' || item.stage?.toLowerCase() === 'concluído') {
+                  overallStatus = 'Concluído';
+                  statusColor = 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30';
+                } else if (item.progress > 0 || item.stage !== 'Pendente') {
+                  overallStatus = 'Em Curso';
+                  statusColor = 'bg-amber-100 text-amber-600 dark:bg-amber-900/30';
+                }
+                
+                return (
                 <React.Fragment key={item.id}>
                   <tr 
                     onClick={() => toggleExpand(item.id)}
@@ -778,11 +790,16 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
-                        <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden w-24">
                           <div className="h-full bg-[#fdb612]" style={{ width: `${item.progress}%` }}></div>
                         </div>
                         <span className="text-sm font-bold w-10">{item.progress}%</span>
                       </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={cn("px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider", statusColor)}>
+                        {overallStatus}
+                      </span>
                     </td>
                     <td className="px-6 py-5 text-sm text-slate-500">{formatDate(item.lastUpdated)}</td>
                     <td className="px-6 py-5 text-right">
@@ -1161,7 +1178,8 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
                     </tr>
                   )}
                 </React.Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

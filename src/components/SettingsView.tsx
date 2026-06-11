@@ -139,7 +139,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     email: "marusanspc@gmail.com",
     contactEmail: "marusanspc@gmail.com",
     phone: "(33) 99903-2281",
-    monthlyInvoice: 0
+    monthlyInvoice: 0,
+    defaultCommissionPercentage: 5
   });
 
   const [profile, setProfile] = useState({
@@ -890,6 +891,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">Este valor será sugerido como faturamento padrão para novos orçamentos.</p>
                 </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 font-display">Comissão Padrão de Vendas (%)</label>
+                  <div className="relative">
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                    <input 
+                      type="number" 
+                      value={companySettings.defaultCommissionPercentage || 5}
+                      onChange={(e) => setCompanySettings(prev => ({ ...prev, defaultCommissionPercentage: parseFloat(e.target.value) }))}
+                      className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+                      placeholder="5"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Será usada para calcular as comissões no relatório financeiro.</p>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail de Contato (Suporte)</label>
                   <div className="flex gap-2">

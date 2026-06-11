@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Proposal, Kit, Installation } from "../types";
+import { calculateROI } from "../lib/calculateROI";
 
 // Helper to safely convert R$ strings or numbers to float
 const stringToNumber = (val: any): string => {
@@ -378,21 +379,18 @@ export const generateProposalPDF = async (
   const pr = proposal.pr || 0.82;
   const monthlyGen = sysSize * hsp * 30 * pr;
 
-  // DYNAMIC FORMULA: Economia mensal = Geração × Tarifa
   const TARIFF = proposal.tariff || 0.89;
-  const monthlySavings = monthlyGen * TARIFF;
-  const annualSavings = monthlySavings * 12;
 
   // Investment
   const rawValue = proposal.value as any;
   const valNum = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/[^\d.-]/g, "")) : (rawValue || 0);
 
-  // NEW FORMULA: Payback = Investimento ÷ (Economia × 12)
-  const paybackVal = annualSavings > 0 ? (valNum / annualSavings).toFixed(1) : "0.0";
-  
-  // NEW FORMULA: ROI 25 anos = ((Economia×12×25 - Invest.) / Invest.) × 100
-  const totalSavings25 = annualSavings * 25;
-  const roiVal = valNum > 0 ? `${(((totalSavings25 - valNum) / valNum) * 100).toFixed(0)}%` : "0%";
+  const roiData = calculateROI(consumption, valNum, proposal.tensaoFornecimento || 'Bifásico', TARIFF, monthlyGen);
+  const monthlySavings = roiData.monthlySavings;
+  const annualSavings = roiData.annualSavings;
+  const paybackVal = roiData.paybackYears;
+  const totalSavings25 = roiData.totalSavings25Years;
+  const roiVal = roiData.roiPercentage;
 
   // Dynamic Page-breaking logic
   let currentY = 55;
