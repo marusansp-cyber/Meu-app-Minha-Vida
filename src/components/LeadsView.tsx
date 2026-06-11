@@ -99,6 +99,7 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
   const [dateFilterType, setDateFilterType] = useState<'created' | 'scheduled'>('created');
   const [selectedRepresentatives, setSelectedRepresentatives] = useState<string[]>([]);
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null);
+  const [confirmDeleteText, setConfirmDeleteText] = useState('');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -1448,7 +1449,10 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
                 <button 
-                  onClick={() => setLeadToDelete(null)}
+                  onClick={() => {
+                    setLeadToDelete(null);
+                    setConfirmDeleteText('');
+                  }}
                   className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5 text-slate-400" />
@@ -1458,21 +1462,38 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
               <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
                 Confirmar Exclusão
               </h3>
-              <p className="text-slate-500 dark:text-slate-400">
+              <p className="text-slate-500 dark:text-slate-400 mb-4">
                 Tem certeza que deseja excluir o lead <span className="font-bold text-slate-900 dark:text-slate-100">"{leadToDelete.name}"</span>? 
                 Esta ação não pode ser desfeita.
               </p>
+              
+              <div className="space-y-2 mt-4">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Digite <span className="text-red-500 select-all">confirmar</span> para excluir:
+                </label>
+                <input 
+                  type="text" 
+                  value={confirmDeleteText}
+                  onChange={(e) => setConfirmDeleteText(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg outline-none focus:ring-2 focus:ring-red-500 transition-all font-bold"
+                  placeholder="confirmar"
+                />
+              </div>
             </div>
             
             <div className="p-6 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
               <button 
-                onClick={() => setLeadToDelete(null)}
+                onClick={() => {
+                  setLeadToDelete(null);
+                  setConfirmDeleteText('');
+                }}
                 className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={async () => {
+                  if (confirmDeleteText.toLowerCase() !== 'confirmar') return;
                   try {
                     await onDeleteLead(leadToDelete.id);
                     if (typeof setToast === 'function') setToast('Lead excluído com sucesso');
@@ -1481,9 +1502,11 @@ export const LeadsView: React.FC<LeadsViewProps> = (props) => {
                     if (typeof setToast === 'function') setToast('Erro ao excluir lead');
                   } finally {
                     setLeadToDelete(null);
+                    setConfirmDeleteText('');
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors"
+                disabled={confirmDeleteText.toLowerCase() !== 'confirmar'}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Excluir Lead
               </button>
@@ -2346,7 +2369,13 @@ const LeadCard: React.FC<{
         </div>
         <div className="flex items-center gap-2 text-sm text-slate-500 font-bold">
           <DollarSign className="w-4 h-4" />
-          <span className="text-slate-900 dark:text-slate-100">{lead.value}</span>
+          <span className="text-slate-900 dark:text-slate-100">
+            {lead.value?.toString().includes('R$') 
+              ? lead.value 
+              : parseFloat(String(lead.value || 0).replace(/[^\d.,]/g, '').replace(',', '.')) 
+                ? parseFloat(String(lead.value || 0).replace(/[^\d.,]/g, '').replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                : lead.value}
+          </span>
         </div>
       </div>
 

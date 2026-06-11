@@ -38,6 +38,7 @@ import { Proposal, User as UserType, History, Kit } from '../types';
 
 import { generateProposalPDF } from '../services/pdfService';
 import { ReportPreviewModal } from './ReportPreviewModal';
+import { SignatureModal } from './SignatureModal';
 import { createDocument } from '../firestoreUtils';
 import { db } from '../firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
@@ -67,6 +68,7 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [history, setHistory] = useState<History[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -704,14 +706,39 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
                     ))}
                   </div>
                 </div>
-                {proposal.status === 'accepted' && onConvertToInstallation && (
-                  <button 
-                    onClick={() => onConvertToInstallation(proposal)}
-                    className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95 animate-pulse"
-                  >
-                    <Rocket className="w-4 h-4" />
-                    Gerar Projeto
-                  </button>
+                {proposal.status === 'accepted' && (
+                  <div className="flex flex-col gap-2">
+                    {onConvertToInstallation && (
+                      <button 
+                        onClick={() => onConvertToInstallation(proposal)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-emerald-500/20 transition-all active:scale-95 animate-pulse"
+                      >
+                        <Rocket className="w-4 h-4" />
+                        Gerar Projeto
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => setIsSignatureModalOpen(true)}
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 border-2",
+                        proposal.signatureUrl 
+                          ? "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/10" 
+                          : "border-indigo-500 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/10 hover:bg-indigo-100"
+                      )}
+                    >
+                      {proposal.signatureUrl ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Proposta Assinada
+                        </>
+                      ) : (
+                        <>
+                          <Edit2 className="w-4 h-4" />
+                          Assinar Proposta
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1516,6 +1543,24 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
           onClose={() => setIsPreviewModalOpen(false)}
           proposal={proposal}
           kit={kits.find(k => k.id === proposal.kitId)}
+        />
+      )}
+      {proposal && (
+        <SignatureModal
+          isOpen={isSignatureModalOpen}
+          onClose={() => setIsSignatureModalOpen(false)}
+          clientName={proposal.client}
+          onConfirm={async (signatureDataUrl) => {
+            try {
+              setIsSignatureModalOpen(false);
+              const updated = { ...proposal, signatureUrl: signatureDataUrl };
+              if (onUpdate) {
+                onUpdate(updated);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }}
         />
       )}
     </div>

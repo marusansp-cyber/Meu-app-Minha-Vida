@@ -55,9 +55,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
   const [statusFilter, setStatusFilter] = useState('all');
   const [salesGoal, setSalesGoal] = useState({ targetValue: 100000, targetCount: 10 });
   const [loadingGoal, setLoadingGoal] = useState(true);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   React.useEffect(() => {
-    const fetchGoal = async () => {
+    const fetchGoalAndSettings = async () => {
       try {
         const goal = await getDocument<any>('settings', 'salesGoal');
         if (goal) {
@@ -66,13 +67,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
             targetCount: parseInt(goal.targetCount || 10)
           });
         }
+        const company = await getDocument<any>('settings', 'company');
+        if (company?.logoUrl) {
+          setCompanyLogo(company.logoUrl);
+        }
       } catch (err) {
-        console.error("Erro ao carregar meta de vendas:", err);
+        console.error("Erro ao carregar configurações e meta:", err);
       } finally {
         setLoadingGoal(false);
       }
     };
-    fetchGoal();
+    fetchGoalAndSettings();
   }, []);
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -251,7 +256,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ proposals, installatio
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Add Company Header
+      pdf.setFillColor(253, 182, 18); // #fdb612
+      pdf.rect(0, 0, pdfWidth, 20, 'F');
+      
+      let textXOffset = 14;
+      if (companyLogo && companyLogo.startsWith('data:image')) {
+        try {
+          pdf.addImage(companyLogo, 'PNG', 5, 2, 20, 16);
+          textXOffset = 28;
+        } catch (e) {
+          console.error('Error adding logo to PDF', e);
+        }
+      }
+
+      pdf.setTextColor(35, 29, 15); // #231d0f
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Relatório Gerencial de Performance', textXOffset, 13);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(255, 255, 255);
+      pdf.text(`Gerado em: ${formatDate(new Date())}`, pdfWidth - 50, 12);
+      
+      pdf.addImage(imgData, 'PNG', 0, 25, pdfWidth, pdfHeight);
       pdf.save(`Relatorio_Performance_${formatDate(new Date()).replace(/\//g, '-')}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);

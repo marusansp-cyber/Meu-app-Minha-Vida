@@ -50,7 +50,7 @@ interface FinanceViewProps {
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDarkMode = false }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals' | 'consultants'>('overview');
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'proposals' | 'consultants' | 'goals'>('overview');
   const [consultantMetric, setConsultantMetric] = useState<'count' | 'value'>('value');
   const [selectedRepForDrilldown, setSelectedRepForDrilldown] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,6 +60,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
+  const [monthlyGoals, setMonthlyGoals] = useState<Record<string, number>>({});
+  
   const [defaultCommission, setDefaultCommission] = useState(5);
   
   useEffect(() => {
@@ -68,6 +70,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         const settings = await getDocument('settings', 'company') as CompanySettings;
         if (settings && typeof settings.defaultCommissionPercentage === 'number') {
           setDefaultCommission(settings.defaultCommissionPercentage);
+        }
+        
+        const goalsDoc = await getDocument('settings', 'monthlyGoals') as any;
+        if (goalsDoc && goalsDoc.goals) {
+          setMonthlyGoals(goalsDoc.goals);
         }
       } catch (err) {
         console.error('Error fetching company settings:', err);
@@ -192,7 +199,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
       if (!months[monthKey]) {
         // Set date to first day of month for sorting recorded months
         const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        months[monthKey] = { month: monthKey, revenue: 0, commission: 0, date: firstDay };
+        months[monthKey] = { month: monthKey, revenue: 0, commission: 0, goal: 0, date: firstDay };
       }
       
       const val = parseFloat((p.value || "0").toString().replace(/[^\d,]/g, '').replace(',', '.')) || 0;
@@ -203,12 +210,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
 
     const result = Object.values(months).sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // Add prevRevenue for each month
-    return result.map((item, index) => ({
-      ...item,
-      prevRevenue: index > 0 ? result[index - 1].revenue : 0
-    }));
-  }, [filteredAcceptedProposals]);
+    // Add prevRevenue and goal
+    return result.map((item, index) => {
+      const monthPrefix = (item.date.getMonth() + 1).toString().padStart(2, '0');
+      const year = item.date.getFullYear();
+      const goalKey = `${monthPrefix}/${year}`;
+      const goal = monthlyGoals[goalKey] || 0;
+      return {
+        ...item,
+        goal,
+        prevRevenue: index > 0 ? result[index - 1].revenue : 0
+      };
+    });
+  }, [filteredAcceptedProposals, monthlyGoals]);
 
   const representativeData = useMemo(() => {
     const reps: Record<string, { name: string, paid: number, pending: number, total: number }> = {};
@@ -537,6 +551,17 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
         >
           Volume por Consultor
         </button>
+        <button
+          onClick={() => setActiveMainTab('goals')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest transition-all",
+            activeMainTab === 'goals'
+              ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Metas
+        </button>
       </div>
 
       {activeMainTab === 'overview' && (
@@ -638,8 +663,8 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
                     padding: '12px'
                   }}
                 />
-                <Bar dataKey="revenue" fill="#fdb612" radius={[6, 6, 0, 0]} barSize={40} />
-                <Bar dataKey="commission" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="revenue" name="Faturamento" fill="#fdb612" radius={[6, 6, 0, 0]} barSize={40} />
+                <Bar dataKey="commission" name="Comissões" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={40} />
                 <Line 
                   type="monotone" 
                   dataKey="prevRevenue" 
@@ -648,6 +673,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
                   dot={{ r: 4, fill: '#6366f1', strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
                   name="Mês Anterior"
+                />
+                <Line 
+                  type="stepAfter" 
+                  dataKey="goal" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  strokeDasharray="5 5" 
+                  dot={false}
+                  name="Meta de Vendas"
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -1355,6 +1389,67 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeMainTab === 'goals' && (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center bg-white dark:bg-[#1a160d] p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 font-display">Metas de Vendas (Mês a Mês)</h3>
+              <p className="text-sm text-slate-500 font-bold mt-1">Defina as metas financeiras mensais para acompanhamento</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 12 }, (_, i) => {
+              const monthPrefix = (i + 1).toString().padStart(2, '0');
+              const year = new Date().getFullYear();
+              const goalKey = `${monthPrefix}/${year}`;
+              
+              const monthName = new Date(year, i, 1).toLocaleString('pt-BR', { month: 'long' });
+              return (
+                <div key={goalKey} className="bg-white dark:bg-[#1a160d] p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+                  <label className="text-xs font-black uppercase tracking-widest text-[#fdb612] flex items-center justify-between">
+                    <span>{monthName}</span>
+                    <span className="text-[10px] text-slate-400">{year}</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+                    <input 
+                      type="number" 
+                      value={monthlyGoals[goalKey] || 0}
+                      onChange={(e) => setMonthlyGoals(prev => ({ ...prev, [goalKey]: parseFloat(e.target.value) || 0 }))}
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={async () => {
+                try {
+                  await getDocument('settings', 'monthlyGoals');
+                  await updateDocument('settings', 'monthlyGoals', { goals: monthlyGoals });
+                  alert('Metas salvas com sucesso!');
+                } catch {
+                  // if doc not exists, set it
+                  import('../firestoreUtils').then(({ setDocument }) => {
+                    setDocument('settings', 'monthlyGoals', { goals: monthlyGoals }).then(() => {
+                      alert('Metas salvas com sucesso!');
+                    });
+                  });
+                }
+              }}
+              className="px-8 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl font-black text-sm uppercase tracking-widest hover:bg-[#e5a000] hover:scale-105 active:scale-95 transition-all shadow-lg shadow-[#fdb612]/20 flex items-center gap-2"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Salvar Metas
+            </button>
+          </div>
         </div>
       )}
 

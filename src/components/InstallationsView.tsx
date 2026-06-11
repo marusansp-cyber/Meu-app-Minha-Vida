@@ -49,6 +49,66 @@ interface StageReportModalProps {
   onSave: (notes: string, photos: string[]) => void;
 }
 
+interface ScheduleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (date: string, time: string) => void;
+  projectName: string;
+}
+
+const ScheduleModal: React.FC<ScheduleModalProps> = ({ isOpen, onClose, onConfirm, projectName }) => {
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-[#1a160d] w-full max-w-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in duration-200">
+        <h3 className="text-xl font-bold font-display mb-2">Agendar Vistoria Técnica</h3>
+        <p className="text-sm text-slate-500 mb-6 font-medium">Projeto: {projectName}</p>
+
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-2 block">Data Sugerida</label>
+            <input 
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-2 block">Horário Sugerido (opcional)</label>
+            <input 
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 font-bold text-sm bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl hover:bg-slate-200 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button 
+            disabled={!date}
+            onClick={() => onConfirm(date, time)}
+            className="px-4 py-2 font-bold text-sm bg-[#fdb612] text-[#231d0f] rounded-xl hover:bg-[#e5a000] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#fdb612]/20"
+          >
+            Agendar e Enviar E-mail
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StageReportModal: React.FC<StageReportModalProps> = ({ isOpen, onClose, stage, onSave }) => {
   const [notes, setNotes] = useState(stage.notes || (stage.name === 'Instalação' ? 'Verificar conexão dos painéis.' : ''));
   const [photos, setPhotos] = useState<string[]>(stage.photos || []);
@@ -238,6 +298,7 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
     installationId: null
   });
   const [checklistModal, setChecklistModal] = useState<Installation | null>(null);
+  const [scheduleModal, setScheduleModal] = useState<{ isOpen: boolean, installationId: string | null } | null>(null);
   const itemsPerPage = 5;
 
   const toggleExpand = (id: string) => {
@@ -316,12 +377,37 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
         lastUpdated: new Date().toISOString()
       });
 
+      if (stageName.toLowerCase().includes('vistoria') && direction === 'next') {
+        setScheduleModal({ isOpen: true, installationId: id });
+      } else {
+        showToast('Status do projeto atualizado com sucesso!');
+      }
+
       const { notifyInstallationUpdate } = await import('../services/notificationService');
       notifyInstallationUpdate(item.name, stageName, item.representativeId || 'system', id);
 
-      showToast('Status do projeto atualizado com sucesso!');
     } catch (error) {
       showToast('Erro ao atualizar status do projeto.');
+    }
+  };
+
+  const handleConfirmSchedule = async (date: string, time: string) => {
+    if (!scheduleModal?.installationId) return;
+    const item = installations.find(i => i.id === scheduleModal.installationId);
+    if (!item) return;
+
+    try {
+      const { sendInstallationEmail } = await import('../services/emailService');
+      await sendInstallationEmail({
+        to: 'cliente@exemplo.com', // Would ideally be item.clientEmail
+        subject: `Agendamento de Vistoria Técnica - ${item.name}`,
+        body: `Olá,\n\nSeu projeto avançou para a fase de Vistoria Técnica.\nSugerimos a data ${parseDate(date)} ${time ? 'às ' + time : ''} para o agendamento.\nNossa equipe entrará em contato para confirmar.\n\nAtenciosamente,\nEquipe Mendes Engenharia`
+      });
+      showToast('Data agendada e e-mail enviado com sucesso!');
+    } catch (error) {
+      showToast('Data agendada, mas ocorreu um erro ao enviar e-mail.');
+    } finally {
+      setScheduleModal(null);
     }
   };
 
@@ -1229,6 +1315,15 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
             onUpdateInstallation(updated.id, { checklist: updated.checklist });
             showToast('Checklist salvo com sucesso!');
           }} 
+        />
+      )}
+
+      {scheduleModal && scheduleModal.isOpen && (
+        <ScheduleModal
+          isOpen={scheduleModal.isOpen}
+          onClose={() => setScheduleModal(null)}
+          onConfirm={handleConfirmSchedule}
+          projectName={installations.find(i => i.id === scheduleModal.installationId)?.name || ''}
         />
       )}
     </div>

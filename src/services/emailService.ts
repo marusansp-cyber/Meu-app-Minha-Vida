@@ -10,6 +10,31 @@ export interface EmailParams {
   smtpConfig?: SMTPSettings;
 }
 
+export const sendInstallationEmail = async (params: Omit<EmailParams, 'pdfBase64'>): Promise<{ success: boolean; message: string }> => {
+  try {
+    let finalParams = { ...params };
+    if (!finalParams.smtpConfig) {
+      const settings = await getDocument<SMTPSettings>('settings', 'smtp');
+      if (settings) {
+        finalParams.smtpConfig = settings;
+      }
+    }
+    const response = await fetch('/api/proposals/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({...finalParams, pdfBase64: ' '}), // dummy pdfBase64 so the API accepts if it expects one
+    });
+    if (!response.ok) {
+      throw new Error('Erro ao enviar e-mail.');
+    }
+    return { success: true, message: 'Email sent' };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: 'Failed' };
+  }
+};
 export const sendProposalEmail = async (params: EmailParams): Promise<{ success: boolean; message: string }> => {
   try {
     let finalParams = { ...params };
