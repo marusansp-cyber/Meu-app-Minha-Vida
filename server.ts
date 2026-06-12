@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import nodemailer from "nodemailer";
+import fs from "fs";
 
 async function startServer() {
   console.log("=== INICIANDO PROCESSO DE STARTUP DO SERVIDOR ===");
@@ -244,6 +245,100 @@ async function startServer() {
       host: host,
       passLength: pass.length
     });
+  });
+
+
+  // ==========================================
+  // BACKUPS AUTOMÁTICOS DO FIRESTORE EM JSON
+  // ==========================================
+  const backupsDir = path.join(process.cwd(), "backups");
+  if (!fs.existsSync(backupsDir)) {
+    fs.mkdirSync(backupsDir, { recursive: true });
+  }
+
+  // Armazenar backup enviado do frontend
+  app.post("/api/backups/store", (req, res) => {
+    try {
+      const { filename, data } = req.body;
+      if (!filename || !data) {
+        return res.status(400).json({ success: false, message: "Nome do arquivo e dados são obrigatórios." });
+      }
+
+      const safeFilename = path.basename(filename);
+      const filePath = path.join(backupsDir, safeFilename);
+
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+      console.log(`[BACKUP AUTOMÁTICO] Salvo com sucesso no servidor: ${safeFilename}`);
+      res.json({ success: true, message: "Backup armazenado com sucesso no servidor." });
+    } catch (error: any) {
+      console.error("Erro ao armazenar backup no servidor:", error);
+      res.status(500).json({ success: false, message: "Erro ao salvar o backup.", error: error.message });
+    }
+  });
+
+  // Listar todos os backups salvos
+  app.get("/api/backups", (req, res) => {
+    try {
+      if (!fs.existsSync(backupsDir)) {
+        return res.json({ success: true, backups: [] });
+      }
+
+      const files = fs.readdirSync(backupsDir);
+      const backups = files
+        .filter(file => file.endsWith(".json"))
+        .map(file => {
+          const filePath = path.join(backupsDir, file);
+          const stats = fs.statSync(filePath);
+          return {
+            filename: file,
+            size: stats.size,
+            createdAt: stats.birthtime.toISOString()
+          };
+        })
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)); // Mais novos primeiro
+
+      res.json({ success: true, backups });
+    } catch (error: any) {
+      console.error("Erro ao listar backups do servidor:", error);
+      res.status(500).json({ success: false, message: "Erro ao listar os backups.", error: error.message });
+    }
+  });
+
+  // Baixar um backup específico por nome do arquivo
+  app.get("/api/backups/download/:filename", (req, res) => {
+    try {
+      const { filename } = req.params;
+      const safeFilename = path.basename(filename);
+      const filePath = path.join(backupsDir, safeFilename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, message: "Backup não encontrado." });
+      }
+
+      res.download(filePath, safeFilename);
+    } catch (error: any) {
+      console.error("Erro ao baixar backup do servidor:", error);
+      res.status(500).json({ success: false, message: "Erro ao baixar o backup.", error: error.message });
+    }
+  });
+
+  // Excluir um backup específico por nome do arquivo
+  app.delete("/api/backups/:filename", (req, res) => {
+    try {
+      const { filename } = req.params;
+      const safeFilename = path.basename(filename);
+      const filePath = path.join(backupsDir, safeFilename);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ success: false, message: "Backup não encontrado." });
+      }
+
+      fs.unlinkSync(filePath);
+      res.json({ success: true, message: "Backup excluído com sucesso." });
+    } catch (error: any) {
+      console.error("Erro ao excluir backup do servidor:", error);
+      res.status(500).json({ success: false, message: "Erro ao excluir o backup.", error: error.message });
+    }
   });
 
 

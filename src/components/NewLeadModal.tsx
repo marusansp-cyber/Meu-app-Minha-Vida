@@ -224,6 +224,24 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({
       };
       notifyLeadAssigned(formData.name, formData.representative, repIdMap[formData.representative] || 'system');
       
+      // Trigger Email
+      if (formData.email) {
+        import('../services/emailService').then(({ sendWelcomeEmail }) => {
+          sendWelcomeEmail({
+            to: formData.email,
+            clientName: formData.name
+          }).catch(console.error);
+        });
+      }
+
+      // Native Browser Notification for New Lead
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Novo Lead Cadastrado', {
+          body: `O lead ${formData.name} foi integrado com sucesso.`,
+          icon: '/icon.png'
+        });
+      }
+
       setFormData({ 
         name: '', email: '', phone: '', whatsapp: '', systemSize: '', value: '', 
         representative: 'Marusan Pinto', status: 'new', urgent: false,

@@ -401,7 +401,10 @@ export const InstallationsView: React.FC<InstallationsViewProps> = ({
       await sendInstallationEmail({
         to: 'cliente@exemplo.com', // Would ideally be item.clientEmail
         subject: `Agendamento de Vistoria Técnica - ${item.name}`,
-        body: `Olá,\n\nSeu projeto avançou para a fase de Vistoria Técnica.\nSugerimos a data ${parseDate(date)} ${time ? 'às ' + time : ''} para o agendamento.\nNossa equipe entrará em contato para confirmar.\n\nAtenciosamente,\nEquipe Mendes Engenharia`
+        body: `Olá,\n\nSeu projeto avançou para a fase de Vistoria Técnica.\nSugerimos a data ${formatDate(parseDate(date))} ${time ? 'às ' + time : ''} para o agendamento.\nNossa equipe entrará em contato para confirmar.\n\nAtenciosamente,\nEquipe Mendes Engenharia`,
+        clientName: item.name,
+        date: formatDate(parseDate(date)),
+        time: time
       });
       showToast('Data agendada e e-mail enviado com sucesso!');
     } catch (error) {

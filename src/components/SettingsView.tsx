@@ -24,11 +24,12 @@ import {
   LifeBuoy,
   FileText,
   X,
-  ExternalLink
+  ExternalLink,
+  Rocket
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-import { User as UserType, CompanySettings, SMTPSettings } from '../types';
+import { User as UserType, CompanySettings, SMTPSettings, EmailTemplateSettings } from '../types';
 import { updateDocument, getDocument, setDocument } from '../firestoreUtils';
 import { SMTPHelpModal } from './SMTPHelpModal';
 import { Eye, EyeOff, CheckCircle, AlertCircle, Lock, AlertTriangle, Sparkles, Check, RefreshCw } from 'lucide-react';
@@ -60,6 +61,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     user: '',
     pass: '',
     from: ''
+  });
+
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateSettings>({
+    proposalSubject: 'Proposta Comercial - Mendes Engenharia',
+    proposalBody: 'Olá [NOME],\n\nSegue em anexo a proposta comercial para o seu projeto de energia solar.\n\nAtenciosamente,\nEquipe Mendes Engenharia',
+    installationSubject: 'Agendamento de Vistoria Técnica - Mendes Engenharia',
+    installationBody: 'Olá [NOME],\n\nSeu projeto está na fase de Vistoria Técnica. Acesse o sistema para agendar a melhor data.\n\nAtenciosamente,\nEquipe Mendes Engenharia',
+    welcomeSubject: 'Obrigado pelo seu contato! - Mendes Engenharia',
+    welcomeBody: 'Olá [NOME],\n\nRecebemos suas informações e agradecemos o contato. Em breve um de nossos consultores entrará em contato com você para entender melhor sua necessidade e apresentar a solução ideal em energia solar.\n\nAtenciosamente,\nEquipe Mendes Engenharia'
   });
 
   const [smtpStatus, setSmtpStatus] = useState<{
@@ -172,6 +182,98 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
     startDate: '',
     endDate: ''
   });
+
+  // --- AUTOMATED BACKUP MANAGEMENT STATES ---
+  const [serverBackups, setServerBackups] = useState<any[]>([]);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const fetchBackups = async () => {
+    setIsLoadingBackups(true);
+    try {
+      const response = await fetch('/api/backups');
+      const result = await response.json();
+      if (result.success) {
+        setServerBackups(result.backups || []);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar backups:', error);
+    } finally {
+      setIsLoadingBackups(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'system') {
+      fetchBackups();
+    }
+  }, [activeTab]);
+
+  const handleForceServerBackup = async () => {
+    setIsExporting(true);
+    try {
+      showToast('Iniciando backup redundante no servidor...');
+      const collectionsToBackup = ['proposals', 'leads', 'installations', 'clients', 'companySettings', 'kits'];
+      const backupData: Record<string, any[]> = {};
+      
+      for (const collName of collectionsToBackup) {
+        const querySnapshot = await getDocs(collection(db, collName));
+        backupData[collName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
+      
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `backup_auto_${date}_${Date.now()}.json`;
+
+      const response = await fetch('/api/backups/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, data: backupData })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        showToast('✨ Backup redundante gerado com sucesso no servidor!');
+        await fetchBackups();
+      } else {
+        showToast(`Erro ao salvar: ${result.message}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao gerar backup no servidor:', error);
+      showToast(`Erro no backup: ${error.message || 'Falha ao processar.'}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteServerBackup = async (filename: string) => {
+    if (!window.confirm(`Tem certeza que deseja excluir o backup ${filename}?`)) return;
+    try {
+      showToast('Excluindo backup...');
+      const response = await fetch(`/api/backups/${filename}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+      if (result.success) {
+        showToast('Backup excluído do servidor.');
+        await fetchBackups();
+      } else {
+        showToast(`Erro ao excluir: ${result.message}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao excluir backup:', error);
+      showToast('Erro ao excluir backup.');
+    }
+  };
+
+  const handleDownloadServerBackup = (filename: string) => {
+    const link = document.createElement('a');
+    link.href = `/api/backups/download/${filename}`;
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const showToast = (message: string) => {
     setToast(message);
@@ -353,6 +455,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
             updatedAt: new Date().toISOString()
           });
           
+          await setDocument('settings', 'emailTemplates', {
+            ...emailTemplates,
+            updatedAt: new Date().toISOString()
+          });
+          
           setSmtpStatus({
             configured: true,
             user: sanitizedSmtpData.user,
@@ -440,6 +547,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
           host: settings.host,
           passLength: settings.pass.length
         });
+      }
+      const templates = await getDocument<EmailTemplateSettings>('settings', 'emailTemplates');
+      if (templates) {
+        setEmailTemplates(prev => ({ ...prev, ...templates }));
       }
     };
 
@@ -751,6 +862,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
 
               <div className="space-y-4">
                 <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Backup do Sistema</h3>
+                
+                {/* Backup Manual */}
                 <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="size-12 rounded-xl bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-blue-600">
@@ -758,7 +871,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                     </div>
                     <div>
                       <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Backup Manual de Dados</h4>
-                      <p className="text-xs text-slate-500">Baixe um arquivo JSON com todas as propostas, leads, instalações e configurações</p>
+                      <p className="text-xs text-slate-500">Baixe um arquivo JSON local imediato com todas as propostas, leads, instalações e configurações</p>
                     </div>
                   </div>
                   <button 
@@ -767,6 +880,122 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   >
                     Gerar Backup
                   </button>
+                </div>
+
+                {/* Backup Redundante Semanal Automático */}
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="size-12 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600">
+                        <Calendar className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Backup Semanal Automático</h4>
+                          <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-full">
+                            Ativo
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500">Garante a redundância extra salvando cópias JSON do banco diretamente no servidor toda semana</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleForceServerBackup}
+                      disabled={isExporting}
+                      className="px-6 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {isExporting ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Processando...
+                        </>
+                      ) : 'Executar Agora'}
+                    </button>
+                  </div>
+
+                  {/* Status do Backup */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="p-4 bg-white dark:bg-slate-800/40 rounded-xl border border-slate-150 dark:border-slate-800/80">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Próxima Execução</span>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-2">
+                        <span className="size-2 bg-indigo-500 rounded-full animate-pulse"></span>
+                        Semanal (Todo Domingo, 00:00)
+                      </p>
+                    </div>
+                    <div className="p-4 bg-white dark:bg-slate-800/40 rounded-xl border border-slate-150 dark:border-slate-800/80">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status de Redundância</span>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-1 flex items-center gap-2">
+                        <span className="size-2 bg-emerald-500 rounded-full animate-ping"></span>
+                        Seguro ({serverBackups.length} Backups no Servidor)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Lista de Backups Armazenados */}
+                  <div className="space-y-2 pt-2">
+                    <h5 className="text-xs font-black text-slate-400 uppercase tracking-widest">Histórico de Backups Disponíveis</h5>
+                    
+                    {isLoadingBackups ? (
+                      <div className="flex items-center justify-center p-8 bg-white dark:bg-slate-800/20 rounded-xl">
+                        <RefreshCw className="w-6 h-6 text-slate-400 animate-spin" />
+                        <span className="text-xs text-slate-500 ml-2">Carregando histórico do servidor...</span>
+                      </div>
+                    ) : serverBackups.length === 0 ? (
+                      <div className="p-6 text-center bg-white dark:bg-slate-800/20 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <p className="text-xs text-slate-500">Nenhum backup automático gerado ainda.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">Os backups são agendados semanalmente ou podem ser forçados clicando em "Executar Agora".</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white dark:bg-slate-800/20 rounded-xl border border-slate-150 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 max-h-[250px] overflow-y-auto">
+                        {serverBackups.map((bak) => {
+                          const sizeKB = (bak.size / 1024).toFixed(1);
+                          const dateObj = new Date(bak.createdAt);
+                          const day = String(dateObj.getDate()).padStart(2, '0');
+                          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                          const year = dateObj.getFullYear();
+                          const hours = String(dateObj.getHours()).padStart(2, '0');
+                          const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+                          const formattedDate = `${day}/${month}/${year} às ${hours}:${minutes}`;
+
+                          return (
+                            <div key={bak.filename} className="p-3.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 rounded-lg">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-slate-850 dark:text-slate-200 max-w-[150px] sm:max-w-xs md:max-w-md truncate" title={bak.filename}>
+                                    {bak.filename}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                    <span>{formattedDate}</span>
+                                    <span>•</span>
+                                    <span>{sizeKB} KB</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleDownloadServerBackup(bak.filename)}
+                                  className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all hover:scale-105 active:scale-95"
+                                  title="Baixar Backup"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteServerBackup(bak.filename)}
+                                  className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 hover:dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-lg transition-all hover:scale-105 active:scale-95"
+                                  title="Excluir Backup"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1432,6 +1661,104 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateUser, 
                   </div>
                 </div>
               </div>
+
+              {/* Email Templates UI */}
+              <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 uppercase tracking-widest">Modelos de E-mail (Transacional)</h3>
+                <div className="p-6 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-6">
+                  
+                  {/* Proposal Email Template */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-emerald-500" />
+                      Envio de Proposta
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assunto do E-mail</label>
+                      <input 
+                        type="text" 
+                        value={emailTemplates.proposalSubject}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, proposalSubject: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Corpo do E-mail</label>
+                      <textarea 
+                        rows={4}
+                        value={emailTemplates.proposalBody}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, proposalBody: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium text-sm resize-none"
+                      />
+                      <p className="text-[9px] text-slate-400 italic">Dica: Use [NOME] para injetar o nome do cliente automaticamente.</p>
+                    </div>
+                  </div>
+
+                  {/* Welcome Alert Template */}
+                  <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                      Novo Lead / Boas-vindas
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assunto do E-mail</label>
+                      <input 
+                        type="text" 
+                        value={emailTemplates.welcomeSubject}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, welcomeSubject: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Corpo do E-mail</label>
+                      <textarea 
+                        rows={4}
+                        value={emailTemplates.welcomeBody}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, welcomeBody: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium text-sm resize-none"
+                      />
+                      <p className="text-[9px] text-slate-400 italic">Dica: Use [NOME] para injetar o nome do lead.</p>
+                    </div>
+                  </div>
+
+                  {/* Installation Alert Template */}
+                  <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                    <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <Rocket className="w-4 h-4 text-blue-500" />
+                      Agendamento de Vistoria
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Assunto do E-mail</label>
+                      <input 
+                        type="text" 
+                        value={emailTemplates.installationSubject}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, installationSubject: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-bold text-sm"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Corpo do E-mail</label>
+                      <textarea 
+                        rows={4}
+                        value={emailTemplates.installationBody}
+                        onChange={(e) => setEmailTemplates(prev => ({ ...prev, installationBody: e.target.value }))}
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-[#fdb612] transition-all font-medium text-sm resize-none"
+                      />
+                      <p className="text-[9px] text-slate-400 italic">Dica: Use [NOME] para o cliente. Use [DATA] e [HORA] para os momentos sugeridos.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <button 
+                      onClick={handleSaveSMTP}
+                      className="px-6 py-3 bg-[#fdb612] text-[#231d0f] rounded-xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:shadow-[#fdb612]/30 transition-all active:scale-[0.98] border-none"
+                    >
+                      Salvar Modelos
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 

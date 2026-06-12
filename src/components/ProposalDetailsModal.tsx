@@ -205,26 +205,21 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
       setIsSending(true);
       const pdfBase64 = await generateProposalPDF(proposal);
       
-      const response = await fetch('/api/proposals/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: proposal.email,
-          subject: `Proposta Solar - ${proposal.client}`,
-          body: `Olá ${proposal.client},\n\nSegue em anexo a sua proposta personalizada para instalação de energia solar.\n\nQualquer dúvida, estamos à disposição.\n\nAtenciosamente,\nJV Mendes Junior Engenharia`,
-          pdfBase64,
-          fileName: `Proposta_${proposal.proposalNumber || proposal.id}.pdf`
-        })
+      const { sendProposalEmail } = await import('../services/emailService');
+      const result = await sendProposalEmail({
+        to: proposal.email,
+        pdfBase64,
+        clientName: proposal.client,
+        fileName: `Proposta_${proposal.proposalNumber || proposal.id}.pdf`
       });
 
-      const data = await response.json();
-      if (data.success) {
+      if (result && result.success) {
         alert('E-mail enviado com sucesso!');
-        if (onUpdate) {
+        if (onUpdate && proposal.status === 'pending') {
             onUpdate({ ...proposal, status: 'sent' });
         }
       } else {
-        alert(`Erro ao enviar: ${data.message}`);
+        alert(`Erro ao enviar: ${result?.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error('Error sending email:', error);
@@ -240,6 +235,13 @@ export const ProposalDetailsModal: React.FC<ProposalDetailsModalProps> = ({
       
       const { notifyProposalStatusChange } = await import('../services/notificationService');
       notifyProposalStatusChange(proposal.client, newStatus, proposal.representativeId || 'system', proposal.id);
+
+      if (newStatus === 'accepted' && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Proposta Fechada! 🎉', {
+          body: `O contrato com ${proposal.client} foi aprovado com sucesso.`,
+          icon: '/icon.png'
+        });
+      }
     }
   };
 

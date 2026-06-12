@@ -41,6 +41,164 @@ export default function App() {
   const [is2FAVerified, setIs2FAVerified] = useState(false);
   const [pendingView, setPendingView] = useState<View | null>(null);
   const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    if (localStorage.getItem('urgent_leads_deleted_v4')) return;
+    
+    const cleanup = async () => {
+      try {
+        const { collection, getDocs, doc, deleteDoc } = await import('firebase/firestore');
+        const { db } = await import('./firebase');
+        const targetNames = ['Reny Aparecida Xavier Felix', 'Itamar Peron da Silva', 'Fabio Chaves'];
+        
+        const checkDelete = (val: any) => {
+          if (!val) return false;
+          const str = String(val).toLowerCase().trim();
+          return targetNames.some(name => {
+            const lowerName = name.toLowerCase().trim();
+            return str === lowerName || str.includes(lowerName) || lowerName.includes(str);
+          });
+        };
+
+        // 1. Leads
+        const leadsRef = collection(db, 'leads');
+        const leadsSnap = await getDocs(leadsRef);
+        for (const d of leadsSnap.docs) {
+           const data = d.data();
+           if (checkDelete(data.name) || checkDelete(data.client)) {
+               console.log('Deleting lead:', data.name);
+               await deleteDoc(doc(db, 'leads', d.id));
+           }
+        }
+        
+        // 2. Proposals
+        const proposalsRef = collection(db, 'proposals');
+        const propsSnap = await getDocs(proposalsRef);
+        for (const d of propsSnap.docs) {
+           const data = d.data();
+           if (checkDelete(data.client) || checkDelete(data.name)) {
+               console.log('Deleting proposal:', data.client || data.name);
+               await deleteDoc(doc(db, 'proposals', d.id));
+           }
+        }
+
+        // 3. Installations
+        const instRef = collection(db, 'installations');
+        const instSnap = await getDocs(instRef);
+        for (const d of instSnap.docs) {
+           const data = d.data();
+           if (checkDelete(data.name) || checkDelete(data.clientName) || checkDelete(data.client)) {
+               console.log('Deleting installation:', data.name);
+               await deleteDoc(doc(db, 'installations', d.id));
+           }
+        }
+
+        // 4. Clients
+        const clientsRef = collection(db, 'clients');
+        const clientsSnap = await getDocs(clientsRef);
+        for (const d of clientsSnap.docs) {
+           const data = d.data();
+           if (checkDelete(data.name)) {
+               console.log('Deleting client:', data.name);
+               await deleteDoc(doc(db, 'clients', d.id));
+           }
+        }
+
+        localStorage.setItem('urgent_leads_deleted_v4', 'true');
+        console.log('Cleanup of 3 urgent leads completed successfully!');
+      } catch (err) {
+        console.error('Error in cleanup:', err);
+      }
+    };
+    cleanup();
+  }, [user]);
+
+  // --- WEEKLY AUTOMATED FIREBASE BACKUP INTEGRATION ---
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkAndExecuteWeeklyBackup = async () => {
+      try {
+        const response = await fetch('/api/backups');
+        const result = await response.json();
+        
+        let shouldBackup = false;
+        
+        if (result.success) {
+          const backups = result.backups || [];
+          if (backups.length === 0) {
+            console.log('[BACKUP AGENDADO] Nenhum backup encontrado no servidor, iniciando primeiro backup...');
+            shouldBackup = true;
+          } else {
+            const latestBackup = backups[0];
+            const latestDate = new Date(latestBackup.createdAt);
+            const now = new Date();
+            const diffTime = Math.abs(now.getTime() - latestDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays >= 7) {
+              console.log(`[BACKUP AGENDADO] Último backup foi gerado há ${diffDays} dias, executando backup semanal obrigatório...`);
+              shouldBackup = true;
+            } else {
+              console.log(`[BACKUP AGENDADO] Backup recente encontrado (${diffDays} dias atrás), pulando agenda semanal.`);
+            }
+          }
+        } else {
+          const lastLocalBackup = localStorage.getItem('last_auto_backup_timestamp');
+          if (!lastLocalBackup) {
+            shouldBackup = true;
+          } else {
+            const lastDate = new Date(parseInt(lastLocalBackup));
+            const diffDays = Math.ceil(Math.abs(Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 7) {
+              shouldBackup = true;
+            }
+          }
+        }
+        
+        if (shouldBackup) {
+          console.log('[BACKUP AGENDADO] Iniciando exportação semanal para arquivo JSON...');
+          const { collection, getDocs } = await import('firebase/firestore');
+          const { db } = await import('./firebase');
+          
+          const collectionsToBackup = ['proposals', 'leads', 'installations', 'clients', 'companySettings', 'kits'];
+          const backupData: Record<string, any[]> = {};
+          
+          for (const collName of collectionsToBackup) {
+            const querySnapshot = await getDocs(collection(db, collName));
+            backupData[collName] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+          
+          const dateStr = new Date().toISOString().split('T')[0];
+          const filename = `backup_semanal_auto_${dateStr}_${Date.now()}.json`;
+          
+          const storeResponse = await fetch('/api/backups/store', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, data: backupData })
+          });
+          
+          const storeResult = await storeResponse.json();
+          if (storeResult.success) {
+            console.log(`[BACKUP AGENDADO] Backup semanal '${filename}' criado e salvo com sucesso!`);
+            localStorage.setItem('last_auto_backup_timestamp', Date.now().toString());
+          } else {
+            console.error('[BACKUP AGENDADO] Falha ao armazenar o backup semanal no servidor:', storeResult.message);
+          }
+        }
+      } catch (err) {
+        console.error('[BACKUP AGENDADO] Erro ao executar backup do sistema:', err);
+      }
+    };
+    
+    const timer = setTimeout(() => {
+      checkAndExecuteWeeklyBackup();
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [user]);
+
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -138,31 +296,7 @@ export default function App() {
   const [kits, setKits] = useState<Kit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  useEffect(() => {
-    // FIX PROPOSALS SCRIPT
-    if (proposals.length > 0) {
-      proposals.forEach(async p => {
-        let currentCommission = p.commission;
-        if (typeof currentCommission === 'string') {
-          currentCommission = parseFloat((currentCommission as string).replace(',', '.'));
-        }
-        if (
-          (currentCommission && currentCommission > 100) || 
-          p.proposalNumber === '2601/06' || 
-          p.proposalNumber === '2601' || 
-          p.client?.includes('Felipe') || 
-          p.client?.includes('Fabio')
-        ) {
-          if (p.commission !== 5) {
-             console.log(`Fixing commission for ${p.client}`, p.id);
-             await updateDocument('proposals', p.id!, { commission: 5 });
-             // Wait briefly to avoid spamming
-             await new Promise(r => setTimeout(r, 100));
-          }
-        }
-      });
-    }
-  }, [proposals]);
+
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   useDeadlinesReminder(installations);
@@ -171,52 +305,6 @@ export default function App() {
     const ensureDemoData = async () => {
       // Use setDocument with deterministic IDs to avoid duplicates and ensure presence
       
-      // 1. Leads
-      await setDocument('leads', 'lead-itamar', {
-        id: 'lead-itamar',
-        name: 'Itamar Peron da Silva',
-        email: 'marusansp@gmail.com',
-        phone: '(33) 99903-2281',
-        address: 'Centro - São João do Oriente - MG',
-        cpfCnpj: '000.000.000-00',
-        ucNumber: '30000353',
-        value: 19500,
-        systemSize: '8.62',
-        status: 'proposal',
-        representative: 'Marusan Pinto',
-        createdAt: '2026-05-14'
-      });
-
-      await setDocument('leads', 'lead-fabio', {
-        id: 'lead-fabio',
-        name: 'Fabio Chaves',
-        email: 'marusanspr@gmail.com',
-        phone: '(33) 99903-2281',
-        address: 'São João do Oriente - MG',
-        cpfCnpj: '000.000.000-00',
-        ucNumber: '30000353',
-        value: 30000,
-        systemSize: '12.93',
-        status: 'proposal',
-        representative: 'Marusan Pinto',
-        createdAt: '2026-04-28'
-      });
-
-      await setDocument('leads', 'lead-reny', {
-        id: 'lead-reny',
-        name: 'Reny Aparecida Xavier Felix',
-        email: 'reny.aparecida@gmail.com',
-        phone: '(31) 98877-4433',
-        address: 'Belo Horizonte - MG',
-        cpfCnpj: '000.000.000-00',
-        ucNumber: '30000354',
-        value: 25000,
-        systemSize: '6.5',
-        status: 'new',
-        representative: 'Marusan Pinto',
-        createdAt: new Date().toISOString().split('T')[0]
-      });
-
       // 2. Clients
       await setDocument('clients', 'client-res-mendes', {
         id: 'client-res-mendes',
@@ -262,63 +350,6 @@ export default function App() {
           { name: 'Painel Solar Jinko Tiger Neo', quantity: 18, brand: 'Jinko' },
           { name: 'Inversor Deye 10kW', quantity: 1, brand: 'Deye' }
         ]
-      });
-
-      // 4. Proposals
-      // Proposal 2605 for Fabio Chaves - Revised calculations
-      const fabioKwp = 12.93;
-      const fabioGen = Math.round(fabioKwp * 5 * 30 * 0.8); // 1552
-      const fabioSavings = Math.round(fabioGen * 0.9); // 1397
-      const fabioVal = 30000;
-      const fabioPayback = (fabioVal / (fabioSavings * 12)).toFixed(1);
-
-      await setDocument('proposals', 'proposal-2601', {
-        id: 'proposal-2601',
-        client: 'Fabio Chaves',
-        value: fabioVal,
-        date: '28/04/2026',
-        status: 'accepted',
-        systemSize: '12.93 kWp',
-        representative: 'Marusan Pinto',
-        proposalNumber: '2601',
-        email: 'fabio.chaves@email.com',
-        ucNumber: '30000353',
-        energyConsumption: '1357',
-        discount: 0,
-        commission: 1500,
-        monthlyGeneration: fabioGen.toString(),
-        monthlySavings: fabioSavings,
-        roi: '420%',
-        payback: `${fabioPayback} Anos`,
-        internalNotes: 'Proposta original 2601 revisada com novos parâmetros de cálculo.'
-      });
-
-      // Proposal for Itamar Peron da Silva as requested
-      const itamarKwp = 8.62;
-      const itamarGen = Math.round(itamarKwp * 5 * 30 * 0.8); // 1034
-      const itamarSavings = Math.round(itamarGen * 0.9); // 931
-      const itamarVal = 19500;
-      const itamarPayback = (itamarVal / (itamarSavings * 12)).toFixed(1);
-
-      await setDocument('proposals', 'proposal-2602', {
-        id: 'proposal-2602',
-        client: 'Itamar Peron da Silva',
-        value: itamarVal,
-        date: new Date().toLocaleDateString('pt-BR'),
-        status: 'pending',
-        systemSize: '8.62 kWp',
-        representative: 'Marusan Pinto',
-        proposalNumber: '2602',
-        email: 'marusansp@gmail.com',
-        ucNumber: '30000353',
-        energyConsumption: '900',
-        discount: 0,
-        commission: 975,
-        monthlyGeneration: itamarGen.toString(),
-        monthlySavings: itamarSavings,
-        roi: '1250%',
-        payback: `${itamarPayback} Anos`,
-        kitId: 'kit-premium-862'
       });
 
       // 5. Installations

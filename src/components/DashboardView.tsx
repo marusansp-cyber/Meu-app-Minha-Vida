@@ -76,6 +76,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [timeRange, setTimeRange] = useState('30');
   const [activeYears, setActiveYears] = useState({ current: true, previous: true });
   const [toast, setToast] = useState<string | null>(null);
+  const [salesGoal, setSalesGoal] = useState({ targetValue: 150000, targetCount: 10 });
+
+  React.useEffect(() => {
+    import('../firestoreUtils').then(({ getDocument }) => {
+      getDocument<any>('settings', 'salesGoal').then(goal => {
+        if (goal) {
+          setSalesGoal({
+            targetValue: goal.targetValue || 150000,
+            targetCount: goal.targetCount || 10
+          });
+        }
+      });
+    });
+  }, []);
 
   const dynamicChartData = useMemo(() => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -294,20 +308,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         })
         .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
 
-      const previousYearRevenue = (proposals || [])
-        .filter(p => {
-          const pDate = parseDate(p.date);
-          return pDate.getMonth() === m && pDate.getFullYear() === y - 1 && p.status === 'accepted';
-        })
-        .reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : (parseFloat(String(p.value || 0).replace(/[^\d,]/g, '').replace(',', '.')) || 0)), 0);
+      const goalValue = salesGoal?.targetValue || 150000;
 
       return {
         name,
         atual: currentYearRevenue / 1000, // in kR$
-        anterior: previousYearRevenue / 1000
+        meta: goalValue / 1000 // in kR$
       };
     });
-  }, [proposals]);
+  }, [proposals, salesGoal]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -529,13 +538,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="bg-white dark:bg-[#231d0f] border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm mb-8">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Vendas Históricas (6 Meses)</h4>
-                <p className="text-xs text-slate-400">Comparativo mensal de propostas aceitas com o ano anterior</p>
+                <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">Volume Mensal vs Meta</h4>
+                <p className="text-xs text-slate-400">Comparativo mensal de vendas com a meta definida</p>
               </div>
             </div>
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height={300} minHeight={200}>
-                <LineChart data={barChartData}>
+                <BarChart data={barChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDarkMode ? '#334155' : '#f1f5f9'} />
                   <XAxis 
                     dataKey="name" 
@@ -557,12 +566,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       backgroundColor: isDarkMode ? '#1e293b' : '#231d0f',
                       color: '#fff'
                     }}
-                    formatter={(val: any) => [`R$ ${val}k`, 'Receita']}
+                    formatter={(val: any, name: string) => [`R$ ${val}k`, name === 'atual' ? 'Vendas (Realizado)' : 'Meta']}
                   />
                   <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }} />
-                  <Line type="monotone" dataKey="atual" name="Ano Atual" stroke="#fdb612" strokeWidth={4} dot={{ r: 6, fill: '#fdb612', strokeWidth: 3, stroke: '#fff' }} activeDot={{ r: 8 }} />
-                  <Line type="monotone" dataKey="anterior" name="Ano Anterior" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4, fill: '#94a3b8', strokeWidth: 2, stroke: '#fff' }} />
-                </LineChart>
+                  <Bar dataKey="atual" name="Vendas" fill="#fdb612" radius={[4, 4, 0, 0]} barSize={20} />
+                  <Bar dataKey="meta" name="Meta" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={20} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>

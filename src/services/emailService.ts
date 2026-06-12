@@ -8,7 +8,47 @@ export interface EmailParams {
   pdfBase64: string;
   fileName?: string;
   smtpConfig?: SMTPSettings;
+  clientName?: string;
+  templateType?: 'proposal' | 'installation';
+  date?: string;
+  time?: string;
 }
+
+export const sendWelcomeEmail = async (params: Omit<EmailParams, 'pdfBase64'>): Promise<{ success: boolean; message: string }> => {
+  try {
+    let finalParams = { ...params };
+    if (!finalParams.smtpConfig) {
+      const settings = await getDocument<SMTPSettings>('settings', 'smtp');
+      if (settings) {
+        finalParams.smtpConfig = settings;
+      }
+    }
+    
+    // Check templates
+    const templates = await getDocument<any>('settings', 'emailTemplates');
+    if (templates && templates.welcomeSubject) {
+      finalParams.subject = templates.welcomeSubject.replace(/\[NOME\]/g, params.clientName || 'Cliente');
+    }
+    if (templates && templates.welcomeBody) {
+      finalParams.body = templates.welcomeBody.replace(/\[NOME\]/g, params.clientName || 'Cliente');
+    }
+
+    const response = await fetch('/api/proposals/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({...finalParams, pdfBase64: ' '}), // dummy pdfBase64
+    });
+    if (!response.ok) {
+      throw new Error('Erro ao enviar e-mail promocional.');
+    }
+    return { success: true, message: 'Email sent' };
+  } catch (error) {
+    console.error(error);
+    return { success: false, message: 'Failed' };
+  }
+};
 
 export const sendInstallationEmail = async (params: Omit<EmailParams, 'pdfBase64'>): Promise<{ success: boolean; message: string }> => {
   try {
@@ -19,12 +59,25 @@ export const sendInstallationEmail = async (params: Omit<EmailParams, 'pdfBase64
         finalParams.smtpConfig = settings;
       }
     }
+    
+    // Check templates
+    const templates = await getDocument<any>('settings', 'emailTemplates');
+    if (templates && templates.installationSubject) {
+      finalParams.subject = templates.installationSubject.replace('[NOME]', params.clientName || 'Cliente');
+    }
+    if (templates && templates.installationBody) {
+      finalParams.body = templates.installationBody
+        .replace(/\[NOME\]/g, params.clientName || 'Cliente')
+        .replace(/\[DATA\]/g, params.date || '')
+        .replace(/\[HORA\]/g, params.time || '');
+    }
+
     const response = await fetch('/api/proposals/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({...finalParams, pdfBase64: ' '}), // dummy pdfBase64 so the API accepts if it expects one
+      body: JSON.stringify({...finalParams, pdfBase64: ' '}), // dummy pdfBase64
     });
     if (!response.ok) {
       throw new Error('Erro ao enviar e-mail.');
@@ -45,6 +98,15 @@ export const sendProposalEmail = async (params: EmailParams): Promise<{ success:
       if (settings) {
         finalParams.smtpConfig = settings;
       }
+    }
+
+    // Check templates
+    const templates = await getDocument<any>('settings', 'emailTemplates');
+    if (templates && templates.proposalSubject) {
+      finalParams.subject = templates.proposalSubject.replace(/\[NOME\]/g, params.clientName || 'Cliente');
+    }
+    if (templates && templates.proposalBody) {
+      finalParams.body = templates.proposalBody.replace(/\[NOME\]/g, params.clientName || 'Cliente');
     }
 
     const response = await fetch('/api/proposals/send', {

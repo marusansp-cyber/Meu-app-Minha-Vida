@@ -190,7 +190,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ proposals, user, isDar
       return dateA.getTime() - dateB.getTime();
     });
 
-    const months: Record<string, { month: string, revenue: number, commission: number, date: Date }> = {};
+    const months: Record<string, { month: string, revenue: number, commission: number, goal: number, date: Date }> = {};
     
     sortedProposals.forEach(p => {
       const date = new Date(p.date.split('/').reverse().join('-'));

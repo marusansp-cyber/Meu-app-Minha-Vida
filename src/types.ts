@@ -436,3 +436,13 @@ export interface SMTPSettings {
   from?: string;
   fromEmail?: string;
 }
+
+export interface EmailTemplateSettings {
+  proposalSubject?: string;
+  proposalBody?: string;
+  installationSubject?: string;
+  installationBody?: string;
+  welcomeSubject?: string;
+  welcomeBody?: string;
+  updatedAt?: string;
+}
